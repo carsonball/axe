@@ -66,7 +66,6 @@ suite "Renderer tests":
     """)
     let ast = parse(tokens)
     let asmCode = generateAsm(ast)
-
     check contains(asmCode, "section .data")
     check contains(asmCode, "fmt db \"%s\", 10, 0")
     check contains(asmCode, "global _start")

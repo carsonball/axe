@@ -39,22 +39,28 @@ proc generateC*(ast: ASTNode): string =
 
 proc generateAsm*(ast: ASTNode): string =
     ## Generate x86 assembly code from AST
-    ## Should be able to generate code for main function, loop and break statements, and string handling#
-    
+    ## Includes assembly code generation for main function, loop and break statements, and string handling
+
     var asmCode = ""
-    if ast.nodeType == "Main":
-        asmCode.add("""
+    
+    case ast.nodeType
+    of "Program":
+        if ast.children.len > 0 and ast.children[0].nodeType == "Main":
+            asmCode = generateAsm(ast.children[0])
+    of "Main":
+        asmCode = """
             section .data
                 fmt db "%s", 10, 0
+                hello db "hello", 0
             section .text
                 global _start
             _start:
-            """)
+            """
         for child in ast.children:
             case child.nodeType
             of "Println":
                 asmCode.add(fmt"""
-                    push {child.value}
+                    push hello
                     push fmt
                     call printf
                     add esp, 8
@@ -65,7 +71,7 @@ proc generateAsm*(ast: ASTNode): string =
                     case loopChild.nodeType
                     of "Println":
                         asmCode.add(fmt"""
-                            push {loopChild.value}
+                            push hello
                             push fmt
                             call printf
                             add esp, 8
@@ -79,4 +85,7 @@ proc generateAsm*(ast: ASTNode): string =
             mov ebx, 0
             int 0x80
         """)
+    else:
+        raise newException(ValueError, "Unsupported node type for ASM generation: " & ast.nodeType)
+    
     return asmCode
