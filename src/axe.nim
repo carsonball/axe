@@ -4,20 +4,29 @@ import
     strutils,
     axe/[lexer, parser, renderer]
 
+when defined(windows):
+    const extension = ".exe"
+else:
+    const extension = ""
+
 when isMainModule:
     if paramCount() < 1:
         echo "Usage: axe input.axe"
     else:
         try:
+            var name = paramStr(1)
+            if ".axe" notin name:
+                name = name & ".axe"
             let
-                source = readFile(paramStr(1))
+                source = readFile(name)
                 tokens = lex(source)
                 ast = parse(tokens)
                 cCode = generateC(ast)
-            writeFile("output.c", cCode)
+                
+            writeFile(name.replace(".axe", ".c"), cCode)
             discard execProcess(
                 command = "gcc",
-                args = ["output.c", "-o", "output"],
+                args = [name.replace(".axe", ".c"), "-o", name.replace(".axe", extension)],
                 options = {poStdErrToStdOut}
             )
         except ValueError as e:
