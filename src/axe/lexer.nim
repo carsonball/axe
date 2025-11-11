@@ -12,7 +12,11 @@ proc lex*(source: string): seq[Token] =
 
     while pos < source.len:
         case source[pos]
-        of ' ', '\n', '\t', '\r':
+        of ' ', '\t', '\r':
+            tokens.add(Token(typ: Whitespace, value: $source[pos]))
+            inc(pos)
+        of '\n':
+            tokens.add(Token(typ: Newline, value: "\n"))
             inc(pos)
         of '{':
             tokens.add(Token(typ: LBrace, value: "{"))
@@ -29,6 +33,24 @@ proc lex*(source: string): seq[Token] =
                 raise newException(ValueError, "Unterminated string")
             tokens.add(Token(typ: String, value: source[(pos+1)..(ending-1)]))
             pos = ending + 1
+        of '(':
+            tokens.add(Token(typ: LParen, value: "("))
+            inc(pos)
+        of ')':
+            tokens.add(Token(typ: RParen, value: ")"))
+            inc(pos)
+        of '[':
+            tokens.add(Token(typ: LBracket, value: "["))
+            inc(pos)
+        of ']':
+            tokens.add(Token(typ: RBracket, value: "]"))
+            inc(pos)
+        of ',':
+            tokens.add(Token(typ: Comma, value: ","))
+            inc(pos)
+        of '.':
+            tokens.add(Token(typ: Dot, value: "."))
+            inc(pos)
         else:
             if pos + 4 <= source.len and source[pos ..< pos+4] == "main":
                 tokens.add(Token(typ: Main, value: "main"))
@@ -47,14 +69,12 @@ proc lex*(source: string): seq[Token] =
                 pos += 3
             elif source[pos].isAlphaAscii():
                 let start = pos
-                while pos < source.len:
+                while pos < source.len and (source[pos].isAlphaNumeric() or source[pos] == '_'):
                     inc(pos)
                 tokens.add(Token(typ: Identifier, value: source[start..<pos]))
             else:
                 let charAtPos = if pos < source.len: source[pos] else: '.'
-                echo "Charatpos: " & charAtPos
-                echo "Pos: " & $pos
-                echo "Char code: " & $ord(charAtPos)
                 raise newException(ValueError,
                         &"Unexpected character at position {pos}: '{charAtPos}'")
+    echo "Tokens: ", tokens
     return tokens

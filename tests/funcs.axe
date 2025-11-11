@@ -2,4 +2,6 @@ def some_function {
     println "Hello, world.";
 }
 
-some_function();
+main {
+    some_function();
+}

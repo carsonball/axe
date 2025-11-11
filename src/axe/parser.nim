@@ -1,96 +1,154 @@
 import structs
 
 proc parse*(tokens: seq[Token]): ASTNode =
-    ## Syntax analysis and abstract syntax tree (AST) construction
-    ## Includes main function parsing, loop and break statement parsing, and string handling
-
     var pos = 0
-    var ast: ASTNode
-
+    var ast = ASTNode(nodeType: "Program", children: @[], value: "")
+    
+    template current: Token = tokens[pos]
+    template advance = inc(pos)
+    
     while pos < tokens.len:
-        if tokens[pos].typ == Main:
-            inc(pos)
-            if pos >= tokens.len or tokens[pos].typ != LBrace:
+        case current.typ
+        of Main:
+            advance
+            while pos < tokens.len and current.typ == Whitespace: advance
+            
+            if pos >= tokens.len or current.typ != LBrace:
                 raise newException(ValueError, "Expected '{' after main")
-            inc(pos)
-
+            advance
+            
             var mainNode = ASTNode(nodeType: "Main", children: @[], value: "")
-            while pos < tokens.len and tokens[pos].typ != RBrace:
-                case tokens[pos].typ
+            while pos < tokens.len and current.typ != RBrace:
+                case current.typ
+                of Whitespace, Newline: advance
                 of Println:
-                    inc(pos)
-                    if pos >= tokens.len or tokens[pos].typ != String:
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    if pos >= tokens.len or current.typ != String:
                         raise newException(ValueError, "Expected string after println")
-                    mainNode.children.add(ASTNode(nodeType: "Println",
-                            children: @[], value: tokens[pos].value))
-                    inc(pos)
-                    if pos >= tokens.len or tokens[pos].typ != Semicolon:
+                    mainNode.children.add(ASTNode(nodeType: "Println", children: @[], value: current.value))
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    if pos >= tokens.len or current.typ != Semicolon:
                         raise newException(ValueError, "Expected ';' after println")
-                    inc(pos)
-                of Loop:
-                    inc(pos)
-                    if pos >= tokens.len or tokens[pos].typ != LBrace:
-                        raise newException(ValueError, "Expected '{' after loop")
-                    inc(pos)
-                    var loopNode = ASTNode(nodeType: "Loop", children: @[], value: "")
-                    while pos < tokens.len and tokens[pos].typ != RBrace:
-                        case tokens[pos].typ
-                        of Println:
-                            inc(pos)
-                            if tokens[pos].typ != String:
-                                raise newException(ValueError, "Expected string after println")
-                            loopNode.children.add(ASTNode(nodeType: "Println",
-                                    children: @[], value: tokens[pos].value))
-                            inc(pos)
-                            if tokens[pos].typ != Semicolon:
-                                raise newException(ValueError, "Expected ';' after println")
-                            inc(pos)
-                        of Break:
-                            inc(pos)
-                            if tokens[pos].typ != Semicolon:
-                                raise newException(ValueError, "Expected ';' after break")
-                            loopNode.children.add(ASTNode(nodeType: "Break",
-                                    children: @[], value: ""))
-                            inc(pos)
-                        else:
-                            raise newException(ValueError, "Unexpected token in loop body")
-                    if pos >= tokens.len or tokens[pos].typ != RBrace:
-                        raise newException(ValueError, "Expected '}' after loop body")
-                    inc(pos)
-                    mainNode.children.add(loopNode)
+                    advance
+                of Identifier:
+                    let funcName = current.value
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    
+                    if pos >= tokens.len or current.typ != LParen:
+                        raise newException(ValueError, "Expected '(' after function name")
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    
+                    if pos >= tokens.len or current.typ != RParen:
+                        raise newException(ValueError, "Expected ')' after function arguments")
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    
+                    if pos >= tokens.len or current.typ != Semicolon:
+                        raise newException(ValueError, "Expected ';' after function call")
+                    advance
+                    
+                    mainNode.children.add(ASTNode(nodeType: "FunctionCall", children: @[], value: funcName))
                 else:
-                    discard
-            if pos >= tokens.len or tokens[pos].typ != RBrace:
+                    raise newException(ValueError, "Unexpected token in main body")
+            
+            if pos >= tokens.len or current.typ != RBrace:
                 raise newException(ValueError, "Expected '}' after main body")
-            inc(pos)
-            ast = mainNode
-        elif tokens[pos].typ == Def:
-            inc(pos)
-            if pos >= tokens.len or tokens[pos].typ != Identifier:
+            advance
+            ast.children.add(mainNode)
+            
+        of Def:
+            advance
+            while pos < tokens.len and current.typ == Whitespace: advance
+            
+            if pos >= tokens.len or current.typ != Identifier:
                 raise newException(ValueError, "Expected function name after 'def'")
-            let funcName = tokens[pos].value
-            inc(pos)
-            if pos >= tokens.len or tokens[pos].typ != LBrace:
+            let funcName = current.value
+            advance
+            
+            while pos < tokens.len and current.typ == Whitespace: advance
+            
+            if pos >= tokens.len or current.typ != LBrace:
                 raise newException(ValueError, "Expected '{' after function name")
-            inc(pos)
-
+            advance
+            
             var funcNode = ASTNode(nodeType: "Function", children: @[], value: funcName)
-            while pos < tokens.len and tokens[pos].typ != RBrace:
-                case tokens[pos].typ
+            while pos < tokens.len and current.typ != RBrace:
+                case current.typ
+                of Whitespace, Newline: advance
                 of Println:
-                    inc(pos)
-                    if pos >= tokens.len or tokens[pos].typ != String:
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    if pos >= tokens.len or current.typ != String:
                         raise newException(ValueError, "Expected string after println")
-                    funcNode.children.add(ASTNode(nodeType: "Println",
-                            children: @[], value: tokens[pos].value))
-                    inc(pos)
-                    if pos >= tokens.len or tokens[pos].typ != Semicolon:
+                    funcNode.children.add(ASTNode(nodeType: "Println", children: @[], value: current.value))
+                    advance
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    if pos >= tokens.len or current.typ != Semicolon:
                         raise newException(ValueError, "Expected ';' after println")
-                    inc(pos)
+                    advance
+                of Identifier:
+                    let funcName = current.value
+                    advance
+                    
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    
+                    if pos >= tokens.len or current.typ != LParen:
+                        raise newException(ValueError, "Expected '(' after function name")
+                    advance
+                    
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    
+                    if pos >= tokens.len or current.typ != RParen:
+                        raise newException(ValueError, "Expected ')' after function arguments")
+                    advance
+                    
+                    while pos < tokens.len and current.typ == Whitespace: advance
+                    
+                    if pos >= tokens.len or current.typ != Semicolon:
+                        raise newException(ValueError, "Expected ';' after function call")
+                    advance
+                    
+                    funcNode.children.add(ASTNode(nodeType: "FunctionCall", children: @[], value: funcName))
                 else:
                     raise newException(ValueError, "Unexpected token in function body")
-            if pos >= tokens.len or tokens[pos].typ != RBrace:
+            
+            if pos >= tokens.len or current.typ != RBrace:
                 raise newException(ValueError, "Expected '}' after function body")
-            inc(pos)
-            ast = funcNode
+            advance
+            ast.children.add(funcNode)
+            
+        of Identifier:
+            let funcName = current.value
+            advance
+            
+            while pos < tokens.len and current.typ == Whitespace: advance
+            
+            if pos >= tokens.len or current.typ != LParen:
+                raise newException(ValueError, "Expected '(' after function name")
+            advance
+            
+            while pos < tokens.len and current.typ == Whitespace: advance
+            
+            if pos >= tokens.len or current.typ != RParen:
+                raise newException(ValueError, "Expected ')' after function arguments")
+            advance
+            
+            while pos < tokens.len and current.typ == Whitespace: advance
+            
+            if pos >= tokens.len or current.typ != Semicolon:
+                raise newException(ValueError, "Expected ';' after function call")
+            advance
+            
+            ast.children.add(ASTNode(nodeType: "FunctionCall", children: @[], value: funcName))
+            
+        of Whitespace, Newline:
+            advance
+            
+        else:
+            raise newException(ValueError, "Unexpected token at top level")
+    
     return ast

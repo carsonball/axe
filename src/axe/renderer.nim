@@ -1,35 +1,40 @@
 import
     structs,
-    strformat
+    strformat,
+    strutils,
+    sets
 
 proc generateC*(ast: ASTNode): string =
     ## Code generation from abstract syntax tree (AST)
     ## Includes C code generation for main function, loop and break statements, and string handling
 
-    var cCode = "#include <stdio.h>\n\n"
-    if ast.nodeType == "Main":
-        cCode.add("int main() {\n")
+    var cCode = ""
+    var includes = initHashSet[string]()
+    includes.incl("#include <stdio.h>")
+    
+    case ast.nodeType
+    of "Program":
+        for i in includes:
+            cCode.add(i & "\n")
+        cCode.add("\n")
         for child in ast.children:
-            case child.nodeType
-            of "Println":
-                cCode.add(fmt"""printf("%s\n", "{child.value}");""")
-            of "Loop":
-                cCode.add("while (1) {\n")
-                for loopChild in child.children:
-                    case loopChild.nodeType
-                    of "Println":
-                        cCode.add(fmt"""printf("%s\n", "{loopChild.value}");""")
-                    of "Break":
-                        cCode.add("break;\n")
-                cCode.add("    }\n")
-        cCode.add("return 0;\n}\n")
-    elif ast.nodeType == "Function":
+            cCode.add(generateC(child) & "\n")
+    of "Function":
         cCode.add(fmt"void {ast.value}() {{")
         for child in ast.children:
             case child.nodeType
             of "Println":
-                cCode.add(fmt"""printf(\"%s\n\", \"{child.value}\");""")
+                cCode.add("    printf(\"%s\\n\", \"" & child.value & "\");")
+
         cCode.add("}\n")
+    of "FunctionCall":
+        let valToAdd = ast.value.replace("\n","")
+        cCode.add(fmt"    {valToAdd}();")
+    of "Main":
+        cCode.add("int main() {\n")
+        for child in ast.children:
+            cCode.add(generateC(child))
+        cCode.add("    return 0;\n}\n")
     return cCode
 
 proc generateAsm*(ast: ASTNode): string =

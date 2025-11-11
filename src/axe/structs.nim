@@ -9,7 +9,16 @@ type
         LBrace,
         RBrace,
         Def,
-        Identifier
+        Identifier,
+        Whitespace,
+        Newline,
+        LParen,
+        RParen,
+        LBracket,
+        RBracket,
+        Comma,
+        Dot,
+        Colon
 
     Token* = object
         typ*: TokenType
