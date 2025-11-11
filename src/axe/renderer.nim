@@ -102,8 +102,8 @@ proc generateAsm*(ast: ASTNode): string =
                 hello db "hello", 0
             section .text
                 extern printf
-                global _start
-            _start:
+                global main
+            main:
         """
         var loopCounter = 0
         for child in ast.children:
