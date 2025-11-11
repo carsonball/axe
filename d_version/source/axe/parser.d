@@ -131,7 +131,8 @@ ASTNode parse(Token[] tokens)
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after println");
+                    enforce(
+                        pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after println");
                     pos++;
                     break;
 
@@ -157,13 +158,17 @@ ASTNode parse(Token[] tokens)
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
 
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.STR, "Expected string after println");
+                            enforce(
+                                pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                "Expected string after println"
+                            );
                             loopNode.children ~= ASTNode("Println", [], tokens[pos].value);
                             pos++;
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after println");
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
                             pos++;
                             break;
 
@@ -172,7 +177,8 @@ ASTNode parse(Token[] tokens)
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
 
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after break");
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after break");
                             pos++;
                             loopNode.children ~= ASTNode("Break", [], "");
                             break;
@@ -182,7 +188,8 @@ ASTNode parse(Token[] tokens)
                         }
                     }
 
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE, "Expected '}' after loop body");
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after loop body");
                     pos++;
                     mainNode.children ~= loopNode;
                     break;
@@ -203,17 +210,20 @@ ASTNode parse(Token[] tokens)
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN, "Expected '(' after function name");
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                        "Expected '(' after function name");
                     pos++;
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN, "Expected ')' after function arguments");
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                        "Expected ')' after function arguments");
                     pos++;
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after function call");
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                        "Expected ';' after function call");
                     pos++;
                     mainNode.children ~= ASTNode("FunctionCall", [], funcName);
                     break;
@@ -233,7 +243,8 @@ ASTNode parse(Token[] tokens)
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER, "Expected function name after 'def'");
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected function name after 'def'");
             string funcName = tokens[pos].value;
             pos++;
 
@@ -241,7 +252,8 @@ ASTNode parse(Token[] tokens)
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE, "Expected '{' after function declaration");
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after function declaration");
             pos++;
 
             ASTNode funcNode = ASTNode("Function", [], funcName ~ "(" ~ args ~ ")");
@@ -264,7 +276,8 @@ ASTNode parse(Token[] tokens)
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after println");
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                        "Expected ';' after println");
                     pos++;
                     break;
 
