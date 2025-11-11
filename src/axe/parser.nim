@@ -6,6 +6,7 @@ proc parse*(tokens: seq[Token]): ASTNode =
 
     var pos = 0
     var ast: ASTNode
+
     while pos < tokens.len:
         if tokens[pos].typ == Main:
             inc(pos)
