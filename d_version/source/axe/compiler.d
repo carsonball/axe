@@ -35,14 +35,30 @@ void main(string[] args)
         {
             string asmCode = generateAsm(ast);
             std.file.write(replace(name, ".axe", ".asm"), asmCode);
-            execute([
-                "nasm", "-f", "elf64", replace(name, ".axe", ".asm"), "-o",
-                replace(name, ".axe", ".o")
-            ]);
-            execute([
-                "gcc", "-m64", replace(name, ".axe", ".o"), "-o",
-                replace(name, ".axe", ".exe")
-            ]);
+            
+            version (Windows)
+            {
+                execute([
+                    "nasm", "-f", "win64", replace(name, ".axe", ".asm"), "-o",
+                    replace(name, ".axe", ".o")
+                ]);
+                execute([
+                    "gcc", replace(name, ".axe", ".o"), "-o",
+                    replace(name, ".axe", ".exe"), "-mconsole"
+                ]);
+            }
+            else version (Posix)
+            {
+                execute([
+                    "nasm", "-f", "elf64", replace(name, ".axe", ".asm"), "-o",
+                    replace(name, ".axe", ".o")
+                ]);
+                execute([
+                    "gcc", "-m64", replace(name, ".axe", ".o"), "-o",
+                    replace(name, ".axe", "")
+                ]);
+            }
+            
             if (!args.canFind("-e"))
             {
                 remove(replace(name, ".axe", ".asm"));
