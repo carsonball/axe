@@ -90,6 +90,7 @@ proc generateAsm*(ast: ASTNode): string =
     ## Includes assembly code generation for main function, loop and break statements, and string handling
 
     var asmCode = ""
+    var msgCounter = 0
     
     case ast.nodeType
     of "Program":
@@ -99,7 +100,6 @@ proc generateAsm*(ast: ASTNode): string =
         asmCode = """
             section .data
                 fmt db "%s", 10, 0
-                hello db "hello", 0
             section .text
                 extern printf
                 global main
@@ -110,11 +110,15 @@ proc generateAsm*(ast: ASTNode): string =
             case child.nodeType
             of "Println":
                 asmCode.add """
-                    mov rdi, fmt
-                    mov rsi, hello
-                    xor rax, rax
-                    call printf
+                    section .data
+                        msg_""" & $msgCounter & """ db '""" & ast.value & """', 0
+                    section .text
+                        mov rdi, fmt
+                        mov rsi, msg_""" & $msgCounter & """
+                        xor rax, rax
+                        call printf
                 """
+                msgCounter += 1
             of "Loop":
                 let loopId = loopCounter
                 loopCounter += 1
@@ -123,11 +127,16 @@ proc generateAsm*(ast: ASTNode): string =
                     case loopChild.nodeType
                     of "Println":
                         asmCode.add """
-                            mov rdi, fmt
-                            mov rsi, hello
-                            xor rax, rax
-                            call printf
+                            section .data
+                                msg_""" & $msgCounter & """ db '""" & loopChild.value & """', 0
+                            section .text
+                                mov rdi, fmt
+                                mov rsi, msg_""" & $msgCounter & """
+                                xor rax, rax
+                                call printf
                         """
+
+                        msgCounter += 1
                     of "Break":
                         asmCode.add "    jmp loop_" & $loopId & "_end"
                         asmCode.add("\n")
@@ -150,9 +159,8 @@ proc generateAsm*(ast: ASTNode): string =
                     asmCode.add(generateC(child))
                 asmCode.add("}\n")
         asmCode.add """
-            mov rax, 60
-            xor rdi, rdi
-            syscall
+            xor eax, eax
+            ret
         """
     of "Function":
         let funcParts = ast.value.split('(')
@@ -169,11 +177,15 @@ proc generateAsm*(ast: ASTNode): string =
             case child.nodeType
             of "Println":
                 asmCode.add """
-                    push hello
-                    push fmt
-                    call printf
-                    add esp, 8
+                    section .data
+                        msg_""" & $msgCounter & """ db '""" & child.value & """', 0
+                    section .text
+                        mov rdi, fmt
+                        mov rsi, msg_""" & $msgCounter & """
+                        xor rax, rax
+                        call printf
                 """
+
             of "FunctionCall":
                 let callParts = child.value.split('(')
                 let callName = callParts[0]

@@ -113,6 +113,8 @@ string generateC(ASTNode ast)
     return cCode;
 }
 
+import std.conv;
+
 string generateAsm(ASTNode ast)
 {
     string asmCode;
@@ -128,44 +130,64 @@ string generateAsm(ASTNode ast)
 
     case "Main":
         asmCode = `
-                section .data
-                    fmt db "%s", 10, 0
-                    hello db "hello", 0
-                section .text
-                    global _start
-                _start:
-            `;
+            section .data
+                fmt db "%s", 10, 0
+            section .text
+                extern printf
+                global main
+            main:
+        `;
+        int msgCounter = 0;
         foreach (child; ast.children)
         {
             final switch (child.nodeType)
             {
             case "Println":
                 asmCode ~= `
-                            push hello
-                            push fmt
-                            call printf
-                            add esp, 8
-                        `;
+                    section .data
+                        msg_` ~ msgCounter.to!string ~ ` db '` ~ child.value ~ `', 0
+                    section .text
+                        mov rdi, fmt
+                        mov rsi, msg_` ~ msgCounter.to!string ~ `
+                        xor rax, rax
+                        call printf
+                `;
+                msgCounter++;
                 break;
+
             case "Loop":
-                asmCode ~= "loop_start:\n";
+                int loopId = 0;
+                asmCode ~= "loop_" ~ loopId.to!string ~ "_start:\n";
                 foreach (loopChild; child.children)
                 {
                     final switch (loopChild.nodeType)
                     {
                     case "Println":
                         asmCode ~= `
-                                        push hello
-                                        push fmt
-                                        call printf
-                                        add esp, 8
-                                    `;
+                            section .data
+                                msg_` ~ msgCounter.to!string ~ ` db '` ~ loopChild.value ~ `', 0
+                            section .text
+                                mov rdi, fmt
+                                mov rsi, msg_` ~ msgCounter.to!string ~ `
+                                xor rax, rax
+                                call printf
+                        `;
+                        msgCounter++;
+                        break;
+                    case "Break":
+                        asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_end\n";
                         break;
                     }
                 }
+                asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_start\n";
+                asmCode ~= "loop_" ~ loopId.to!string ~ "_end:\n";
                 break;
             }
         }
+        asmCode ~= `
+            xor eax, eax
+            ret
+        `;
         break;
     }
 

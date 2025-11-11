@@ -36,11 +36,11 @@ void main(string[] args)
             string asmCode = generateAsm(ast);
             std.file.write(replace(name, ".axe", ".asm"), asmCode);
             execute([
-                "nasm", "-f", "elf32", replace(name, ".axe", ".asm"), "-o",
+                "nasm", "-f", "elf64", replace(name, ".axe", ".asm"), "-o",
                 replace(name, ".axe", ".o")
             ]);
             execute([
-                "gcc", "-m32", replace(name, ".axe", ".o"), "-o",
+                "gcc", "-m64", replace(name, ".axe", ".o"), "-o",
                 replace(name, ".axe", ".exe")
             ]);
             if (!args.canFind("-e"))
