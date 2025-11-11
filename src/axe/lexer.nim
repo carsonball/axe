@@ -47,7 +47,7 @@ proc lex*(source: string): seq[Token] =
                 pos += 3
             elif source[pos].isAlphaAscii():
                 let start = pos
-                while pos < source.len and source[pos].isAlphaAscii():
+                while pos < source.len:
                     inc(pos)
                 tokens.add(Token(typ: Identifier, value: source[start..<pos]))
             else:
