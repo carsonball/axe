@@ -5,13 +5,18 @@ import
 
 proc generateC*(ast: ASTNode): string =
     ## Code generation from abstract syntax tree (AST)
+    ## Indentation does not matter in the generated code. It is not supposed to be readable.
 
     var cCode = ""
     var includes = initHashSet[string]()
+    
     includes.incl("#include <stdio.h>")
     
     case ast.nodeType
     of "Program":
+        for child in ast.children:
+            if child.nodeType == "Function":
+                cCode.add("void " & child.value & "();\n")
         for i in includes:
             cCode.add(i & "\n")
         cCode.add("\n")
@@ -34,7 +39,18 @@ proc generateC*(ast: ASTNode): string =
                 cCode.add("}\n")
             of "Break":
                 cCode.add("break;\n")
+            of "FunctionCall":
+                cCode.add(child.value & "();\n")
         cCode.add("return 0;\n}")
+    of "Function":
+        cCode.add("void " & ast.value & "() {\n")
+        for child in ast.children:
+            case child.nodeType
+            of "Println":
+                cCode.add("printf(\"%s\\n\", \"" & child.value & "\");\n")
+            of "FunctionCall":
+                cCode.add(child.value & "();\n")
+        cCode.add("}")
     else:
         raise newException(ValueError, "Unsupported node type for C generation: " & ast.nodeType)
     
