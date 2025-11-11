@@ -109,38 +109,51 @@ proc generateAsm*(ast: ASTNode): string =
         for child in ast.children:
             case child.nodeType
             of "Println":
-                asmCode.add(fmt"""
-                    push dword hello
-                    push dword fmt
+                asmCode.add """
+                    mov rdi, fmt
+                    mov rsi, hello
+                    xor rax, rax
                     call printf
-                    add esp, 8
-                """)
+                """
             of "Loop":
                 let loopId = loopCounter
                 loopCounter += 1
-                asmCode.add(fmt"loop_{loopId}_start:")
-                asmCode.add("\n")
+                asmCode.add "loop_" & $loopId & "_start:"
                 for loopChild in child.children:
                     case loopChild.nodeType
                     of "Println":
-                        asmCode.add(fmt"""
-                            push dword hello
-                            push dword fmt
+                        asmCode.add """
+                            mov rdi, fmt
+                            mov rsi, hello
+                            xor rax, rax
                             call printf
-                            add esp, 8
-                        """)
+                        """
                     of "Break":
-                        asmCode.add(fmt"    jmp loop_{loopId}_end")
+                        asmCode.add "    jmp loop_" & $loopId & "_end"
                         asmCode.add("\n")
-                asmCode.add(fmt"    jmp loop_{loopId}_start")
+                asmCode.add "    jmp loop_" & $loopId & "_start"
                 asmCode.add("\n")
-                asmCode.add(fmt"loop_{loopId}_end:")
+                asmCode.add "loop_" & $loopId & "_end:"
                 asmCode.add("\n")
-        asmCode.add("""
-            mov eax, 1
-            mov ebx, 0
-            int 0x80
-        """)
+            of "FunctionCall":
+                let funcDecl = ast.value.split('(')
+                let funcName = funcDecl[0]
+                let args = if funcDecl.len > 1: funcDecl[1].strip(chars={')'}) else: ""
+                asmCode.add(funcName & "(" & args & ");\n")
+            of "Function":
+                let funcDecl = ast.value.split('(')
+                let funcName = funcDecl[0]
+                let args = if funcDecl.len > 1: funcDecl[1].strip(chars={')'}) else: ""
+                asmCode.add("void " & funcName & "(" & 
+                    (if args.len > 0: "int " & args.replace(",", ", int ") else: "void") & ") {\n")
+                for child in ast.children:
+                    asmCode.add(generateC(child))
+                asmCode.add("}\n")
+        asmCode.add """
+            mov rax, 60
+            xor rdi, rdi
+            syscall
+        """
     of "Function":
         let funcParts = ast.value.split('(')
         let funcName = funcParts[0]
@@ -155,12 +168,12 @@ proc generateAsm*(ast: ASTNode): string =
         for child in ast.children:
             case child.nodeType
             of "Println":
-                asmCode.add(fmt"""
+                asmCode.add """
                     push hello
                     push fmt
                     call printf
                     add esp, 8
-                """)
+                """
             of "FunctionCall":
                 let callParts = child.value.split('(')
                 let callName = callParts[0]
@@ -172,11 +185,10 @@ proc generateAsm*(ast: ASTNode): string =
                 if callArgs.len > 0:
                     asmCode.add("    add esp, " & $(callArgs.split(',').len * 4) & "\n")
     
-        asmCode.add("""
+        asmCode.add """
                 pop ebp
                 ret
-            """)
-
+            """
     of "FunctionCall":
         let funcParts = ast.value.split('(')
         let funcName = funcParts[0]
@@ -205,10 +217,10 @@ proc generateAsm*(ast: ASTNode): string =
         for child in ast.children:
             asmCode.add(generateAsm(child))
         
-        asmCode.add("""
+        asmCode.add """
                 pop ebp
                 ret
-            """)
+            """
     else:
         raise newException(ValueError, "Unsupported node type for ASM generation: " & ast.nodeType)
     

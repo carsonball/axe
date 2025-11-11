@@ -27,12 +27,12 @@ when isMainModule:
                 writeFile(name.replace(".axe", ".asm"), asmCode)
                 discard execProcess(
                     command = "nasm",
-                    args = ["-f", "elf32", name.replace(".axe", ".asm"), "-o", name.replace(".axe", ".o")],
+                    args = ["-f", "elf64", name.replace(".axe", ".asm"), "-o", name.replace(".axe", ".o")],
                     options = {poStdErrToStdOut}
                 )
                 discard execProcess(
                     command = "gcc",
-                    args = ["-m32", name.replace(".axe", ".o"), "-o", name.replace(".axe", extension)],
+                    args = [name.replace(".axe", ".o"), "-o", name.replace(".axe", extension)],
                     options = {poStdErrToStdOut}
                 )
                 if "-e" notin commandLineParams():
