@@ -504,6 +504,138 @@ ASTNode parse(Token[] tokens)
                     funcNode.children ~= ASTNode("FunctionCall", [], callName);
                     break;
 
+                case TokenType.LOOP:
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after loop");
+                    pos++;
+
+                    ASTNode loopNode = ASTNode("Loop", [], "");
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        switch (tokens[pos].type)
+                        {
+                        case TokenType.WHITESPACE, TokenType.NEWLINE:
+                            pos++;
+                            break;
+
+                        case TokenType.PRINTLN:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            enforce(
+                                pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                "Expected string after println"
+                            );
+                            loopNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            pos++;
+
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
+                            pos++;
+                            break;
+
+                        case TokenType.BREAK:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after break");
+                            pos++;
+                            loopNode.children ~= ASTNode("Break", [], "");
+                            break;
+
+                        case TokenType.IF:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            string cond;
+                            if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                            {
+                                cond = tokens[pos].value;
+                                pos++;
+                                while (pos < tokens.length && tokens[pos].type == TokenType
+                                    .WHITESPACE)
+                                    pos++;
+
+                                if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
+                                    tokens[pos].value == "==")
+                                {
+                                    pos++;
+                                    while (pos < tokens.length && tokens[pos].type == TokenType
+                                        .WHITESPACE)
+                                        pos++;
+
+                                    if (pos < tokens.length && tokens[pos].type == TokenType
+                                        .IDENTIFIER)
+                                    {
+                                        cond ~= " == " ~ tokens[pos].value;
+                                        pos++;
+                                    }
+                                }
+                            }
+
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                                "Expected '{' after if condition");
+                            pos++;
+
+                            ASTNode ifNode = ASTNode("If", [], cond);
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                            {
+                                switch (tokens[pos].type)
+                                {
+                                case TokenType.BREAK:
+                                    pos++;
+                                    while (pos < tokens.length && tokens[pos].type == TokenType
+                                        .WHITESPACE)
+                                        pos++;
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after break");
+                                    pos++;
+                                    ifNode.children ~= ASTNode("Break", [], "");
+                                    break;
+                                default:
+                                    enforce(false, "Unexpected token in if body");
+                                }
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                                "Expected '}' after if body");
+                            pos++;
+                            loopNode.children ~= ifNode;
+                            break;
+
+                        default:
+                            enforce(false, format(
+                                    "Unexpected token in function body at position %s: %s (type: %s)\nExpected one of: %s",
+                                    pos.to!string,
+                                    tokens[pos].value,
+                                    tokens[pos].type.to!string,
+                                    [
+                                        TokenType.IDENTIFIER, TokenType.IF, TokenType.LOOP,
+                                        TokenType.PRINTLN, TokenType.BREAK
+                                    ].map!(
+                                    t => t.to!string).join(", ")));
+                        }
+                    }
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after loop body");
+                    pos++;
+                    funcNode.children ~= loopNode;
+                    break;
+
                 default:
                     enforce(false, format(
                             "Unexpected token in function body at position %s: %s (type: %s)\nExpected one of: %s",

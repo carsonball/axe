@@ -171,9 +171,6 @@ unittest
     auto tokens = lex("if x == 0 { break; }");
     auto filtered = tokens.filter!(t => t.type != TokenType.WHITESPACE).array;
 
-    writeln(filtered.length);
-    writeln(filtered);
-
     assert(filtered.length == 8);
     assert(filtered[0].type == TokenType.IF);
     assert(filtered[0].value == "if");
