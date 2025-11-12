@@ -1,6 +1,7 @@
 module axe.parser;
 
 import std.exception : enforce;
+import std.conv;
 import std.string;
 import axe.structs : ASTNode, Token, TokenType;
 
@@ -237,7 +238,7 @@ ASTNode parse(Token[] tokens)
                             }
 
                         default:
-                            enforce(false, "Unexpected token in loop body");
+                            enforce(false, "Unexpected token in loop body at " ~ to!string(pos));
                         }
                     }
 
@@ -282,7 +283,7 @@ ASTNode parse(Token[] tokens)
                     break;
 
                 default:
-                    enforce(false, "Unexpected token in main body");
+                    enforce(false, "Unexpected token in main body at " ~ to!string(pos));
                 }
             }
 
