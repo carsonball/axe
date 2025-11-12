@@ -721,29 +721,23 @@ string generateAsm(ASTNode ast)
  */
 string compileAndRunAsm(string asmCode)
 {
-    // Create temp files
     string asmFile = buildPath(tempDir(), "temp.asm");
     string objFile = buildPath(tempDir(), "temp.o");
     string exeFile = buildPath(tempDir(), "temp.exe");
-
-    // Write assembly to file
     std.file.write(asmFile, asmCode);
-
-    // Run NASM
     auto nasmResult = execute(["nasm", "-f", "win64", "-o", objFile, asmFile]);
+
     if (nasmResult.status != 0)
     {
         return "NASM Error: " ~ nasmResult.output;
     }
 
-    // Run linker
     auto linkResult = execute(["gcc", "-o", exeFile, objFile]);
     if (linkResult.status != 0)
     {
         return "Linker Error: " ~ linkResult.output;
     }
 
-    // Run the executable
     auto runResult = execute([exeFile]);
     return runResult.output;
 }
@@ -753,6 +747,7 @@ unittest
     import axe.parser;
     import axe.lexer;
     import std.stdio;
+
     {
         auto tokens = lex("main { println \"hello\"; }");
         auto ast = parse(tokens);
