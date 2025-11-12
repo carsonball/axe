@@ -1,5 +1,8 @@
 module axe.structs;
 
+/** 
+ * Token types for the Axe language.
+ */
 enum TokenType
 {
     MAIN,
@@ -25,12 +28,18 @@ enum TokenType
     IF
 }
 
+/** 
+ * Token struct for the Axe language.
+ */
 struct Token
 {
     TokenType type;
     string value;
 }
 
+/** 
+ * Abstract syntax tree node for the Axe language.
+ */
 struct ASTNode
 {
     string nodeType;
