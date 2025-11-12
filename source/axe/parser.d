@@ -189,7 +189,8 @@ ASTNode parse(Token[] tokens)
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
 
-                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                            if (pos < tokens.length &&
+                                tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                             {
                                 pos++;
                                 while (pos < tokens.length && tokens[pos].type == TokenType
