@@ -45,33 +45,52 @@ string generateC(ASTNode ast)
         cCode ~= "int main() {\n";
         foreach (child; ast.children)
         {
-            if (child.nodeType == "Println") {
+            if (child.nodeType == "Println")
+            {
                 cCode ~= "    printf(\"%s\\n\", \"" ~ child.value ~ "\");\n";
-            } else if (child.nodeType == "Loop") {
+            }
+            else if (child.nodeType == "Loop")
+            {
                 cCode ~= "    while (1) {\n";
-                foreach (loopChild; child.children) {
-                    if (loopChild.nodeType == "Println") {
+                foreach (loopChild; child.children)
+                {
+                    if (loopChild.nodeType == "Println")
+                    {
                         cCode ~= "        printf(\"%s\\n\", \"" ~ loopChild.value ~ "\");\n";
-                    } else if (loopChild.nodeType == "Break") {
+                    }
+                    else if (loopChild.nodeType == "Break")
+                    {
                         cCode ~= "        break;\n";
-                    } else if (loopChild.nodeType == "Assignment") {
+                    }
+                    else if (loopChild.nodeType == "Assignment")
+                    {
                         cCode ~= "        " ~ loopChild.value ~ ";\n";
-                    } else if (loopChild.nodeType == "If") {
+                    }
+                    else if (loopChild.nodeType == "If")
+                    {
                         cCode ~= "        if (" ~ loopChild.value ~ ") {\n";
-                        foreach (ifChild; loopChild.children) {
-                            if (ifChild.nodeType == "Break") {
+                        foreach (ifChild; loopChild.children)
+                        {
+                            if (ifChild.nodeType == "Break")
+                            {
                                 cCode ~= "            break;\n";
-                            } else if (ifChild.nodeType == "FunctionCall") {
+                            }
+                            else if (ifChild.nodeType == "FunctionCall")
+                            {
                                 auto parts = ifChild.value.split("(");
                                 string funcName = parts[0];
                                 string args = parts.length > 1 ? parts[1].strip(")") : "";
                                 cCode ~= "            " ~ funcName ~ "(" ~ args ~ ");\n";
-                            } else if (ifChild.nodeType == "Assignment") {
+                            }
+                            else if (ifChild.nodeType == "Assignment")
+                            {
                                 cCode ~= "            " ~ ifChild.value ~ ";\n";
                             }
                         }
                         cCode ~= "        }\n";
-                    } else if (loopChild.nodeType == "FunctionCall") {
+                    }
+                    else if (loopChild.nodeType == "FunctionCall")
+                    {
                         auto parts = loopChild.value.split("(");
                         string funcName = parts[0];
                         string args = parts.length > 1 ? parts[1].strip(")") : "";
@@ -79,26 +98,40 @@ string generateC(ASTNode ast)
                     }
                 }
                 cCode ~= "    }\n";
-            } else if (child.nodeType == "Break") {
+            }
+            else if (child.nodeType == "Break")
+            {
                 cCode ~= "    break;\n";
-            } else if (child.nodeType == "FunctionCall") {
+            }
+            else if (child.nodeType == "FunctionCall")
+            {
                 auto parts = child.value.split("(");
                 string funcName = parts[0];
                 string args = parts.length > 1 ? parts[1].strip(")") : "";
                 cCode ~= "    " ~ funcName ~ "(" ~ args ~ ");\n";
-            } else if (child.nodeType == "Assignment") {
+            }
+            else if (child.nodeType == "Assignment")
+            {
                 cCode ~= "    " ~ child.value ~ ";\n";
-            } else if (child.nodeType == "If") {
+            }
+            else if (child.nodeType == "If")
+            {
                 cCode ~= "    if (" ~ child.value ~ ") {\n";
-                foreach (ifChild; child.children) {
-                    if (ifChild.nodeType == "Break") {
+                foreach (ifChild; child.children)
+                {
+                    if (ifChild.nodeType == "Break")
+                    {
                         cCode ~= "        break;\n";
-                    } else if (ifChild.nodeType == "FunctionCall") {
+                    }
+                    else if (ifChild.nodeType == "FunctionCall")
+                    {
                         auto parts = ifChild.value.split("(");
                         string funcName = parts[0];
                         string args = parts.length > 1 ? parts[1].strip(")") : "";
                         cCode ~= "        " ~ funcName ~ "(" ~ args ~ ");\n";
-                    } else if (ifChild.nodeType == "Assignment") {
+                    }
+                    else if (ifChild.nodeType == "Assignment")
+                    {
                         cCode ~= "        " ~ ifChild.value ~ ";\n";
                     }
                 }
@@ -254,22 +287,33 @@ string generateAsm(ASTNode ast)
                 if (callArgs.length > 0)
                 {
                     auto argList = callArgs.split(",");
-                    for (int i = cast(int) argList.length - 1; i >= 0; i--)
+                    foreach (i, a; argList)
                     {
-                        string a = argList[i].strip();
-                        asmCode ~= "    mov rcx, " ~ a ~ "\n";
-                        asmCode ~= "    push rcx\n";
+                        string param = a.strip();
+                        string reg = i == 0 ? "rcx" : 
+                                     i == 1 ? "rdx" : 
+                                     i == 2 ? "r8" : 
+                                     i == 3 ? "r9" : "";
+                        
+                        if (i < 4) {
+                            asmCode ~= "    mov " ~ reg ~ ", " ~ param ~ "\n";
+                        } else {
+                            asmCode ~= "    mov rcx, " ~ param ~ "\n";
+                            asmCode ~= "    push rcx\n";
+                        }
                     }
                 }
 
                 asmCode ~= "    call " ~ callName ~ "\n";
 
                 // Clean up stack (8 bytes per argument on 64-bit)
-                if (callArgs.length > 0)
+                if (callArgs.length > 0 && callArgs.split(",").length > 4)
                 {
-                    asmCode ~= "    add rsp, " ~ to!string(callArgs.split(",").length * 8) ~ "\n";
+                    int numStackArgs = cast(int)callArgs.split(",").length - 4;
+                    asmCode ~= "    add rsp, " ~ to!string(numStackArgs * 8) ~ "\n";
                 }
                 break;
+
             case "Loop":
                 int loopId = 0;
                 asmCode ~= "loop_" ~ loopId.to!string ~ "_start:\n";
@@ -347,33 +391,32 @@ string generateAsm(ASTNode ast)
         string funcName = funcDecl[0].strip();
         string args = funcDecl.length > 1 ?
             funcDecl[1].strip(")").strip() : "";
-            
+
         asmCode ~= "section .text\n"
             ~ "global " ~ funcName ~ "\n"
             ~ funcName ~ ":\n"
             ~ "    sub rsp, 40\n";
-            
+
         // Handle function parameters
-        if (args.length > 0) {
+        if (args.length > 0)
+        {
             auto params = args.split(",");
             int paramOffset = 16; // First parameter is at [rsp+16] (after return address and rbp)
-            
-            foreach (i, param; params) {
+
+            foreach (i, param; params)
+            {
                 auto parts = param.split(":");
-                if (parts.length == 2) {
+                if (parts.length == 2)
+                {
                     string paramName = parts[0].strip();
                     string paramType = parts[1].strip();
-                    
+
                     // Store parameter from register to stack
-                    asmCode ~= "    mov " ~ paramName ~ ", " ~ 
-                        (i == 0 ? "rcx" : 
-                         i == 1 ? "rdx" : 
-                         i == 2 ? "r8" : "r9") ~ "\n";
-                    asmCode ~= "    mov [rsp+" ~ to!string(paramOffset) ~ "], " ~ 
-                        (i == 0 ? "rcx" : 
-                         i == 1 ? "rdx" : 
-                         i == 2 ? "r8" : "r9") ~ "\n";
-                    
+                    asmCode ~= "    mov " ~ paramName ~ ", " ~
+                        (i == 0 ? "rcx" : i == 1 ? "rdx" : i == 2 ? "r8" : "r9") ~ "\n";
+                    asmCode ~= "    mov [rsp+" ~ to!string(paramOffset) ~ "], " ~
+                        (i == 0 ? "rcx" : i == 1 ? "rdx" : i == 2 ? "r8" : "r9") ~ "\n";
+
                     paramOffset += 8; // Each parameter is 8 bytes on stack
                 }
             }
@@ -407,11 +450,20 @@ string generateAsm(ASTNode ast)
                 if (callArgs.length > 0)
                 {
                     auto argList = callArgs.split(",");
-                    for (int i = cast(int) argList.length - 1; i >= 0; i--)
+                    foreach (i, a; argList)
                     {
-                        string a = argList[i].strip();
-                        asmCode ~= "    mov rcx, " ~ a ~ "\n";
-                        asmCode ~= "    push rcx\n";
+                        string param = a.strip();
+                        string reg = i == 0 ? "rcx" : 
+                                     i == 1 ? "rdx" : 
+                                     i == 2 ? "r8" : 
+                                     i == 3 ? "r9" : "";
+                        
+                        if (i < 4) {
+                            asmCode ~= "    mov " ~ reg ~ ", " ~ param ~ "\n";
+                        } else {
+                            asmCode ~= "    mov rcx, " ~ param ~ "\n";
+                            asmCode ~= "    push rcx\n";
+                        }
                     }
                 }
 
@@ -432,19 +484,19 @@ string generateAsm(ASTNode ast)
                         ~ "    mov " ~ parts[0] ~ ", eax\n";
                 }
                 break;
-                
+
             case "If":
                 auto condition = child.value;
                 string endIfLabel = "endif_" ~ to!string(child.children.length);
-                
+
                 if (condition.canFind("=="))
                 {
                     auto parts = condition.split("==");
                     asmCode ~= "    mov eax, " ~ parts[0].strip() ~ "\n"
-                           ~  "    cmp eax, " ~ parts[1].strip() ~ "\n"
-                           ~  "    jne " ~ endIfLabel ~ "\n";
+                        ~ "    cmp eax, " ~ parts[1].strip() ~ "\n"
+                        ~ "    jne " ~ endIfLabel ~ "\n";
                 }
-                
+
                 foreach (ifChild; child.children)
                 {
                     if (ifChild.nodeType == "Break")
@@ -452,17 +504,17 @@ string generateAsm(ASTNode ast)
                         asmCode ~= "    jmp " ~ endIfLabel ~ "\n";
                     }
                 }
-                
+
                 asmCode ~= endIfLabel ~ ":\n";
                 break;
-                
+
             case "Loop":
                 string loopStart = "loop_" ~ to!string(msgCounter) ~ "_start";
                 string loopEnd = "loop_" ~ to!string(msgCounter) ~ "_end";
                 msgCounter++;
-                
+
                 asmCode ~= loopStart ~ ":\n";
-                
+
                 foreach (loopChild; child.children)
                 {
                     switch (loopChild.nodeType)
@@ -488,15 +540,15 @@ string generateAsm(ASTNode ast)
                         auto condition = loopChild.value;
                         string endIfLabel = "loop_if_end_" ~ to!string(msgCounter);
                         msgCounter++;
-                        
+
                         if (condition.canFind("=="))
                         {
                             auto parts = condition.split("==");
                             asmCode ~= "    mov eax, " ~ parts[0].strip() ~ "\n"
-                                   ~  "    cmp eax, " ~ parts[1].strip() ~ "\n"
-                                   ~  "    jne " ~ endIfLabel ~ "\n";
+                                ~ "    cmp eax, " ~ parts[1].strip() ~ "\n"
+                                ~ "    jne " ~ endIfLabel ~ "\n";
                         }
-                        
+
                         foreach (ifChild; loopChild.children)
                         {
                             if (ifChild.nodeType == "Break")
@@ -504,22 +556,22 @@ string generateAsm(ASTNode ast)
                                 asmCode ~= "    jmp " ~ loopEnd ~ "\n";
                             }
                         }
-                        
+
                         asmCode ~= endIfLabel ~ ":\n";
                         break;
-                        
+
                     default:
                         enforce(false, "Unsupported node type in loop: " ~ loopChild.nodeType);
                     }
                 }
-                
+
                 asmCode ~= "    jmp " ~ loopStart ~ "\n";
                 asmCode ~= loopEnd ~ ":\n";
                 break;
             default:
                 enforce(false, "Invalid node type: " ~ child.nodeType);
             }
-            
+
         }
         asmCode ~= "    add rsp, 40\n"
             ~ "    ret\n";
@@ -534,18 +586,20 @@ string generateAsm(ASTNode ast)
         if (args.length > 0)
         {
             auto argList = args.split(",");
-            for (int i = cast(int) argList.length - 1; i >= 0; i--)
+            foreach (i, a; argList)
             {
-                string a = argList[i].strip();
-                if (a[0] == '"')
-                {
-                    asmCode ~= "    mov rcx, " ~ a ~ "\n";
+                string param = a.strip();
+                string reg = i == 0 ? "rcx" : 
+                             i == 1 ? "rdx" : 
+                             i == 2 ? "r8" : 
+                             i == 3 ? "r9" : "";
+                
+                if (i < 4) {
+                    asmCode ~= "    mov " ~ reg ~ ", " ~ param ~ "\n";
+                } else {
+                    asmCode ~= "    mov rcx, " ~ param ~ "\n";
+                    asmCode ~= "    push rcx\n";
                 }
-                else
-                {
-                    asmCode ~= "    mov rcx, " ~ a ~ "\n";
-                }
-                asmCode ~= "    push rcx\n";
             }
         }
 
@@ -619,4 +673,72 @@ string generateAsm(ASTNode ast)
     }
 
     return asmCode;
+}
+
+unittest
+{
+    import axe.parser;
+    import axe.lexer;
+
+    {
+        auto tokens = lex("main { println \"hello\"; }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("section .data"));
+        assert(asma.canFind("msg_0 db 'hello', 0"));
+        assert(asma.canFind("call printf"));
+    }
+
+    {
+        auto tokens = lex("main { foo(); }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("call foo"));
+    }
+
+    {
+        auto tokens = lex("main { foo(1, 2); }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("mov rcx, 1"));
+        assert(asma.canFind("mov rcx, 2"));
+        assert(asma.canFind("call foo"));
+    }
+
+    {
+        auto tokens = lex("main { x = 5; }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("mov eax, 5"));
+        assert(asma.canFind("mov x, eax"));
+    }
+
+    {
+        auto tokens = lex("main { x = 5 - 3; }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("mov eax, 5"));
+        assert(asma.canFind("sub eax, 3"));
+        assert(asma.canFind("mov x, eax"));
+    }
+
+    {
+        auto tokens = lex("main { loop { break; } }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("loop_0_start:"));
+        assert(asma.canFind("jmp loop_0_end"));
+        assert(asma.canFind("loop_0_end:"));
+    }
+
+    {
+        auto tokens = lex("main { if x == 5 { break; } }");
+        auto ast = parse(tokens);
+        auto asma = generateAsm(ast);
+        assert(asma.canFind("mov eax, x"));
+        assert(asma.canFind("cmp eax, 5"));
+        assert(asma.canFind("jne endif_1"));
+        assert(asma.canFind("jmp endif_1"));
+        assert(asma.canFind("endif_1:"));
+    }
 }
