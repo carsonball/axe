@@ -12,6 +12,16 @@ import std.stdio;
 import std.ascii;
 import std.string;
 
+/** 
+ * Converts a string to an operand.
+ *
+ * Params:
+ *   s = String to convert to operand
+ *   paramMap = Parameter mapping for function arguments
+ *
+ * Returns: 
+ *   Operand string
+ */
 string operand(string s, string[string] paramMap = null)
 {
     s = s.strip();
@@ -603,7 +613,6 @@ string generateAsm(ASTNode ast)
             default:
                 enforce(false, "Invalid node type: " ~ child.nodeType);
             }
-
         }
         asmCode ~= "    mov rsp, rbp\n"
             ~ "    pop rbp\n"
