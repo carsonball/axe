@@ -528,7 +528,6 @@ ASTNode parse(Token[] tokens)
 
 unittest
 {
-    // Test if statement parsing in loop
     auto loopIfTokens = [
         Token(TokenType.DEF, "def"),
         Token(TokenType.IDENTIFIER, "test"),
@@ -555,7 +554,6 @@ unittest
     assert(loopAst.children[0].children[0].children[0].nodeType == "If");
     assert(loopAst.children[0].children[0].children[0].value == "x == 0");
     
-    // Test if statement parsing in function body
     auto funcIfTokens = [
         Token(TokenType.DEF, "def"),
         Token(TokenType.IDENTIFIER, "test"),
