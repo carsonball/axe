@@ -327,7 +327,6 @@ string generateAsm(ASTNode ast)
 
                 asmCode ~= "    call " ~ callName ~ "\n";
 
-                // Clean up stack (8 bytes per argument on 64-bit)
                 if (callArgs.length > 0 && callArgs.split(",").length > 4)
                 {
                     int numStackArgs = cast(int) callArgs.split(",").length - 4;
@@ -428,7 +427,6 @@ string generateAsm(ASTNode ast)
             ~ "    mov rbp, rsp\n"
             ~ "    sub rsp, 40\n";
 
-        // Store parameters on stack and create mapping
         string[string] paramMap;
         if (args.length > 0)
         {
