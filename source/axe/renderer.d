@@ -781,5 +781,4 @@ unittest
         assert(asma.canFind("jmp loop_0_end"));
         assert(asma.canFind("loop_0_end:"));
     }
-
 }
