@@ -194,7 +194,8 @@ Token[] lex(string source)
             break;
 
         case 'v':
-            if (pos + 2 < source.length && source[pos .. pos + 3] == "val")
+            if (pos + 2 < source.length && source[pos .. pos + 3] == "val" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {
                 tokens ~= Token(TokenType.VAL, "val");
                 pos += 3;
@@ -211,17 +212,20 @@ Token[] lex(string source)
             break;
 
         case 'm':
-            if (pos + 4 < source.length && source[pos .. pos + 5] == "model")
+            if (pos + 4 < source.length && source[pos .. pos + 5] == "model" &&
+                (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
             {
                 tokens ~= Token(TokenType.MODEL, "model");
                 pos += 5;
             }
-            else if (pos + 3 < source.length && source[pos .. pos + 4] == "main")
+            else if (pos + 3 < source.length && source[pos .. pos + 4] == "main" &&
+                (pos + 4 >= source.length || !(source[pos + 4].isAlphaNum || source[pos + 4] == '_')))
             {
                 tokens ~= Token(TokenType.MAIN, "main");
                 pos += 4;
             }
-            else if (pos + 2 < source.length && source[pos .. pos + 3] == "mut")
+            else if (pos + 2 < source.length && source[pos .. pos + 3] == "mut" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {
                 tokens ~= Token(TokenType.MUT, "mut");
                 pos += 3;
@@ -298,7 +302,8 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.ELSE, "else");
                 pos += 4;
             }
-            else if (pos + 2 <= source.length && source[pos .. pos + 2] == "if")
+            else if (pos + 2 <= source.length && source[pos .. pos + 2] == "if" &&
+                (pos + 2 >= source.length || !(source[pos + 2].isAlphaNum || source[pos + 2] == '_')))
             {
                 tokens ~= Token(TokenType.IF, "if");
                 pos += 2;

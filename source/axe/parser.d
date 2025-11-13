@@ -67,6 +67,38 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
     }
 
     /** 
+     * Parses array type and size (e.g., int[10] or int[])
+     * 
+     * Returns: 
+     *   Tuple of (elementType, size) where size is empty string for unsized arrays
+     */
+    auto parseArrayType()
+    {
+        struct ArrayTypeInfo { string elementType; string size; }
+        
+        string elementType = parseType();
+        string size = "";
+        
+        if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+        {
+            pos++; // Skip '['
+            
+            // Parse array size (can be empty for [] syntax)
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+            {
+                size ~= tokens[pos].value;
+                pos++;
+            }
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                "Expected ']' after array size");
+            pos++; // Skip ']'
+        }
+        
+        return ArrayTypeInfo(elementType, size);
+    }
+
+    /** 
      * Parses println argument (string literal or expression)
      * 
      * Returns: 
@@ -270,9 +302,59 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 case TokenType.IDENTIFIER:
                     string identName = tokens[pos].value;
                     pos++;
+                    
+                    // Skip whitespace
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
 
+                    // Check if this is array indexing
+                    if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                    {
+                        pos++; // Skip '['
+                        
+                        string index = "";
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                        {
+                            index ~= tokens[pos].value;
+                            pos++;
+                        }
+                        
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                            "Expected ']' after array index");
+                        pos++; // Skip ']'
+                        
+                        // Skip whitespace
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        
+                        // Check if this is array element assignment
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                        {
+                            pos++; // Skip '='
+                            
+                            string value = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                if (tokens[pos].type == TokenType.STR)
+                                    value ~= "\"" ~ tokens[pos].value ~ "\"";
+                                else
+                                    value ~= tokens[pos].value;
+                                pos++;
+                            }
+                            
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after array assignment");
+                            pos++;
+                            
+                            mainNode.children ~= new ArrayAssignmentNode(identName, index.strip(), value.strip());
+                        }
+                        else
+                        {
+                            enforce(false, "Array indexing without assignment not yet supported in statements");
+                        }
+                    }
                     // Check for member access (dot notation)
-                    if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+                    else if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
                     {
                         pos++; // Skip '.'
 
@@ -724,8 +806,58 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         case TokenType.IDENTIFIER:
                             string forLoopIdentName = tokens[pos].value;
                             pos++;
+                            
+                            // Skip whitespace
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
 
-                            if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
+                            // Check if this is array indexing
+                            if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                            {
+                                pos++; // Skip '['
+                                
+                                string forLoopIndex = "";
+                                while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                                {
+                                    forLoopIndex ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                                    "Expected ']' after array index");
+                                pos++; // Skip ']'
+                                
+                                // Skip whitespace
+                                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                    pos++;
+                                
+                                // Check if this is array element assignment
+                                if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                                {
+                                    pos++; // Skip '='
+                                    
+                                    string forLoopValue = "";
+                                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                                    {
+                                        if (tokens[pos].type == TokenType.STR)
+                                            forLoopValue ~= "\"" ~ tokens[pos].value ~ "\"";
+                                        else
+                                            forLoopValue ~= tokens[pos].value;
+                                        pos++;
+                                    }
+                                    
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after array assignment");
+                                    pos++;
+                                    
+                                    forNode.children ~= new ArrayAssignmentNode(forLoopIdentName, forLoopIndex.strip(), forLoopValue.strip());
+                                }
+                                else
+                                {
+                                    enforce(false, "Array indexing without assignment not yet supported in for loop");
+                                }
+                            }
+                            else if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
                             {
                                 if (!currentScope.isDeclared(forLoopIdentName))
                                     enforce(false, "Undeclared variable: " ~ forLoopIdentName);
@@ -1121,10 +1253,29 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
                         // Check for type annotation
                         string typeName = "";
+                        bool isArray = false;
+                        string arraySize = "";
+                        
                         if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
                         {
                             pos++; // Skip ':'
-                            typeName = parseType();
+                            
+                            // Check if this is an array type
+                            size_t savedPos = pos;
+                            string baseType = parseType();
+                            
+                            if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                            {
+                                isArray = true;
+                                pos = savedPos;
+                                auto arrayInfo = parseArrayType();
+                                typeName = arrayInfo.elementType;
+                                arraySize = arrayInfo.size;
+                            }
+                            else
+                            {
+                                typeName = baseType;
+                            }
                         }
 
                         string initializer = "";
@@ -1193,6 +1344,47 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 mainNode.children ~= new ModelInstantiationNode(
                                     modelName, varName, fieldValues, isMutable);
                             }
+                            else if (isArray && pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                            {
+                                // Array literal initialization [1, 2, 3]
+                                pos++; // Skip '['
+                                
+                                string[] arrayElements;
+                                while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                                {
+                                    string element = "";
+                                    while (pos < tokens.length && tokens[pos].type != TokenType.COMMA
+                                        && tokens[pos].type != TokenType.RBRACKET)
+                                    {
+                                        if (tokens[pos].type == TokenType.STR)
+                                            element ~= "\"" ~ tokens[pos].value ~ "\"";
+                                        else
+                                            element ~= tokens[pos].value;
+                                        pos++;
+                                    }
+                                    
+                                    if (element.strip().length > 0)
+                                        arrayElements ~= element.strip();
+                                    
+                                    if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                                        pos++; // Skip ','
+                                }
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                                    "Expected ']' after array literal");
+                                pos++; // Skip ']'
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after array declaration");
+                                pos++;
+                                
+                                // If no size specified, use array literal length
+                                if (arraySize.length == 0)
+                                    arraySize = to!string(arrayElements.length);
+                                
+                                currentScope.addVariable(varName, isMutable);
+                                mainNode.children ~= new ArrayDeclarationNode(varName, isMutable, typeName, arraySize, arrayElements);
+                            }
                             else
                             {
                                 // Regular variable initialization
@@ -1211,7 +1403,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 pos++;
 
                                 currentScope.addVariable(varName, isMutable);
-                                mainNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName);
+                                
+                                if (isArray)
+                                    mainNode.children ~= new ArrayDeclarationNode(varName, isMutable, typeName, arraySize, []);
+                                else
+                                    mainNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName);
                             }
                         }
                         else
@@ -1221,7 +1417,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             pos++;
 
                             currentScope.addVariable(varName, isMutable);
-                            mainNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName);
+                            
+                            if (isArray)
+                                mainNode.children ~= new ArrayDeclarationNode(varName, isMutable, typeName, arraySize, []);
+                            else
+                                mainNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName);
                         }
                     }
                     break;
@@ -1324,9 +1524,55 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     case TokenType.IDENTIFIER:
                         string identName = tokens[pos].value;
                         pos++;
+                        
+                        // Skip whitespace
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
 
+                        // Check if this is array indexing
+                        if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                        {
+                            pos++; // Skip '['
+                            
+                            string index = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                            {
+                                index ~= tokens[pos].value;
+                                pos++;
+                            }
+                            
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                                "Expected ']' after array index");
+                            pos++; // Skip ']'
+                            
+                            // Check if this is array element assignment
+                            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                            {
+                                pos++; // Skip '='
+                                
+                                string value = "";
+                                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                                {
+                                    if (tokens[pos].type == TokenType.STR)
+                                        value ~= "\"" ~ tokens[pos].value ~ "\"";
+                                    else
+                                        value ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after array assignment");
+                                pos++;
+                                
+                                mainNode.children ~= new ArrayAssignmentNode(identName, index.strip(), value.strip());
+                            }
+                            else
+                            {
+                                enforce(false, "Array indexing without assignment not yet supported in statements");
+                            }
+                        }
                         // Check if this is an assignment
-                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                        else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
                             // Variable assignment
                             if (!currentScope.isDeclared(identName))

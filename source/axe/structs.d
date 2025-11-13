@@ -98,6 +98,53 @@ class DeclarationNode : ASTNode
     }
 }
 
+class ArrayDeclarationNode : ASTNode
+{
+    string name;
+    bool isMutable;
+    string elementType;
+    string size;  // Can be a number or expression
+    string[] initializer;  // For array literals like [1, 2, 3]
+
+    this(string name, bool isMutable, string elementType, string size, string[] initializer = [])
+    {
+        super("ArrayDeclaration");
+        this.name = name;
+        this.isMutable = isMutable;
+        this.elementType = elementType;
+        this.size = size;
+        this.initializer = initializer;
+    }
+}
+
+class ArrayAccessNode : ASTNode
+{
+    string arrayName;
+    string index;
+
+    this(string arrayName, string index)
+    {
+        super("ArrayAccess");
+        this.arrayName = arrayName;
+        this.index = index;
+    }
+}
+
+class ArrayAssignmentNode : ASTNode
+{
+    string arrayName;
+    string index;
+    string value;
+
+    this(string arrayName, string index, string value)
+    {
+        super("ArrayAssignment");
+        this.arrayName = arrayName;
+        this.index = index;
+        this.value = value;
+    }
+}
+
 class FunctionNode : ASTNode
 {
     string name;

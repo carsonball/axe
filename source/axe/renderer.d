@@ -152,6 +152,32 @@ string generateC(ASTNode ast)
         }
         break;
 
+    case "ArrayDeclaration":
+        auto arrayNode = cast(ArrayDeclarationNode) ast;
+        string arrayType = arrayNode.isMutable ? arrayNode.elementType : "const " ~ arrayNode.elementType;
+        
+        cCode ~= arrayType ~ " " ~ arrayNode.name ~ "[" ~ arrayNode.size ~ "]";
+        
+        if (arrayNode.initializer.length > 0)
+        {
+            cCode ~= " = {" ~ arrayNode.initializer.join(", ") ~ "}";
+        }
+        
+        cCode ~= ";\n";
+        break;
+
+    case "ArrayAccess":
+        auto accessNode = cast(ArrayAccessNode) ast;
+        cCode ~= accessNode.arrayName ~ "[" ~ processExpression(accessNode.index) ~ "]";
+        break;
+
+    case "ArrayAssignment":
+        auto arrayAssignNode = cast(ArrayAssignmentNode) ast;
+        string processedIndex = processExpression(arrayAssignNode.index);
+        string processedValue = processExpression(arrayAssignNode.value);
+        cCode ~= arrayAssignNode.arrayName ~ "[" ~ processedIndex ~ "] = " ~ processedValue ~ ";\n";
+        break;
+
     case "Declaration":
         auto declNode = cast(DeclarationNode) ast;
         
@@ -1646,5 +1672,66 @@ unittest
         assert(cCode.canFind("continue;"), "Should have continue");
         assert(cCode.canFind("if ((i>15))"), "Should have second if");
         assert(cCode.canFind("break;"), "Should have break");
+    }
+
+    {
+        auto tokens = lex("main { val arr: int[5]; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Array declaration with size test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("const int arr[5];"), "Should have array declaration with size");
+    }
+
+    {
+        auto tokens = lex("main { mut val nums: int[] = [1, 2, 3, 4, 5]; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Array declaration with literal test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("int nums[5] = {1, 2, 3, 4, 5};"), "Should have array with initializer");
+    }
+
+    {
+        auto tokens = lex("main { mut val data: int[10]; data[0] = 42; data[5] = 99; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Array assignment test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("int data[10];"), "Should have array declaration");
+        assert(cCode.canFind("data[0] = 42;"), "Should have first array assignment");
+        assert(cCode.canFind("data[5] = 99;"), "Should have second array assignment");
+    }
+
+    {
+        auto tokens = lex("main { val values: int[] = [10, 20, 30]; mut val x: int = 0; x = 5; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Mixed array and variable test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("const int values[3] = {10, 20, 30};"), "Should have const array");
+        assert(cCode.canFind("int x = 0;"), "Should have variable");
+        assert(cCode.canFind("x = 5;"), "Should have assignment");
+    }
+
+    {
+        auto tokens = lex("main { mut val arr: int[3] = [1, 2, 3]; for mut val i = 0; i < 3; i++ { arr[i] = 0; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Array in for loop test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("int arr[3] = {1, 2, 3};"), "Should have array with initializer");
+        assert(cCode.canFind("for (int i = 0; (i<3); i++)"), "Should have for loop");
+        assert(cCode.canFind("arr[i] = 0;"), "Should have array assignment in loop");
     }
 }
