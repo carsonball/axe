@@ -89,7 +89,7 @@ string generateC(ASTNode ast)
         else
         {
             cCode ~= "void " ~ funcName ~ "(" ~
-                (params.length > 0 ? "int " ~ params.join(", int ") : "void") ~
+                (params.length > 0 ? "int " ~ params.join(", int ") : "") ~
                 ") {\n";
         }
 
@@ -923,23 +923,24 @@ unittest
         assert(cCode.canFind("const int y = (x-2)"));
     }
 
-    // {
-    //     auto tokens = lex("def foo { println \"in foo\"; } main { foo(); }");
-    //     auto ast = parse(tokens);
+    {
+        auto tokens = lex("def foo { println \"in foo\"; } main { foo(); }");
+        auto ast = parse(tokens);
 
-    //     auto cCode = generateC(ast);
-    //     assert(cCode.canFind("void foo()"));
-    //     assert(cCode.canFind("printf(\\\"in foo\\n\\\")"));
-    //     assert(cCode.canFind("foo()"));
-    // }
+        auto cCode = generateC(ast);
+        writeln(cCode);
+        assert(cCode.canFind("void foo()"));
+        assert(cCode.canFind(`printf("in foo\n");`));
+        assert(cCode.canFind("foo();"));
+    }
 
-    // {
-    //     auto tokens = lex("def add(a, b) { return a + b; } main { x = add(1, 2); }");
-    //     auto ast = parse(tokens);
+    {
+        auto tokens = lex("def add(a: int, b: int): int { return a + b; } main { x = add(1, 2); }");
+        auto ast = parse(tokens);
 
-    //     auto cCode = generateC(ast);
-    //     assert(cCode.canFind("void add(int a, int b)"));
-    //     assert(cCode.canFind("return (a + b)"));
-    //     assert(cCode.canFind("x = add(1, 2)"));
-    // }
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("int add(int a, int b)"));
+        assert(cCode.canFind("return (a + b)"));
+        assert(cCode.canFind("x = add(1, 2)"));
+    }
 }
