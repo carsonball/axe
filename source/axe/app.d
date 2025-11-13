@@ -23,10 +23,9 @@ void main(string[] args)
     {
         string name = args[1];
         bool isAxec = name.endsWith(".axec");
+
         if (!name.endsWith(".axe") && !isAxec)
-        {
             name ~= ".axe";
-        }
 
         string source = readText(name);
         auto tokens = lex(source);
