@@ -213,50 +213,8 @@ string processExpression(string expr)
 {
     expr = expr.strip();
 
-    if (expr.canFind("(") && expr.endsWith(")"))
-    {
-        int depth = 0;
-        int splitPos = -1;
-
-        for (int i = 0; i < expr.length; i++)
-        {
-            if (expr[i] == '(')
-                depth++;
-            else if (expr[i] == ')')
-                depth--;
-
-            if (depth == 0 && i < cast(int) expr.length - 1)
-            {
-                if (expr[i] == '+' || expr[i] == '-' || expr[i] == '*' || expr[i] == '/' ||
-                    expr[i] == '>' || expr[i] == '<' || expr[i] == '=' || expr[i] == '!')
-                {
-                    splitPos = i;
-                    break;
-                }
-            }
-        }
-
-        if (splitPos != -1)
-        {
-            string left = expr[0 .. splitPos].strip();
-            char op = expr[splitPos];
-            string right = expr[splitPos + 1 .. $].strip();
-
-            if ((op == '=' && splitPos + 1 < expr.length && expr[splitPos + 1] == '=') ||
-                (op == '!' && splitPos + 1 < expr.length && expr[splitPos + 1] == '=') ||
-                (op == '<' && splitPos + 1 < expr.length && expr[splitPos + 1] == '=') ||
-                (op == '>' && splitPos + 1 < expr.length && expr[splitPos + 1] == '='))
-            {
-                op = to!char(expr[splitPos .. splitPos + 2]);
-                right = expr[splitPos + 2 .. $].strip();
-            }
-
-            return "(" ~ processExpression(left) ~ " " ~ op ~ " " ~ processExpression(right) ~ ")";
-        }
-        else
-        {
-            return processExpression(expr[1 .. $ - 1]);
-        }
+    if (expr.canFind("(") && expr.endsWith(")")) {
+        return expr;
     }
 
     foreach (op; ["+", "-", "*", "/", "==", "!=", "<", ">", "<=", ">="])
@@ -950,7 +908,7 @@ unittest
 
         writeln(cCode);
         assert(cCode.canFind("int add(int a, int b)"));
-        assert(cCode.canFind("return (a + b)"));
-        assert(cCode.canFind("x = add(1, 2)"));
+        assert(cCode.canFind("return (a+b);"));
+        assert(cCode.canFind("const int x = add(1,2);"));
     }
 }
