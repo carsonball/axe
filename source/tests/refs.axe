@@ -1,0 +1,10 @@
+main {
+    val x: int = 10;
+    val y: ref int = ref_of(x);
+    val z: ref ref int = ref_of(y);
+
+    println y;                          // Auto-dereference: prints 10
+    y = 20;                             // Auto-dereference: sets x to 20
+    val addr: long = addr_of(x);        // Get raw address as integer
+
+}
