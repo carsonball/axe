@@ -32,32 +32,38 @@ void main(string[] args)
 
         if (args.canFind("-tokens"))
             writeln(tokens);
-        
+
         auto ast = parse(tokens);
 
         if (args.canFind("-ast"))
             writeln(ast);
-        
+
         if (args.canFind("-asm"))
         {
             string asmCode = generateAsm(ast);
             string result = compileAndRunAsm(asmCode);
-            
-            if (result.canFind("Error:")) {
+
+            if (result.canFind("Error:"))
+            {
                 stderr.writeln(result);
                 return;
             }
-            
+
             stdout.writeln(result);
         }
         else
         {
             string cCode = generateC(ast);
             std.file.write(replace(name, ".axe", ".c"), cCode);
-            execute([
-                "gcc", replace(name, ".axe", ".c"), "-o",
+            auto e = execute([
+                "clang", replace(name, ".axe", ".c"), "-Wno-everything", "-o",
                 replace(name, ".axe", ".exe")
             ]);
+            if (e[0] != 0)
+            {
+                stderr.writeln("Fallthrough error, report the bug at https://github.com/navid-m/axe/issues: ", e[1]);
+                return;
+            }
             if (!args.canFind("-e"))
             {
                 remove(replace(name, ".axe", ".c"));
@@ -66,6 +72,15 @@ void main(string[] args)
     }
     catch (Exception e)
     {
-        stderr.writeln("Compilation error: ", e.msg);
+        if (e.message.canFind("Failed to spawn process"))
+        {
+            stderr.writeln(
+                "You do not have the clang toolchain installed. Install it from https://clang.llvm.org/"
+            );
+        }
+        else
+        {
+            stderr.writeln("Compilation error: ", e.msg);
+        }
     }
 }
