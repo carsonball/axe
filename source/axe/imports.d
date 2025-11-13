@@ -81,6 +81,19 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             callNode.functionName = nameMap[callNode.functionName];
         }
     }
+    else if (node.nodeType == "Println")
+    {
+        auto printlnNode = cast(PrintlnNode) node;
+        if (printlnNode.isExpression)
+        {
+            // Rename function calls in expression strings
+            foreach (oldName, newName; nameMap)
+            {
+                // Match function name followed by '('
+                printlnNode.message = printlnNode.message.replace(oldName ~ "(", newName ~ "(");
+            }
+        }
+    }
     
     foreach (child; node.children)
     {

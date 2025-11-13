@@ -62,7 +62,7 @@ void main(string[] args)
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
             auto e = execute([
-                "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os", "-o",
+                "gcc", replace(name, ext, ".c"), "-Wno-everything", "-o",
                 replace(name, ext, ".exe")
             ]);
             if (e[0] != 0)
@@ -84,7 +84,7 @@ void main(string[] args)
         if (e.message.canFind("Failed to spawn process"))
         {
             stderr.writeln(
-                "You do not have the clang toolchain installed. Install it from https://clang.llvm.org/"
+                "You do not have a C toolchain installed. Install it."
             );
         }
         else

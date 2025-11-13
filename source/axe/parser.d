@@ -67,6 +67,37 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
     }
 
     /** 
+     * Parses println argument (string literal or expression)
+     * 
+     * Returns: 
+     *   PrintlnNode = Node with message and isExpression flag
+     */
+    PrintlnNode parsePrintln()
+    {
+        pos++;
+
+        if (pos < tokens.length && tokens[pos].type == TokenType.STR)
+        {
+            string msg = tokens[pos].value;
+            pos++;
+            return new PrintlnNode(msg, false);
+        }
+        else
+        {
+            string expr = "";
+            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+            {
+                if (tokens[pos].type == TokenType.STR)
+                    expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else
+                    expr ~= tokens[pos].value;
+                pos++;
+            }
+            return new PrintlnNode(expr.strip(), true);
+        }
+    }
+
+    /** 
      * Parses function arguments from the current position in the token stream.
      * 
      * Returns: 
@@ -129,16 +160,16 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         {
         case TokenType.USE:
             pos++; // Skip 'use'
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                 "Expected module name after 'use'");
             string moduleName = tokens[pos].value;
             pos++;
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                 "Expected '(' after module name");
             pos++; // Skip '('
-            
+
             string[] imports;
             while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
             {
@@ -156,15 +187,15 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     enforce(false, "Unexpected token in use statement");
                 }
             }
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                 "Expected ')' after imports");
             pos++; // Skip ')'
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                 "Expected ';' after use statement");
             pos++; // Skip ';'
-            
+
             ast.children ~= new UseNode(moduleName, imports);
             continue;
 
@@ -188,12 +219,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 switch (tokens[pos].type)
                 {
                 case TokenType.PRINTLN:
-                    pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
-                        "Expected string after println");
-                    mainNode.children ~= new PrintlnNode(tokens[pos].value);
-                    pos++;
-
+                    mainNode.children ~= parsePrintln();
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after println");
                     pos++;
@@ -282,11 +308,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         switch (tokens[pos].type)
                         {
                         case TokenType.PRINTLN:
-                            pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                "Expected string after println");
-                            loopNode.children ~= new PrintlnNode(tokens[pos].value);
-                            pos++;
+                            loopNode.children ~= parsePrintln();
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after println");
                             pos++;
@@ -339,12 +361,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         switch (tokens[pos].type)
                         {
                         case TokenType.PRINTLN:
-                            pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                "Expected string after println");
-                            ifNode.children ~= new PrintlnNode(tokens[pos].value);
-                            pos++;
-
+                            ifNode.children ~= parsePrintln();
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after println");
                             pos++;
@@ -394,11 +411,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 case TokenType.RAW:
                     enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                     pos++; // Skip 'raw'
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                         "Expected '{' after 'raw'");
                     pos++; // Skip '{'
-                    
+
                     string rawCode = "";
                     int braceDepth = 1;
                     while (pos < tokens.length && braceDepth > 0)
@@ -416,20 +433,20 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             rawCode ~= "\"" ~ tokens[pos].value ~ "\"";
                         else
                             rawCode ~= tokens[pos].value;
-                        
-                        if (pos + 1 < tokens.length && tokens[pos].type != TokenType.LPAREN 
+
+                        if (pos + 1 < tokens.length && tokens[pos].type != TokenType.LPAREN
                             && tokens[pos + 1].type != TokenType.RPAREN
                             && tokens[pos + 1].type != TokenType.SEMICOLON
                             && tokens[pos].type != TokenType.SEMICOLON)
                             rawCode ~= " ";
-                        
+
                         pos++;
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after raw block");
                     pos++; // Skip '}'
-                    
+
                     mainNode.children ~= new RawCNode(rawCode);
                     break;
 
@@ -480,12 +497,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     switch (tokens[pos].type)
                     {
                     case TokenType.PRINTLN:
-                        pos++;
-                        enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
-                            "Expected string after println");
-                        mainNode.children ~= new PrintlnNode(tokens[pos].value);
-                        pos++;
-
+                        mainNode.children ~= parsePrintln();
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                             "Expected ';' after println");
                         pos++;
@@ -579,11 +591,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             switch (tokens[pos].type)
                             {
                             case TokenType.PRINTLN:
-                                pos++;
-                                enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                    "Expected string after println");
-                                loopNode.children ~= new PrintlnNode(tokens[pos].value);
-                                pos++;
+                                loopNode.children ~= parsePrintln();
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after println");
                                 pos++;
@@ -636,12 +644,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             switch (tokens[pos].type)
                             {
                             case TokenType.PRINTLN:
-                                pos++; // Skip 'println'
-                                enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                    "Expected string after println");
-                                ifNode.children ~= new PrintlnNode(tokens[pos].value);
-                                pos++; // Skip string
-
+                                ifNode.children ~= parsePrintln();
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after println");
                                 pos++; // Skip ';'
@@ -693,11 +696,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     case TokenType.RAW:
                         enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                         pos++; // Skip 'raw'
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                             "Expected '{' after 'raw'");
                         pos++; // Skip '{'
-                        
+
                         string rawCode = "";
                         int braceDepth = 1;
                         while (pos < tokens.length && braceDepth > 0)
@@ -715,20 +718,20 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 rawCode ~= "\"" ~ tokens[pos].value ~ "\"";
                             else
                                 rawCode ~= tokens[pos].value;
-                            
-                            if (pos + 1 < tokens.length && tokens[pos].type != TokenType.LPAREN 
+
+                            if (pos + 1 < tokens.length && tokens[pos].type != TokenType.LPAREN
                                 && tokens[pos + 1].type != TokenType.RPAREN
                                 && tokens[pos + 1].type != TokenType.SEMICOLON
                                 && tokens[pos].type != TokenType.SEMICOLON)
                                 rawCode ~= " ";
-                            
+
                             pos++;
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                             "Expected '}' after raw block");
                         pos++;
-                        
+
                         mainNode.children ~= new RawCNode(rawCode);
                         break;
 
@@ -802,16 +805,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     break;
 
                 case TokenType.PRINTLN:
-                    pos++;
-                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                        pos++;
-
-                    enforce(
-                        pos < tokens.length && tokens[pos].type == TokenType.STR,
-                        "Expected string after println"
-                    );
-                    funcNode.children ~= new PrintlnNode(tokens[pos].value);
-                    pos++;
+                    funcNode.children ~= parsePrintln();
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
@@ -894,16 +888,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             pos++;
                             break;
                         case TokenType.PRINTLN:
-                            pos++;
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-
-                            enforce(
-                                pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                "Expected string after println"
-                            );
-                            ifNode.children ~= new PrintlnNode(tokens[pos].value);
-                            pos++;
+                            ifNode.children ~= parsePrintln();
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
@@ -1075,16 +1060,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             break;
 
                         case TokenType.PRINTLN:
-                            pos++;
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-
-                            enforce(
-                                pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                "Expected string after println"
-                            );
-                            loopNode.children ~= new PrintlnNode(tokens[pos].value);
-                            pos++;
+                            loopNode.children ~= parsePrintln();
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
@@ -1186,17 +1162,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     pos++;
                                     break;
                                 case TokenType.PRINTLN:
-                                    pos++;
-                                    while (pos < tokens.length && tokens[pos].type == TokenType
-                                        .WHITESPACE)
-                                        pos++;
-
-                                    enforce(
-                                        pos < tokens.length && tokens[pos].type == TokenType.STR,
-                                        "Expected string after println"
-                                    );
-                                    ifNode.children ~= new PrintlnNode(tokens[pos].value);
-                                    pos++;
+                                    ifNode.children ~= parsePrintln();
 
                                     while (pos < tokens.length && tokens[pos].type == TokenType
                                         .WHITESPACE)
@@ -1284,7 +1250,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     pos++;
 
                                 string expr = "";
-                                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                                while (pos < tokens.length && tokens[pos].type != TokenType
+                                    .SEMICOLON)
                                 {
                                     expr ~= tokens[pos].value;
                                     pos++;

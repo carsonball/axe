@@ -158,7 +158,15 @@ string generateC(ASTNode ast)
 
     case "Println":
         auto printlnNode = cast(PrintlnNode) ast;
-        cCode ~= "printf(\"" ~ printlnNode.message ~ "\\n\");\n";
+        if (printlnNode.isExpression)
+        {
+            string processedExpr = processExpression(printlnNode.message);
+            cCode ~= "printf(\"%d\\n\", " ~ processedExpr ~ ");\n";
+        }
+        else
+        {
+            cCode ~= "printf(\"" ~ printlnNode.message ~ "\\n\");\n";
+        }
         break;
 
     case "If":

@@ -121,11 +121,13 @@ class ProgramNode : ASTNode
 class PrintlnNode : ASTNode
 {
     string message;
+    bool isExpression; // true if message is an expression, false if it's a string literal
 
-    this(string message)
+    this(string message, bool isExpression = false)
     {
         super("Println");
         this.message = message;
+        this.isExpression = isExpression;
     }
 }
 
