@@ -154,6 +154,40 @@ Token[] lex(string source)
             pos++;
             break;
 
+        case 'v':
+            if (pos + 2 < source.length && source[pos .. pos + 3] == "val")
+            {
+                tokens ~= Token(TokenType.VAL, "val");
+                pos += 3;
+            }
+            else
+            {
+                size_t start = pos;
+                while (pos < source.length && (source[pos].isAlphaNum || source[pos] == '_'))
+                {
+                    pos++;
+                }
+                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
+            }
+            break;
+
+        case 'm':
+            if (pos + 2 < source.length && source[pos .. pos + 3] == "mut")
+            {
+                tokens ~= Token(TokenType.MUT, "mut");
+                pos += 3;
+            }
+            else
+            {
+                size_t start = pos;
+                while (pos < source.length && (source[pos].isAlphaNum || source[pos] == '_'))
+                {
+                    pos++;
+                }
+                tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
+            }
+            break;
+
         default:
             if (pos + 4 <= source.length && source[pos .. pos + 4] == "main")
             {
@@ -243,6 +277,6 @@ unittest
         assert(ast.children.length == 1);
         assert(ast.children[0].nodeType == "Main");
         assert(ast.children[0].children[0].nodeType == "Println");
-        assert(ast.children[0].children[0].value == "test");
+        assert((cast(PrintlnNode)ast.children[0].children[0]).message == "test");
     }
 }

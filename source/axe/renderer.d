@@ -60,9 +60,10 @@ string generateC(ASTNode ast)
         {
             if (child.nodeType == "Function")
             {
-                auto funcDecl = child.value.split("(");
-                string funcName = funcDecl[0];
-                string args = funcDecl.length > 1 ? funcDecl[1].strip(")") : "";
+                auto funcNode = cast(FunctionNode)child;
+                string funcName = funcNode.name;
+                string args = funcNode.params.join(", ");
+
                 cCode ~= "void " ~ funcName ~ "(" ~
                     (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~
                     ");\n";
@@ -91,18 +92,17 @@ string generateC(ASTNode ast)
         break;
 
     case "Function":
-        auto funcDecl = ast.value.split("(");
-        string funcName = funcDecl[0];
-        string args = funcDecl.length > 1 ? funcDecl[1].strip(")") : "";
+        auto funcNode = cast(FunctionNode)ast;
+        string funcName = funcNode.name;
+        string[] params = funcNode.params;
 
         string prevFunction = currentFunction;
         currentFunction = funcName;
 
-        functionParams = args.length > 0 ? args.split(",").map!(s => s.strip).array : [
-        ];
+        functionParams = params;
 
         cCode ~= "void " ~ funcName ~ "(" ~
-            (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~
+            (params.length > 0 ? "int " ~ params.join(", int ") : "void") ~
             ") {\n";
 
         foreach (child; ast.children)
@@ -115,14 +115,14 @@ string generateC(ASTNode ast)
         break;
 
     case "FunctionCall":
-        auto parts = ast.value.split("(");
-        string funcName = parts[0];
-        string args = parts.length > 1 ? parts[1].strip(")") : "";
+        auto callNode = cast(FunctionCallNode)ast;
+        string callName = callNode.functionName;
+        string callArgs = callNode.functionName ~ "(" ~ callNode.args.join(", ") ~ ")";
 
         string[] processedArgs;
-        if (args.length > 0)
+        if (callArgs.length > 0)
         {
-            auto argList = args.split(",");
+            auto argList = callArgs.split(",");
             foreach (arg; argList)
             {
                 string expr = arg.strip();
@@ -159,11 +159,11 @@ string generateC(ASTNode ast)
         }
 
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
-        cCode ~= indent ~ funcName ~ "(" ~ processedArgs.join(", ") ~ ");\n";
+        cCode ~= indent ~ callName ~ "(" ~ processedArgs.join(", ") ~ ");\n";
         break;
 
     case "Assignment":
-        auto parts = ast.value.split("=");
+        auto parts = (cast(AssignmentNode)ast).expression.split("=");
         string dest = parts[0].strip();
         string expr = parts[1].strip();
 
@@ -186,11 +186,28 @@ string generateC(ASTNode ast)
         }
         break;
 
-    case "If":
-        string condition = ast.value;
-        string processedCond = processCondition(condition);
+    case "Declaration":
+        auto declNode = cast(DeclarationNode)ast;
+        string type = declNode.isMutable ? "int" : "const int";
+        string decl = type ~ " " ~ declNode.name;
+        
+        if (declNode.initializer.length > 0) {
+            string initializer = processExpression(declNode.initializer);
+            decl ~= " = " ~ initializer;
+        }
+        
+        cCode ~= decl ~ ";\n";
+        variables[declNode.name] = type;
+        break;
 
-        cCode ~= "if (" ~ processedCond ~ ") {\n";
+    case "Println":
+        auto printlnNode = cast(PrintlnNode)ast;
+        cCode ~= "printf(\"" ~ printlnNode.message ~ "\\n\");\n";
+        break;
+
+    case "If":
+        auto ifNode = cast(IfNode)ast;
+        cCode ~= "if (" ~ processCondition(ifNode.condition) ~ ") {\n";
         loopLevel++;
 
         foreach (child; ast.children)
@@ -215,15 +232,6 @@ string generateC(ASTNode ast)
         loopLevel--;
         break;
 
-    case "Println":
-        string value = ast.value;
-
-        if (value.length >= 2 && value[0] == '"' && value[$ - 1] == '"')
-            value = value[1 .. $ - 1];
-
-        cCode ~= "printf(\"" ~ value ~ "\\n\");\n";
-        break;
-
     case "Break":
         cCode ~= "break;\n";
         break;
@@ -238,7 +246,7 @@ string generateC(ASTNode ast)
 /**
  * Helper function to process arithmetic expressions
  */
-private string processExpression(string expr)
+string processExpression(string expr)
 {
     expr = expr.strip();
 
@@ -396,7 +404,7 @@ string generateAsm(ASTNode ast)
                 asmCode ~= `
                     section .data
                         msg_`
-                    ~ msgCounter.to!string ~ ` db '` ~ child.value ~ `', 0
+                    ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode)child).message ~ `', 0
                     section .text
                         mov rcx, msg_`
                     ~ msgCounter.to!string ~ `
@@ -408,9 +416,9 @@ string generateAsm(ASTNode ast)
                 break;
 
             case "FunctionCall":
-                auto callDecl = child.value.split("(");
-                string callName = callDecl[0];
-                string callArgs = callDecl.length > 1 ? callDecl[1].strip(")") : "";
+                auto callNode = cast(FunctionCallNode)child;
+                string callName = callNode.functionName;
+                string callArgs = callNode.functionName ~ "(" ~ callNode.args.join(", ") ~ ")";
 
                 if (callArgs.length > 0)
                 {
@@ -453,7 +461,7 @@ string generateAsm(ASTNode ast)
                         asmCode ~= `
                             section .data
                                 msg_`
-                            ~ msgCounter.to!string ~ ` db '` ~ loopChild.value ~ `', 0
+                            ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode)loopChild).message ~ `', 0
                             section .text
                                 mov rcx, msg_`
                             ~ msgCounter.to!string ~ `
@@ -467,7 +475,7 @@ string generateAsm(ASTNode ast)
                         asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_end\n";
                         break;
                     case "Assignment":
-                        auto parts = loopChild.value.split(" = ");
+                        auto parts = (cast(AssignmentNode)loopChild).expression.split("=");
                         string dest = parts[0].strip();
                         string src = parts[1].strip();
 
@@ -499,7 +507,7 @@ string generateAsm(ASTNode ast)
                 asmCode ~= "    jmp loop_0_end\n";
                 break;
             case "Assignment":
-                auto parts = child.value.split(" = ");
+                auto parts = (cast(AssignmentNode)child).expression.split("=");
                 string dest = parts[0].strip();
                 string src = parts[1].strip();
 
@@ -530,9 +538,9 @@ string generateAsm(ASTNode ast)
         break;
 
     case "Function":
-        auto funcDecl = ast.value.split("(");
-        string funcName = funcDecl[0].strip();
-        string args = funcDecl.length > 1 ? funcDecl[1].strip(")").strip() : "";
+        auto funcNode = cast(FunctionNode)ast;
+        string funcName = funcNode.name;
+        string args = funcNode.params.join(", ");
 
         asmCode ~= "section .text\n"
             ~ "global " ~ funcName ~ "\n"
@@ -564,7 +572,7 @@ string generateAsm(ASTNode ast)
                 asmCode ~= `
                     section .data
                         msg_`
-                    ~ msgCounter.to!string ~ ` db '` ~ child.value ~ `', 0
+                    ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode)child).message ~ `', 0
                     section .text
                         mov rcx, msg_`
                     ~ msgCounter.to!string ~ `
@@ -576,9 +584,9 @@ string generateAsm(ASTNode ast)
                 break;
 
             case "FunctionCall":
-                auto callDecl = child.value.split("(");
-                string callName = callDecl[0];
-                string callArgs = callDecl.length > 1 ? callDecl[1].strip(")") : "";
+                auto callNode = cast(FunctionCallNode)child;
+                string callName = callNode.functionName;
+                string callArgs = callNode.functionName ~ "(" ~ callNode.args.join(", ") ~ ")";
 
                 if (callArgs.length > 0)
                 {
@@ -591,11 +599,11 @@ string generateAsm(ASTNode ast)
 
                         if (i < 4)
                         {
-                            asmCode ~= "    mov " ~ reg ~ ", " ~ operand(param, paramMap) ~ "\n";
+                            asmCode ~= "    mov " ~ reg ~ ", " ~ operand(param) ~ "\n";
                         }
                         else
                         {
-                            asmCode ~= "    mov rcx, " ~ operand(param, paramMap) ~ "\n";
+                            asmCode ~= "    mov rcx, " ~ operand(param) ~ "\n";
                             asmCode ~= "    push rcx\n";
                         }
                     }
@@ -604,7 +612,7 @@ string generateAsm(ASTNode ast)
                 asmCode ~= "    call " ~ callName ~ "\n";
                 break;
             case "Assignment":
-                auto parts = child.value.split(" = ");
+                auto parts = (cast(AssignmentNode)child).expression.split("=");
                 string dest = parts[0].strip();
                 string src = parts[1].strip();
 
@@ -614,20 +622,20 @@ string generateAsm(ASTNode ast)
                 if (src.canFind(" - "))
                 {
                     auto exprParts = src.split(" - ");
-                    asmCode ~= "    mov eax, " ~ operand(exprParts[0], paramMap) ~ "\n"
+                    asmCode ~= "    mov eax, " ~ operand(exprParts[0]) ~ "\n"
                         ~ "    sub eax, " ~ operand(
-                            exprParts[1], paramMap) ~ "\n"
+                            exprParts[1]) ~ "\n"
                         ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 else
                 {
-                    asmCode ~= "    mov eax, " ~ operand(src, paramMap) ~ "\n"
+                    asmCode ~= "    mov eax, " ~ operand(src) ~ "\n"
                         ~ "    mov [" ~ dest ~ "], eax\n";
                 }
                 break;
 
             case "If":
-                auto condition = child.value;
+                auto condition = (cast(IfNode)child).condition;
                 string endIfLabel = "endif_" ~ to!string(child.children.length);
 
                 if (condition.canFind("=="))
@@ -680,7 +688,7 @@ string generateAsm(ASTNode ast)
                         asmCode ~= `
                             section .data
                                 msg_`
-                            ~ msgCounter.to!string ~ ` db '` ~ loopChild.value ~ `', 0
+                            ~ msgCounter.to!string ~ ` db '` ~ (cast(PrintlnNode)loopChild).message ~ `', 0
                             section .text
                                 mov rcx, msg_`
                             ~ msgCounter.to!string ~ `
@@ -691,7 +699,7 @@ string generateAsm(ASTNode ast)
                         msgCounter++;
                         break;
                     case "If":
-                        auto condition = loopChild.value;
+                        auto condition = (cast(IfNode)loopChild).condition;
                         string endIfLabel = "loop_if_end_" ~ to!string(msgCounter);
                         msgCounter++;
 
@@ -701,7 +709,7 @@ string generateAsm(ASTNode ast)
                             string left = parts[0].strip();
                             string right = parts[1].strip();
 
-                            asmCode ~= "    mov eax, " ~ operand(left, paramMap) ~ "\n";
+                            asmCode ~= "    mov eax, " ~ operand(left) ~ "\n";
                             asmCode ~= "    mov ebx, " ~ (right[0].isDigit() ? right : operand(right, paramMap)) ~ "\n";
                             asmCode ~= "    cmp eax, ebx\n";
                             asmCode ~= "    jne " ~ endIfLabel ~ "\n";
@@ -741,9 +749,9 @@ string generateAsm(ASTNode ast)
         break;
 
     case "FunctionCall":
-        auto funcDecl = ast.value.split("(");
-        string funcName = funcDecl[0];
-        string args = funcDecl.length > 1 ? funcDecl[1].strip(")") : "";
+        auto callNode = cast(FunctionCallNode)ast;
+        string callName = callNode.functionName;
+        string args = callNode.functionName ~ "(" ~ callNode.args.join(", ") ~ ")";
 
         if (args.length > 0)
         {
@@ -765,7 +773,7 @@ string generateAsm(ASTNode ast)
             }
         }
 
-        asmCode ~= "    call " ~ funcName ~ "\n";
+        asmCode ~= "    call " ~ callName ~ "\n";
         break;
 
     case "Loop":
@@ -779,7 +787,7 @@ string generateAsm(ASTNode ast)
                 asmCode ~= `
                     section .data
                         msg_`
-                    ~ loopId.to!string ~ ` db '` ~ child.value ~ `', 0
+                    ~ loopId.to!string ~ ` db '` ~ (cast(PrintlnNode)child).message ~ `', 0
                     section .text
                         mov rcx, msg_`
                     ~ loopId.to!string ~ `
@@ -792,7 +800,7 @@ string generateAsm(ASTNode ast)
                 asmCode ~= "    jmp loop_" ~ loopId.to!string ~ "_end\n";
                 break;
             case "Assignment":
-                auto parts = child.value.split(" = ");
+                auto parts = (cast(AssignmentNode)child).expression.split("=");
                 string dest = parts[0].strip();
                 string src = parts[1].strip();
 
@@ -824,7 +832,7 @@ string generateAsm(ASTNode ast)
         break;
 
     case "Assignment":
-        auto parts = ast.value.split(" = ");
+        auto parts = (cast(AssignmentNode)ast).expression.split("=");
         string dest = parts[0].strip();
         string src = parts[1].strip();
 

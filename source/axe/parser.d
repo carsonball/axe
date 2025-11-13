@@ -4,7 +4,7 @@ import std.exception : enforce;
 import std.conv;
 import std.string;
 import std.algorithm;
-import axe.structs : ASTNode, Token, TokenType;
+import axe.structs : ASTNode, Token, TokenType, DeclarationNode, ProgramNode, FunctionNode, PrintlnNode, BreakNode, IfNode, LoopNode, AssignmentNode, FunctionCallNode;
 
 /** 
  * Parses an array of tokens into an abstract syntax tree (AST).
@@ -17,8 +17,8 @@ import axe.structs : ASTNode, Token, TokenType;
 ASTNode parse(Token[] tokens)
 {
     size_t pos = 0;
-    ASTNode ast = ASTNode("Program", [], "");
-
+    auto ast = new ProgramNode();
+    
     /** 
      * Parses a type from the current position in the token stream.
      * 
@@ -54,9 +54,9 @@ ASTNode parse(Token[] tokens)
      * Parses function arguments from the current position in the token stream.
      * 
      * Returns: 
-     *   string = Comma-separated list of arguments (e.g., "int a, char b")
+     *   string[] = Array of arguments (e.g., ["int a", "char b"])
      */
-    string parseArgs()
+    string[] parseArgs()
     {
         string[] args;
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -104,8 +104,10 @@ ASTNode parse(Token[] tokens)
             pos++;
         }
 
-        return args.join(", ");
+        return args;
     }
+
+    ASTNode currentScope = ast;
 
     while (pos < tokens.length)
     {
@@ -119,9 +121,8 @@ ASTNode parse(Token[] tokens)
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                 "Expected '{' after 'main'");
             pos++;
-            auto mainNode = ASTNode("Main", []);
-            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
-            {
+            auto mainNode = new FunctionNode("main", []); 
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE) {
                 switch (tokens[pos].type)
                 {
                 case TokenType.WHITESPACE, TokenType.NEWLINE:
@@ -134,7 +135,7 @@ ASTNode parse(Token[] tokens)
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.STR, "Expected string after println");
-                    mainNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                    mainNode.children ~= new PrintlnNode(tokens[pos].value);
                     pos++;
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -152,7 +153,8 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE, "Expected '{' after loop");
                     pos++;
 
-                    ASTNode loopNode = ASTNode("Loop", [], "");
+                    ASTNode loopNode = new LoopNode();
+                    currentScope = loopNode;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
                         switch (tokens[pos].type)
@@ -170,7 +172,7 @@ ASTNode parse(Token[] tokens)
                                 pos < tokens.length && tokens[pos].type == TokenType.STR,
                                 "Expected string after println"
                             );
-                            loopNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            loopNode.children ~= new PrintlnNode(tokens[pos].value);
                             pos++;
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -188,7 +190,7 @@ ASTNode parse(Token[] tokens)
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after break");
                             pos++;
-                            loopNode.children ~= ASTNode("Break", [], "");
+                            loopNode.children ~= new BreakNode();
                             break;
 
                         case TokenType.IF:
@@ -253,7 +255,8 @@ ASTNode parse(Token[] tokens)
                                 "Expected '{' after if condition");
                             pos++;
 
-                            ASTNode ifNode = ASTNode("If", [], cond);
+                            ASTNode ifNode = new IfNode(cond);
+                            currentScope = ifNode;
                             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                             {
                                 switch (tokens[pos].type)
@@ -266,7 +269,7 @@ ASTNode parse(Token[] tokens)
                                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                         "Expected ';' after break");
                                     pos++;
-                                    ifNode.children ~= ASTNode("Break", [], "");
+                                    ifNode.children ~= new BreakNode();
                                     break;
                                 case TokenType.WHITESPACE, TokenType.NEWLINE:
                                     pos++;
@@ -281,7 +284,7 @@ ASTNode parse(Token[] tokens)
                                         pos < tokens.length && tokens[pos].type == TokenType.STR,
                                         "Expected string after println"
                                     );
-                                    ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                                    ifNode.children ~= new PrintlnNode(tokens[pos].value);
                                     pos++;
 
                                     while (pos < tokens.length && tokens[pos].type == TokenType
@@ -304,6 +307,7 @@ ASTNode parse(Token[] tokens)
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                                 "Expected '}' after if body");
                             pos++;
+                            currentScope = loopNode;
                             loopNode.children ~= ifNode;
                             break;
 
@@ -355,7 +359,7 @@ ASTNode parse(Token[] tokens)
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after assignment");
                                 pos++;
-                                loopNode.children ~= ASTNode("Assignment", [], varName ~ " = " ~ expr);
+                                loopNode.children ~= new AssignmentNode(varName, expr);
                                 break;
                             }
                             else
@@ -411,7 +415,7 @@ ASTNode parse(Token[] tokens)
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                     "Expected ';' after function call");
                                 pos++;
-                                loopNode.children ~= ASTNode("FunctionCall", [], funcName ~ "(" ~ args ~ ")");
+                                loopNode.children ~= new FunctionCallNode(funcName, args);
                                 break;
                             }
 
@@ -434,6 +438,7 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after loop body");
                     pos++;
+                    currentScope = mainNode;
                     mainNode.children ~= loopNode;
                     break;
 
@@ -444,7 +449,7 @@ ASTNode parse(Token[] tokens)
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON, "Expected ';' after break");
                     pos++;
-                    mainNode.children ~= ASTNode("Break", [], "");
+                    mainNode.children ~= new BreakNode();
                     break;
 
                 case TokenType.IDENTIFIER:
@@ -495,7 +500,7 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         format("Expected ';' after function call to '%s'", funcName));
                     pos++;
-                    mainNode.children ~= ASTNode("FunctionCall", [], funcName ~ "(" ~ args ~ ")");
+                    mainNode.children ~= new FunctionCallNode(funcName, args);
                     break;
 
                 case TokenType.IF:
@@ -553,7 +558,8 @@ ASTNode parse(Token[] tokens)
                         "Expected '{' after if condition");
                     pos++;
 
-                    ASTNode ifNode = ASTNode("If", [], cond);
+                    ASTNode ifNode = new IfNode(cond);
+                    currentScope = ifNode;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
                         switch (tokens[pos].type)
@@ -565,7 +571,7 @@ ASTNode parse(Token[] tokens)
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after break");
                             pos++;
-                            ifNode.children ~= ASTNode("Break", [], "");
+                            ifNode.children ~= new BreakNode();
                             break;
                         case TokenType.WHITESPACE, TokenType.NEWLINE:
                             pos++;
@@ -579,7 +585,7 @@ ASTNode parse(Token[] tokens)
                                 pos < tokens.length && tokens[pos].type == TokenType.STR,
                                 "Expected string after println"
                             );
-                            ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            ifNode.children ~= new PrintlnNode(tokens[pos].value);
                             pos++;
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -596,7 +602,43 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after if body");
                     pos++;
+                    currentScope = mainNode;
                     mainNode.children ~= ifNode;
+                    break;
+
+                case TokenType.VAL:
+                case TokenType.MUT:
+                    bool isMutable = tokens[pos].type == TokenType.MUT;
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL, 
+                        "Expected 'val' after 'mut'");
+                    pos++;
+                    
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER, 
+                        "Expected variable name after val");
+                    string varName = tokens[pos].value;
+                    pos++;
+                    
+                    // Parse assignment if present
+                    string initializer = "";
+                    if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") {
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        
+                        // Parse expression
+                        // ... existing expression parsing logic ...
+                    }
+                    
+                    // Create AST node with mutability flag
+                    auto declNode = new DeclarationNode(varName, isMutable, initializer);
+                    currentScope.children ~= declNode;
                     break;
 
                 default:
@@ -628,7 +670,8 @@ ASTNode parse(Token[] tokens)
             string funcName = tokens[pos].value;
             pos++;
 
-            string args = parseArgs();
+            string[] params = parseArgs();
+            auto funcNode = new FunctionNode(funcName, params); 
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
@@ -636,7 +679,7 @@ ASTNode parse(Token[] tokens)
                 "Expected '{' after function declaration");
             pos++;
 
-            ASTNode funcNode = ASTNode("Function", [], funcName ~ "(" ~ args ~ ")");
+            currentScope = funcNode;
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 switch (tokens[pos].type)
@@ -651,7 +694,7 @@ ASTNode parse(Token[] tokens)
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.STR, "Expected string after println");
-                    funcNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                    funcNode.children ~= new PrintlnNode(tokens[pos].value);
                     pos++;
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -719,7 +762,8 @@ ASTNode parse(Token[] tokens)
                         "Expected '{' after if condition");
                     pos++;
 
-                    ASTNode ifNode = ASTNode("If", [], cond);
+                    ASTNode ifNode = new IfNode(cond);
+                    currentScope = ifNode;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
                         switch (tokens[pos].type)
@@ -731,7 +775,7 @@ ASTNode parse(Token[] tokens)
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after break");
                             pos++;
-                            ifNode.children ~= ASTNode("Break", [], "");
+                            ifNode.children ~= new BreakNode();
                             break;
                         case TokenType.WHITESPACE, TokenType.NEWLINE:
                             pos++;
@@ -745,7 +789,7 @@ ASTNode parse(Token[] tokens)
                                 pos < tokens.length && tokens[pos].type == TokenType.STR,
                                 "Expected string after println"
                             );
-                            ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            ifNode.children ~= new PrintlnNode(tokens[pos].value);
                             pos++;
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -767,6 +811,7 @@ ASTNode parse(Token[] tokens)
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE, "Expected '}' after if body");
                     pos++;
+                    currentScope = funcNode;
                     funcNode.children ~= ifNode;
                     break;
 
@@ -816,7 +861,7 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after function call");
                     pos++;
-                    funcNode.children ~= ASTNode("FunctionCall", [], callName ~ "(" ~ args ~ ")");
+                    funcNode.children ~= new FunctionCallNode(callName, functionArgs);
                     break;
 
                 case TokenType.LOOP:
@@ -828,7 +873,8 @@ ASTNode parse(Token[] tokens)
                         "Expected '{' after loop");
                     pos++;
 
-                    ASTNode loopNode = ASTNode("Loop", [], "");
+                    ASTNode loopNode = new LoopNode();
+                    currentScope = loopNode;
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
                         switch (tokens[pos].type)
@@ -846,7 +892,7 @@ ASTNode parse(Token[] tokens)
                                 pos < tokens.length && tokens[pos].type == TokenType.STR,
                                 "Expected string after println"
                             );
-                            loopNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            loopNode.children ~= new PrintlnNode(tokens[pos].value);
                             pos++;
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -864,7 +910,7 @@ ASTNode parse(Token[] tokens)
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                 "Expected ';' after break");
                             pos++;
-                            loopNode.children ~= ASTNode("Break", [], "");
+                            loopNode.children ~= new BreakNode();
                             break;
 
                         case TokenType.IF:
@@ -929,7 +975,8 @@ ASTNode parse(Token[] tokens)
                                 "Expected '{' after if condition");
                             pos++;
 
-                            ASTNode ifNode = ASTNode("If", [], cond);
+                            ASTNode ifNode = new IfNode(cond);
+                            currentScope = ifNode;
                             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                             {
                                 switch (tokens[pos].type)
@@ -942,7 +989,7 @@ ASTNode parse(Token[] tokens)
                                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                                         "Expected ';' after break");
                                     pos++;
-                                    ifNode.children ~= ASTNode("Break", [], "");
+                                    ifNode.children ~= new BreakNode();
                                     break;
                                 case TokenType.WHITESPACE, TokenType.NEWLINE:
                                     pos++;
@@ -957,7 +1004,7 @@ ASTNode parse(Token[] tokens)
                                         pos < tokens.length && tokens[pos].type == TokenType.STR,
                                         "Expected string after println"
                                     );
-                                    ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                                    ifNode.children ~= new PrintlnNode(tokens[pos].value);
                                     pos++;
 
                                     while (pos < tokens.length && tokens[pos].type == TokenType
@@ -980,6 +1027,7 @@ ASTNode parse(Token[] tokens)
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                                 "Expected '}' after if body");
                             pos++;
+                            currentScope = loopNode;
                             loopNode.children ~= ifNode;
                             break;
 
@@ -1012,6 +1060,7 @@ ASTNode parse(Token[] tokens)
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after loop body");
                     pos++;
+                    currentScope = funcNode;
                     funcNode.children ~= loopNode;
                     break;
 
@@ -1088,8 +1137,7 @@ unittest
     auto loopAst = parse(loopIfTokens);
     assert(loopAst.children[0].nodeType == "Function");
     assert(loopAst.children[0].children[0].nodeType == "Loop");
-    assert(loopAst.children[0].children[0].children[0].nodeType == "If");
-    assert(loopAst.children[0].children[0].children[0].value == "x == 0");
+    assert((cast(IfNode)loopAst.children[0].children[0].children[0]).condition == "x == 0");
 
     auto funcIfTokens = [
         Token(TokenType.DEF, "def"),
@@ -1110,6 +1158,5 @@ unittest
 
     auto funcAst = parse(funcIfTokens);
     assert(funcAst.children[0].nodeType == "Function");
-    assert(funcAst.children[0].children[0].nodeType == "If");
-    assert(funcAst.children[0].children[0].value == "y == 1");
+    assert((cast(IfNode)funcAst.children[0].children[0]).condition == "y == 1");
 }

@@ -1,5 +1,7 @@
 module axe.structs;
 
+import std.array;
+
 /** 
  * Token types for the Axe language.
  */
@@ -25,7 +27,9 @@ enum TokenType
     DOT,
     COLON,
     OPERATOR,
-    IF
+    IF,
+    VAL,
+    MUT
 }
 
 /** 
@@ -40,9 +44,114 @@ struct Token
 /** 
  * Abstract syntax tree node for the Axe language.
  */
-struct ASTNode
+abstract class ASTNode
 {
     string nodeType;
     ASTNode[] children;
-    string value;
+    
+    this(string type)
+    {
+        this.nodeType = type;
+        this.children = [];
+    }
+}
+
+class DeclarationNode : ASTNode
+{
+    string name;
+    bool isMutable;
+    string initializer;
+    
+    this(string name, bool isMutable, string initializer = "")
+    {
+        super("Declaration");
+        this.name = name;
+        this.isMutable = isMutable;
+        this.initializer = initializer;
+    }
+}
+
+class FunctionNode : ASTNode
+{
+    string name;
+    string[] params;
+    
+    this(string name, string[] params)
+    {
+        super("Function");
+        this.name = name;
+        this.params = params;
+    }
+}
+
+class IfNode : ASTNode
+{
+    string condition;
+    
+    this(string condition)
+    {
+        super("If");
+        this.condition = condition;
+    }
+}
+
+class ProgramNode : ASTNode
+{
+    this()
+    {
+        super("Program");
+    }
+}
+
+class PrintlnNode : ASTNode
+{
+    string message;
+    
+    this(string message)
+    {
+        super("Println");
+        this.message = message;
+    }
+}
+
+class BreakNode : ASTNode
+{
+    this()
+    {
+        super("Break");
+    }
+}
+
+class AssignmentNode : ASTNode
+{
+    string variable;
+    string expression;
+    
+    this(string variable, string expression)
+    {
+        super("Assignment");
+        this.variable = variable;
+        this.expression = expression;
+    }
+}
+
+class FunctionCallNode : ASTNode
+{
+    string functionName;
+    string[] args;
+    
+    this(string functionName, string argsStr)
+    {
+        super("FunctionCall");
+        this.functionName = functionName;
+        this.args = argsStr.split(", ");
+    }
+}
+
+class LoopNode : ASTNode
+{
+    this()
+    {
+        super("Loop");
+    }
 }
