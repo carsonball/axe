@@ -832,7 +832,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     pos++;
                                 
                                 // Check if this is array element assignment
-                                if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                                if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value 
+                                == "=")
                                 {
                                     pos++; // Skip '='
                                     
@@ -1383,7 +1384,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                     arraySize = to!string(arrayElements.length);
                                 
                                 currentScope.addVariable(varName, isMutable);
-                                mainNode.children ~= new ArrayDeclarationNode(varName, isMutable, typeName, arraySize, arrayElements);
+                                mainNode.children ~= new ArrayDeclarationNode(varName, isMutable, typeName, arraySize,
+                                 arrayElements);
                             }
                             else
                             {

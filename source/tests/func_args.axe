@@ -8,5 +8,9 @@ def greet(name: char*, t: int) {
 }
 
 main {
+    mut val nums: int[] = [123, 142, 123123];
+    for n in nums {
+        println n;
+    }
     greet("world", 1);
 }
