@@ -216,8 +216,10 @@ ASTNode parse(Token[] tokens)
                                     pos++;
 
                                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
-                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
-                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
+                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<"
+                                        ||
+                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value ==
+                                        "!="))
                                 {
                                     pos++;
                                     while (pos < tokens.length && tokens[pos].type == TokenType
@@ -597,7 +599,8 @@ ASTNode parse(Token[] tokens)
                 default:
                     import std.stdio;
 
-                    writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+                    writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('",
+                        tokens[pos].value, "')");
                     writeln("Previous tokens:");
                     foreach (i; max(0, cast(int) pos - 5) .. pos)
                     {
@@ -883,8 +886,10 @@ ASTNode parse(Token[] tokens)
                                     pos++;
 
                                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
-                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
-                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
+                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<"
+                                        ||
+                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value ==
+                                        "!="))
                                 {
                                     pos++;
                                     while (pos < tokens.length && tokens[pos].type == TokenType
@@ -1007,7 +1012,8 @@ ASTNode parse(Token[] tokens)
                 default:
                     import std.stdio;
 
-                    writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+                    writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('",
+                        tokens[pos].value, "')");
                     writeln("Previous tokens:");
                     foreach (i; max(0, cast(int) pos - 5) .. pos)
                     {
