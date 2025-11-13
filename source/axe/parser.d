@@ -17,14 +17,16 @@ import axe.structs;
 ASTNode parse(Token[] tokens)
 {
     import std.stdio;
+
     writeln("Starting parse with tokens:");
-    foreach(i, token; tokens) {
+    foreach (i, token; tokens)
+    {
         writeln(i, ": ", token.type, " ('", token.value, "')");
     }
-    
+
     size_t pos = 0;
     auto ast = new ProgramNode();
-    
+
     /** 
      * Parses a type from the current position in the token stream.
      * 
@@ -77,37 +79,26 @@ ASTNode parse(Token[] tokens)
                 {
                     pos++;
                 }
-                else if (tokens[pos].type == TokenType.IDENTIFIER)
-                {
-                    string argName = tokens[pos].value;
-                    pos++;
-                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                        pos++;
-
-                    if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
-                    {
-                        pos++;
-                        string argType = parseType();
-                        args ~= argType ~ " " ~ argName;
-                    }
-                    else if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
-                    {
-                        args ~= "int " ~ argName;
-                    }
-                }
                 else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType
                     .IDENTIFIER)
                 {
                     args ~= tokens[pos].value;
                     pos++;
+                    if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                    {
+                        args ~= ", ";
+                        pos++;
+                    }
                 }
                 else
                 {
-                    enforce(false, "Unexpected token in argument list: " ~ tokens[pos].value);
+                    enforce(false, "Unexpected token in function call arguments");
                 }
             }
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN, "Expected ')' after arguments");
-            pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after function arguments");
+            pos++; // Skip ')'
         }
 
         return args;
@@ -118,7 +109,7 @@ ASTNode parse(Token[] tokens)
     while (pos < tokens.length)
     {
         writeln("Current token at pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
-        
+
         switch (tokens[pos].type)
         {
         case TokenType.MAIN:
@@ -126,17 +117,18 @@ ASTNode parse(Token[] tokens)
             pos++;
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE, 
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                 "Expected '{' after 'main'");
             pos++;
-            
+
             auto mainNode = new FunctionNode("main", []);
             writeln("Main block pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
             size_t startPos = pos;
-            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE) {
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
                 writeln("Main block pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
-                
+
                 switch (tokens[pos].type)
                 {
                 case TokenType.PRINTLN:
@@ -145,95 +137,155 @@ ASTNode parse(Token[] tokens)
                         "Expected string after println");
                     mainNode.children ~= new PrintlnNode(tokens[pos].value);
                     pos++; // Skip string
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after println");
                     pos++; // Skip ';'
                     break;
-                    
+
                 case TokenType.IDENTIFIER:
                     string funcName = tokens[pos].value;
                     pos++; // Skip function name
-                    
+
                     string args = "";
-                    if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN) {
+                    if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                    {
                         pos++; // Skip '('
-                        
-                        while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN) {
-                            if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.COMMA) {
+
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                        {
+                            if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                                .COMMA)
+                            {
                                 pos++;
                             }
-                            else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType.IDENTIFIER) {
+                            else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType
+                                .IDENTIFIER)
+                            {
                                 args ~= tokens[pos].value;
                                 pos++;
-                                if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                                if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                                {
                                     args ~= ", ";
                                     pos++;
                                 }
                             }
-                            else {
+                            else
+                            {
                                 enforce(false, "Unexpected token in function call arguments");
                             }
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                             "Expected ')' after function arguments");
                         pos++; // Skip ')'
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                         "Expected ';' after function call");
                     pos++; // Skip ';'
-                    
+
                     mainNode.children ~= new FunctionCallNode(funcName, args);
                     break;
-                    
+
                 case TokenType.LOOP:
                     pos++; // Skip 'loop'
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                         "Expected '{' after 'loop'");
                     pos++; // Skip '{'
-                    
+
                     auto loopNode = new LoopNode();
-                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE) {
-                        switch (tokens[pos].type) {
-                            case TokenType.BREAK:
-                                pos++; // Skip 'break'
-                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                    "Expected ';' after 'break'");
-                                pos++; // Skip ';'
-                                loopNode.children ~= new BreakNode();
-                                break;
-                                
-                            default:
-                                enforce(false, "Unexpected token in loop body");
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        switch (tokens[pos].type)
+                        {
+                        case TokenType.BREAK:
+                            pos++; // Skip 'break'
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after 'break'");
+                            pos++; // Skip ';'
+                            loopNode.children ~= new BreakNode();
+                            break;
+
+                        default:
+                            enforce(false, "Unexpected token in loop body");
                         }
                     }
-                    
+
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after loop body");
                     pos++; // Skip '}'
-                    
+
                     mainNode.children ~= loopNode;
                     break;
-                    
+
+                case TokenType.IF:
+                    pos++; // Skip 'if'
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                        "Expected '(' after 'if'");
+                    pos++; // Skip '('
+
+                    string condition;
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                    {
+                        condition ~= tokens[pos].value;
+                        pos++;
+                    }
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                        "Expected ')' after if condition");
+                    pos++; // Skip ')'
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after if condition");
+                    pos++; // Skip '{'
+
+                    auto ifNode = new IfNode(condition);
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        switch (tokens[pos].type)
+                        {
+                        case TokenType.PRINTLN:
+                            pos++; // Skip 'println'
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                "Expected string after println");
+                            ifNode.children ~= new PrintlnNode(tokens[pos].value);
+                            pos++; // Skip string
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
+                            pos++; // Skip ';'
+                            break;
+
+                        default:
+                            enforce(false, "Unexpected token in if body");
+                        }
+                    }
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after if body");
+                    pos++; // Skip '}'
+
+                    mainNode.children ~= ifNode;
+                    break;
+
                 default:
                     enforce(false, "Unexpected statement in main block: " ~ tokens[pos].value);
                 }
-                
+
                 assert(pos > startPos, "Parser must advance position");
                 startPos = pos;
             }
 
             writeln("Exited main block at pos ", pos);
-            writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('", 
+            writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                 pos < tokens.length ? tokens[pos].value : "", "')");
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                 "Expected '}' after main body");
-            pos++;  // Skip '}'
+            pos++; // Skip '}'
 
             // Skip any trailing whitespace
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -242,24 +294,26 @@ ASTNode parse(Token[] tokens)
             assert(pos > startPos, "Parser must advance position");
             startPos = pos;
             ast.children ~= mainNode;
-            continue;  // Continue to next token
+            continue; // Continue to next token
 
         case TokenType.IDENTIFIER:
-            if (tokens[pos].value == "main") {
-                pos++;  // Skip 'main'
+            if (tokens[pos].value == "main")
+            {
+                pos++; // Skip 'main'
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
-                    
+
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                     "Expected '{' after 'main'");
-                pos++;  // Skip '{'
-                
+                pos++; // Skip '{'
+
                 auto mainNode = new FunctionNode("main", []);
                 writeln("Entering main block at pos ", pos);
                 size_t startPos = pos;
-                while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE) {
+                while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                {
                     writeln("Main block pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
-                    
+
                     switch (tokens[pos].type)
                     {
                     case TokenType.PRINTLN:
@@ -268,95 +322,155 @@ ASTNode parse(Token[] tokens)
                             "Expected string after println");
                         mainNode.children ~= new PrintlnNode(tokens[pos].value);
                         pos++; // Skip string
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                             "Expected ';' after println");
                         pos++; // Skip ';'
                         break;
-                        
+
                     case TokenType.IDENTIFIER:
                         string funcName = tokens[pos].value;
                         pos++; // Skip function name
-                        
+
                         string args = "";
-                        if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN) {
+                        if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                        {
                             pos++; // Skip '('
-                            
-                            while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN) {
-                                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.COMMA) {
+
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                            {
+                                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                                    .COMMA)
+                                {
                                     pos++;
                                 }
-                                else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType.IDENTIFIER) {
+                                else if (tokens[pos].type == TokenType.STR || tokens[pos].type == TokenType
+                                    .IDENTIFIER)
+                                {
                                     args ~= tokens[pos].value;
                                     pos++;
-                                    if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                                    if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                                    {
                                         args ~= ", ";
                                         pos++;
                                     }
                                 }
-                                else {
+                                else
+                                {
                                     enforce(false, "Unexpected token in function call arguments");
                                 }
                             }
-                            
+
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                                 "Expected ')' after function arguments");
                             pos++; // Skip ')'
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                             "Expected ';' after function call");
                         pos++; // Skip ';'
-                        
+
                         mainNode.children ~= new FunctionCallNode(funcName, args);
                         break;
-                        
+
                     case TokenType.LOOP:
                         pos++; // Skip 'loop'
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                             "Expected '{' after 'loop'");
                         pos++; // Skip '{'
-                        
+
                         auto loopNode = new LoopNode();
-                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE) {
-                            switch (tokens[pos].type) {
-                                case TokenType.BREAK:
-                                    pos++; // Skip 'break'
-                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                        "Expected ';' after 'break'");
-                                    pos++; // Skip ';'
-                                    loopNode.children ~= new BreakNode();
-                                    break;
-                                    
-                                default:
-                                    enforce(false, "Unexpected token in loop body");
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                        {
+                            switch (tokens[pos].type)
+                            {
+                            case TokenType.BREAK:
+                                pos++; // Skip 'break'
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after 'break'");
+                                pos++; // Skip ';'
+                                loopNode.children ~= new BreakNode();
+                                break;
+
+                            default:
+                                enforce(false, "Unexpected token in loop body");
                             }
                         }
-                        
+
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                             "Expected '}' after loop body");
                         pos++; // Skip '}'
-                        
+
                         mainNode.children ~= loopNode;
                         break;
-                        
+
+                    case TokenType.IF:
+                        pos++; // Skip 'if'
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                            "Expected '(' after 'if'");
+                        pos++; // Skip '('
+
+                        string condition;
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                        {
+                            condition ~= tokens[pos].value;
+                            pos++;
+                        }
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                            "Expected ')' after if condition");
+                        pos++; // Skip ')'
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                            "Expected '{' after if condition");
+                        pos++; // Skip '{'
+
+                        auto ifNode = new IfNode(condition);
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                        {
+                            switch (tokens[pos].type)
+                            {
+                            case TokenType.PRINTLN:
+                                pos++; // Skip 'println'
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                    "Expected string after println");
+                                ifNode.children ~= new PrintlnNode(tokens[pos].value);
+                                pos++; // Skip string
+
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after println");
+                                pos++; // Skip ';'
+                                break;
+
+                            default:
+                                enforce(false, "Unexpected token in if body");
+                            }
+                        }
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                            "Expected '}' after if body");
+                        pos++; // Skip '}'
+
+                        mainNode.children ~= ifNode;
+                        break;
+
                     default:
                         enforce(false, "Unexpected statement in main block: " ~ tokens[pos].value);
                     }
-                    
+
                     assert(pos > startPos, "Parser must advance position");
                     startPos = pos;
                 }
-                
+
                 writeln("Exited main block at pos ", pos);
-                writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('", 
+                writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                     pos < tokens.length ? tokens[pos].value : "", "')");
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
-                
+
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                     "Expected '}' after main body");
-                pos++;  // Skip '}'
+                pos++; // Skip '}'
 
                 // Skip any trailing whitespace
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -365,7 +479,7 @@ ASTNode parse(Token[] tokens)
                 assert(pos > startPos, "Parser must advance position");
                 startPos = pos;
                 ast.children ~= mainNode;
-                continue;  // Continue to next token
+                continue; // Continue to next token
             }
             goto default;
 
@@ -380,7 +494,7 @@ ASTNode parse(Token[] tokens)
             pos++;
 
             string[] params = parseArgs();
-            auto funcNode = new FunctionNode(currentFuncName, params); 
+            auto funcNode = new FunctionNode(currentFuncName, params);
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
@@ -394,7 +508,7 @@ ASTNode parse(Token[] tokens)
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 writeln("Function body pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
-                
+
                 switch (tokens[pos].type)
                 {
                 case TokenType.WHITESPACE, TokenType.NEWLINE:
@@ -443,7 +557,7 @@ ASTNode parse(Token[] tokens)
                             (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
                                 tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
                         {
-                            cond ~= " " ~ tokens[pos].value ~ " ";  // Preserve operator with spaces
+                            cond ~= " " ~ tokens[pos].value ~ " "; // Preserve operator with spaces
                             pos++;
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                                 pos++;
@@ -520,7 +634,7 @@ ASTNode parse(Token[] tokens)
                     }
 
                     writeln("Exited if body at pos ", pos);
-                    writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('", 
+                    writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                         pos < tokens.length ? tokens[pos].value : "", "')");
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE, "Expected '}' after if body");
                     pos++;
@@ -592,7 +706,7 @@ ASTNode parse(Token[] tokens)
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
                         writeln("Loop body pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
-                        
+
                         switch (tokens[pos].type)
                         {
                         case TokenType.WHITESPACE, TokenType.NEWLINE:
@@ -654,11 +768,12 @@ ASTNode parse(Token[] tokens)
                                     pos++;
 
                                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
-                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
+                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<"
+                                        ||
                                         tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value ==
                                         "!="))
                                 {
-                                    cond ~= " " ~ tokens[pos].value ~ " ";  // Preserve operator with spaces
+                                    cond ~= " " ~ tokens[pos].value ~ " ";
                                     pos++;
                                     while (pos < tokens.length && tokens[pos].type == TokenType
                                         .WHITESPACE)
@@ -740,7 +855,8 @@ ASTNode parse(Token[] tokens)
                             }
 
                             writeln("Exited if body at pos ", pos);
-                            writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('", 
+                            writeln("Current token: ", pos < tokens.length ? to!string(
+                                    tokens[pos].type) : "EOF", " ('",
                                 pos < tokens.length ? tokens[pos].value : "", "')");
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                                 "Expected '}' after if body");
@@ -874,7 +990,7 @@ ASTNode parse(Token[] tokens)
                     }
 
                     writeln("Exited loop body at pos ", pos);
-                    writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('", 
+                    writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                         pos < tokens.length ? tokens[pos].value : "", "')");
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                         "Expected '}' after loop body");
@@ -907,7 +1023,7 @@ ASTNode parse(Token[] tokens)
             }
 
             writeln("Exited function body at pos ", pos);
-            writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('", 
+            writeln("Current token: ", pos < tokens.length ? to!string(tokens[pos].type) : "EOF", " ('",
                 pos < tokens.length ? tokens[pos].value : "", "')");
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE, "Expected '}' after function body");
             pos++;
@@ -961,7 +1077,7 @@ unittest
     auto loopAst = parse(loopIfTokens);
     assert(loopAst.children[0].nodeType == "Function");
     assert(loopAst.children[0].children[0].nodeType == "Loop");
-    assert((cast(IfNode)loopAst.children[0].children[0].children[0]).condition == "x == 0");
+    assert((cast(IfNode) loopAst.children[0].children[0].children[0]).condition == "x == 0");
 
     auto funcIfTokens = [
         Token(TokenType.DEF, "def"),
@@ -982,5 +1098,5 @@ unittest
 
     auto funcAst = parse(funcIfTokens);
     assert(funcAst.children[0].nodeType == "Function");
-    assert((cast(IfNode)funcAst.children[0].children[0]).condition == "y == 1");
+    assert((cast(IfNode) funcAst.children[0].children[0]).condition == "y == 1");
 }
