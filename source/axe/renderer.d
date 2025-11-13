@@ -55,9 +55,19 @@ string generateC(ASTNode ast)
     switch (ast.nodeType)
     {
     case "Program":
-        cCode = "#include <stdio.h>\n#include <stdbool.h>\n\n";
+        cCode = "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n\n";
+        
         foreach (child; ast.children)
-            cCode ~= generateC(child) ~ "\n";
+        {
+            if (child.nodeType == "Model")
+                cCode ~= generateC(child) ~ "\n";
+        }
+        
+        foreach (child; ast.children)
+        {
+            if (child.nodeType != "Model")
+                cCode ~= generateC(child) ~ "\n";
+        }
         break;
 
     case "Main":
@@ -212,6 +222,44 @@ string generateC(ASTNode ast)
         cCode ~= "return " ~ processedExpr ~ ";\n";
         break;
 
+    case "Model":
+        auto modelNode = cast(ModelNode) ast;
+        cCode ~= "typedef struct {\n";
+        foreach (fieldName, fieldType; modelNode.fields)
+        {
+            cCode ~= "    " ~ fieldType ~ " " ~ fieldName ~ ";\n";
+        }
+        cCode ~= "} " ~ modelNode.name ~ ";\n";
+        break;
+
+    case "ModelInstantiation":
+        auto instNode = cast(ModelInstantiationNode) ast;
+        string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+        
+        cCode ~= indent ~ instNode.modelName ~ " " ~ instNode.variableName ~ ";\n";
+        
+        foreach (fieldName, fieldValue; instNode.fieldValues)
+        {
+            cCode ~= indent ~ instNode.variableName ~ "." ~ fieldName ~ " = " ~ fieldValue ~ ";\n";
+        }
+        break;
+
+    case "MemberAccess":
+        auto memberNode = cast(MemberAccessNode) ast;
+        string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+        
+        if (memberNode.value.length > 0)
+        {
+            // Member write
+            cCode ~= indent ~ memberNode.objectName ~ "." ~ memberNode.memberName ~ " = " ~ memberNode.value ~ ";\n";
+        }
+        else
+        {
+            // Member read (used in expressions)
+            cCode ~= memberNode.objectName ~ "." ~ memberNode.memberName;
+        }
+        break;
+
     default:
         enforce(false, "Unsupported node type for C generation: " ~ ast.nodeType);
     }
@@ -226,11 +274,13 @@ string processExpression(string expr)
 {
     expr = expr.strip();
 
+    // Don't process if it's already parenthesized
     if (expr.canFind("(") && expr.endsWith(")"))
     {
         return expr;
     }
 
+    // Check for operators, but be careful not to split on dots (member access)
     foreach (op; ["+", "-", "*", "/", "==", "!=", "<", ">", "<=", ">="])
     {
         if (expr.canFind(op) && op != "")
@@ -252,6 +302,7 @@ string processExpression(string expr)
         }
     }
 
+    // Return as-is (preserves member access like "cat.health")
     return expr;
 }
 

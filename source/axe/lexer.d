@@ -195,7 +195,17 @@ Token[] lex(string source)
             break;
 
         case 'm':
-            if (pos + 2 < source.length && source[pos .. pos + 3] == "mut")
+            if (pos + 4 < source.length && source[pos .. pos + 5] == "model")
+            {
+                tokens ~= Token(TokenType.MODEL, "model");
+                pos += 5;
+            }
+            else if (pos + 3 < source.length && source[pos .. pos + 4] == "main")
+            {
+                tokens ~= Token(TokenType.MAIN, "main");
+                pos += 4;
+            }
+            else if (pos + 2 < source.length && source[pos .. pos + 3] == "mut")
             {
                 tokens ~= Token(TokenType.MUT, "mut");
                 pos += 3;
@@ -231,6 +241,16 @@ Token[] lex(string source)
             {
                 tokens ~= Token(TokenType.BREAK, "break");
                 pos += 5;
+            }
+            else if (pos + 5 <= source.length && source[pos .. pos + 5] == "model")
+            {
+                tokens ~= Token(TokenType.MODEL, "model");
+                pos += 5;
+            }
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "new")
+            {
+                tokens ~= Token(TokenType.NEW, "new");
+                pos += 3;
             }
             else if (pos + 3 <= source.length && source[pos .. pos + 3] == "def")
             {

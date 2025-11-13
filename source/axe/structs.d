@@ -43,6 +43,9 @@ enum TokenType
     RAW,
     COMMENT,
     USE,
+    MODEL,
+    NEW,
+    EQUALS,
 }
 
 /** 
@@ -205,6 +208,49 @@ class UseNode : ASTNode
         super("Use");
         this.moduleName = moduleName;
         this.imports = imports;
+    }
+}
+
+class ModelNode : ASTNode
+{
+    string name;
+    string[string] fields; // field name -> type
+
+    this(string name, string[string] fields)
+    {
+        super("Model");
+        this.name = name;
+        this.fields = fields;
+    }
+}
+
+class ModelInstantiationNode : ASTNode
+{
+    string modelName;
+    string variableName;
+    string[string] fieldValues; // field name -> value
+
+    this(string modelName, string variableName, string[string] fieldValues)
+    {
+        super("ModelInstantiation");
+        this.modelName = modelName;
+        this.variableName = variableName;
+        this.fieldValues = fieldValues;
+    }
+}
+
+class MemberAccessNode : ASTNode
+{
+    string objectName;
+    string memberName;
+    string value; // empty for reads, filled for writes
+
+    this(string objectName, string memberName, string value = "")
+    {
+        super("MemberAccess");
+        this.objectName = objectName;
+        this.memberName = memberName;
+        this.value = value;
     }
 }
 

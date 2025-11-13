@@ -1,0 +1,15 @@
+model Cat {
+    annoyingness_level: int,
+    health            : int,
+    name              : char*
+}
+
+main {
+    val cat = new Cat(
+        health: 100,
+        name: "Garfield",
+        annoyingness_level: 9999
+    );
+    cat.health = 90;
+    println cat.health;
+}

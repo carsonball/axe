@@ -89,6 +89,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             {
                 if (tokens[pos].type == TokenType.STR)
                     expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else if (tokens[pos].type == TokenType.DOT)
+                    expr ~= ".";
                 else
                     expr ~= tokens[pos].value;
                 pos++;
@@ -158,6 +160,46 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
         switch (tokens[pos].type)
         {
+        case TokenType.MODEL:
+            pos++; // Skip 'model'
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected model name after 'model'");
+            string modelName = tokens[pos].value;
+            pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after model name");
+            pos++; // Skip '{'
+
+            string[string] fields;
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                if (tokens[pos].type == TokenType.IDENTIFIER)
+                {
+                    string fieldName = tokens[pos].value;
+                    pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                        "Expected ':' after field name");
+                    pos++; // Skip ':'
+
+                    string fieldType = parseType();
+                    fields[fieldName] = fieldType;
+                }
+                else
+                {
+                    pos++; // Skip whitespace/newlines
+                }
+            }
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after model body");
+            pos++; // Skip '}'
+
+            ast.children ~= new ModelNode(modelName, fields);
+            continue;
+
         case TokenType.USE:
             pos++; // Skip 'use'
 
@@ -229,7 +271,46 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     string identName = tokens[pos].value;
                     pos++;
 
-                    if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                    // Check for member access (dot notation)
+                    if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+                    {
+                        pos++; // Skip '.'
+                        
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                            "Expected member name after '.'");
+                        string memberName = tokens[pos].value;
+                        pos++;
+                        
+                        // Check if this is a member write or read
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                        {
+                            // Member write: obj.field = value
+                            pos++; // Skip '='
+                            
+                            string value = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                if (tokens[pos].type == TokenType.STR)
+                                    value ~= "\"" ~ tokens[pos].value ~ "\"";
+                                else
+                                    value ~= tokens[pos].value;
+                                pos++;
+                            }
+                            
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after member assignment");
+                            pos++;
+                            
+                            mainNode.children ~= new MemberAccessNode(identName, memberName, value.strip());
+                        }
+                        else
+                        {
+                            // Member read - this would be part of an expression
+                            // For now, we'll handle it in println or other contexts
+                            enforce(false, "Member read not yet supported in this context");
+                        }
+                    }
+                    else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                     {
                         if (!currentScope.isDeclared(identName))
                             enforce(false, "Undeclared variable: " ~ identName);
@@ -392,19 +473,92 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                         {
                             pos++;
-                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            
+                            // Check if this is a model instantiation
+                            if (pos < tokens.length && tokens[pos].type == TokenType.NEW)
                             {
-                                initializer ~= tokens[pos].value;
+                                pos++; // Skip 'new'
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                                    "Expected model name after 'new'");
+                                string modelName = tokens[pos].value;
                                 pos++;
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                                    "Expected '(' after model name");
+                                pos++; // Skip '('
+                                
+                                string[string] fieldValues;
+                                while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                                {
+                                    if (tokens[pos].type == TokenType.IDENTIFIER)
+                                    {
+                                        string fieldName = tokens[pos].value;
+                                        pos++;
+                                        
+                                        enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                                            "Expected ':' after field name in model instantiation");
+                                        pos++; // Skip ':'
+                                        
+                                        string fieldValue = "";
+                                        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA 
+                                            && tokens[pos].type != TokenType.RPAREN)
+                                        {
+                                            if (tokens[pos].type == TokenType.STR)
+                                                fieldValue ~= "\"" ~ tokens[pos].value ~ "\"";
+                                            else
+                                                fieldValue ~= tokens[pos].value;
+                                            pos++;
+                                        }
+                                        
+                                        fieldValues[fieldName] = fieldValue.strip();
+                                        
+                                        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                                            pos++; // Skip ','
+                                    }
+                                    else
+                                    {
+                                        pos++; // Skip whitespace/newlines
+                                    }
+                                }
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                                    "Expected ')' after model instantiation");
+                                pos++; // Skip ')'
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after model instantiation");
+                                pos++;
+                                
+                                currentScope.addVariable(varName, isMutable);
+                                mainNode.children ~= new ModelInstantiationNode(modelName, varName, fieldValues);
+                            }
+                            else
+                            {
+                                // Regular variable initialization
+                                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                                {
+                                    initializer ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after val declaration");
+                                pos++;
+
+                                currentScope.addVariable(varName, isMutable);
+                                mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
                             }
                         }
+                        else
+                        {
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after val declaration");
+                            pos++;
 
-                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                            "Expected ';' after val declaration");
-                        pos++;
-
-                        currentScope.addVariable(varName, isMutable);
-                        mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
+                            currentScope.addVariable(varName, isMutable);
+                            mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
+                        }
                     }
                     break;
 
