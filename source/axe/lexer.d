@@ -255,7 +255,7 @@ Token[] lex(string source)
 
     import std.array;
 
-    return tokens.filter!(t => t.type != TokenType.WHITESPACE).array;
+    return tokens.filter!(t => t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE).array;
 }
 
 unittest
