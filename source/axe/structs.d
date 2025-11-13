@@ -30,15 +30,15 @@ enum TokenType
     IF,
     VAL,
     MUT,
-    PLUS,    // +
-    MINUS,   // -
-    STAR,    // *
-    SLASH,   // /
-    PERCENT, // %
-    CARET,   // ^
-    AMPERSAND, // &
-    PIPE,    // |
-    TILDE,   // ~
+    PLUS,    
+    MINUS,   
+    STAR,    
+    SLASH,   
+    PERCENT, 
+    CARET,   
+    AMPERSAND, 
+    PIPE,    
+    TILDE,   
 }
 
 /** 
