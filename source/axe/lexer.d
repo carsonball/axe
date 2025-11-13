@@ -252,6 +252,11 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.NEW, "new");
                 pos += 3;
             }
+            else if (pos + 7 <= source.length && source[pos .. pos + 7] == "default")
+            {
+                tokens ~= Token(TokenType.DEFAULT, "default");
+                pos += 7;
+            }
             else if (pos + 3 <= source.length && source[pos .. pos + 3] == "def")
             {
                 tokens ~= Token(TokenType.DEF, "def");
@@ -276,6 +281,16 @@ Token[] lex(string source)
             {
                 tokens ~= Token(TokenType.USE, "use");
                 pos += 3;
+            }
+            else if (pos + 6 <= source.length && source[pos .. pos + 6] == "switch")
+            {
+                tokens ~= Token(TokenType.SWITCH, "switch");
+                pos += 6;
+            }
+            else if (pos + 4 <= source.length && source[pos .. pos + 4] == "case")
+            {
+                tokens ~= Token(TokenType.CASE, "case");
+                pos += 4;
             }
             else if (source[pos].isAlphaNum())
             {

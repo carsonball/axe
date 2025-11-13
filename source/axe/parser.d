@@ -465,6 +465,114 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     mainNode.children ~= ifNode;
                     break;
 
+                case TokenType.SWITCH:
+                    pos++; // Skip 'switch'
+
+                    // Parse the switch expression
+                    string switchExpr = "";
+                    while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+                    {
+                        switchExpr ~= tokens[pos].value;
+                        pos++;
+                    }
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after switch expression");
+                    pos++; // Skip '{'
+
+                    auto switchNode = new SwitchNode(switchExpr.strip());
+
+                    // Parse case statements
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        if (tokens[pos].type == TokenType.CASE)
+                        {
+                            pos++; // Skip 'case'
+
+                            string caseValue = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+                            {
+                                caseValue ~= tokens[pos].value;
+                                pos++;
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                                "Expected '{' after case value");
+                            pos++; // Skip '{'
+
+                            auto caseNode = new CaseNode(caseValue.strip(), false);
+
+                            // Parse case body
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                            {
+                                switch (tokens[pos].type)
+                                {
+                                case TokenType.PRINTLN:
+                                    caseNode.children ~= parsePrintln();
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after println");
+                                    pos++;
+                                    break;
+
+                                default:
+                                    enforce(false, "Unexpected token in case body: " ~ tokens[pos].value);
+                                }
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                                "Expected '}' after case body");
+                            pos++; // Skip '}'
+
+                            switchNode.children ~= caseNode;
+                        }
+                        else if (tokens[pos].type == TokenType.DEFAULT)
+                        {
+                            pos++; // Skip 'default'
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                                "Expected '{' after default");
+                            pos++; // Skip '{'
+
+                            auto defaultNode = new CaseNode("", true);
+
+                            // Parse default body
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                            {
+                                switch (tokens[pos].type)
+                                {
+                                case TokenType.PRINTLN:
+                                    defaultNode.children ~= parsePrintln();
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after println");
+                                    pos++;
+                                    break;
+
+                                default:
+                                    enforce(false, "Unexpected token in default body: " ~ tokens[pos].value);
+                                }
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                                "Expected '}' after default body");
+                            pos++; // Skip '}'
+
+                            switchNode.children ~= defaultNode;
+                        }
+                        else
+                        {
+                            // Unexpected token in switch body
+                            enforce(false, "Unexpected token in switch body at pos " ~ pos.to!string ~ 
+                                ": " ~ tokens[pos].type.to!string ~ " ('" ~ tokens[pos].value ~ "')");
+                        }
+                    }
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after switch body");
+                    pos++; // Skip '}'
+
+                    mainNode.children ~= switchNode;
+                    break;
+
                 case TokenType.MUT:
                     pos++;
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
@@ -479,6 +587,14 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     {
                         string varName = tokens[pos].value;
                         pos++;
+
+                        // Check for type annotation
+                        string typeName = "";
+                        if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+                        {
+                            pos++; // Skip ':'
+                            typeName = parseType();
+                        }
 
                         string initializer = "";
                         if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
@@ -550,7 +666,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 // Regular variable initialization
                                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                                 {
-                                    initializer ~= tokens[pos].value;
+                                    if (tokens[pos].type == TokenType.STR)
+                                        initializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                                    else
+                                        initializer ~= tokens[pos].value;
                                     pos++;
                                 }
                                 
@@ -559,7 +678,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 pos++;
 
                                 currentScope.addVariable(varName, isMutable);
-                                mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
+                                mainNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName);
                             }
                         }
                         else
@@ -569,7 +688,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             pos++;
 
                             currentScope.addVariable(varName, isMutable);
-                            mainNode.children ~= new DeclarationNode(varName, isMutable, initializer);
+                            mainNode.children ~= new DeclarationNode(varName, isMutable, initializer, typeName);
                         }
                     }
                     break;

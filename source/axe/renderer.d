@@ -154,7 +154,10 @@ string generateC(ASTNode ast)
 
     case "Declaration":
         auto declNode = cast(DeclarationNode) ast;
-        string type = declNode.isMutable ? "int" : "const int";
+        
+        // Use explicit type annotation if provided, otherwise default to int
+        string baseType = declNode.typeName.length > 0 ? declNode.typeName : "int";
+        string type = declNode.isMutable ? baseType : "const " ~ baseType;
         string decl = type ~ " " ~ declNode.name;
 
         if (declNode.initializer.length > 0)
@@ -267,6 +270,45 @@ string generateC(ASTNode ast)
             // Member read (used in expressions)
             cCode ~= memberNode.objectName ~ "." ~ memberNode.memberName;
         }
+        break;
+
+    case "Switch":
+        auto switchNode = cast(SwitchNode) ast;
+        cCode ~= "switch (" ~ processExpression(switchNode.expression) ~ ") {\n";
+        loopLevel++;
+
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+
+        loopLevel--;
+        cCode ~= "}\n";
+        break;
+
+    case "Case":
+        auto caseNode = cast(CaseNode) ast;
+        string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+
+        if (caseNode.isDefault)
+        {
+            cCode ~= indent ~ "default:\n";
+        }
+        else
+        {
+            cCode ~= indent ~ "case " ~ caseNode.value ~ ":\n";
+        }
+
+        loopLevel++;
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+
+        // Add implicit break at end of case
+        string breakIndent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+        cCode ~= breakIndent ~ "break;\n";
+        loopLevel--;
         break;
 
     default:
@@ -1233,5 +1275,51 @@ unittest
         assert(cCode.canFind("} Line;"), "Should define Line struct");
         assert(cCode.canFind("Point* start;"), "Should have Point* field in Line");
         assert(cCode.canFind("Point* end;"), "Should have Point* field in Line");
+    }
+
+    {
+        auto tokens = lex("main { val x: int = 1; switch x { case 1 { println \"one\"; } " ~
+                "case 2 { println \"two\"; } default { println \"other\"; } } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Switch/case statement test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("const int x = 1;"), "Should declare x with type annotation");
+        assert(cCode.canFind("switch (x) {"), "Should have switch statement");
+        assert(cCode.canFind("case 1:"), "Should have case 1");
+        assert(cCode.canFind("printf(\"one\\n\");"), "Should have println in case 1");
+        assert(cCode.canFind("case 2:"), "Should have case 2");
+        assert(cCode.canFind("printf(\"two\\n\");"), "Should have println in case 2");
+        assert(cCode.canFind("default:"), "Should have default case");
+        assert(cCode.canFind("printf(\"other\\n\");"), "Should have println in default");
+        assert(cCode.canFind("break;"), "Should have break statements");
+    }
+
+    {
+        auto tokens = lex("main { val x: char* = \"hello\"; mut val y: int = 42; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Type annotation test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("const char* x = \"hello\";"), "Should use char* type annotation");
+        assert(cCode.canFind("int y = 42;"), "Should use int type annotation for mutable");
+        assert(!cCode.canFind("const int y"), "Mutable variable should not be const");
+    }
+
+    {
+        auto tokens = lex("main { val a: int = 5; val b: int = 10; val c: int = a + b; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Multiple type annotations test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("const int a = 5;"), "Should declare a with int type");
+        assert(cCode.canFind("const int b = 10;"), "Should declare b with int type");
+        assert(cCode.canFind("const int c = (a+b);"), "Should declare c with int type");
     }
 }

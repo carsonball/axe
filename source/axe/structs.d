@@ -46,6 +46,9 @@ enum TokenType
     MODEL,
     NEW,
     EQUALS,
+    SWITCH,
+    CASE,
+    DEFAULT,
 }
 
 /** 
@@ -77,13 +80,15 @@ class DeclarationNode : ASTNode
     string name;
     bool isMutable;
     string initializer;
+    string typeName;
 
-    this(string name, bool isMutable, string initializer = "")
+    this(string name, bool isMutable, string initializer = "", string typeName = "")
     {
         super("Declaration");
         this.name = name;
         this.isMutable = isMutable;
         this.initializer = initializer;
+        this.typeName = typeName;
     }
 }
 
@@ -259,6 +264,30 @@ class MemberAccessNode : ASTNode
         this.objectName = objectName;
         this.memberName = memberName;
         this.value = value;
+    }
+}
+
+class SwitchNode : ASTNode
+{
+    string expression;
+
+    this(string expression)
+    {
+        super("Switch");
+        this.expression = expression;
+    }
+}
+
+class CaseNode : ASTNode
+{
+    string value;
+    bool isDefault;
+
+    this(string value, bool isDefault = false)
+    {
+        super("Case");
+        this.value = value;
+        this.isDefault = isDefault;
     }
 }
 
