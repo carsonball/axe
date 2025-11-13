@@ -53,6 +53,7 @@ enum TokenType
     DECREMENT,
     ELSE,
     ELIF,
+    FOR,
 }
 
 /** 
@@ -184,6 +185,25 @@ class LoopNode : ASTNode
     this()
     {
         super("Loop");
+    }
+}
+
+class ForNode : ASTNode
+{
+    string initialization;  // e.g., "mut val i = 0"
+    string condition;       // e.g., "i < 10"
+    string increment;       // e.g., "i++"
+    bool isMutable;         // whether the loop variable is mutable
+    string varName;         // loop variable name
+    string varType;         // loop variable type
+    string initValue;       // initial value
+
+    this(string initialization, string condition, string increment)
+    {
+        super("For");
+        this.initialization = initialization;
+        this.condition = condition;
+        this.increment = increment;
     }
 }
 

@@ -243,6 +243,27 @@ string generateC(ASTNode ast)
         cCode ~= "}\n";
         break;
 
+    case "For":
+        auto forNode = cast(ForNode) ast;
+        
+        // Generate the for loop header
+        string forType = forNode.isMutable ? forNode.varType : "const " ~ forNode.varType;
+        string forInit = forType ~ " " ~ forNode.varName ~ " = " ~ processExpression(forNode.initValue);
+        string forCond = processCondition(forNode.condition);
+        string forIncr = forNode.increment;
+        
+        cCode ~= "for (" ~ forInit ~ "; " ~ forCond ~ "; " ~ forIncr ~ ") {\n";
+        loopLevel++;
+
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+
+        loopLevel--;
+        cCode ~= "}\n";
+        break;
+
     case "Break":
         cCode ~= "break;\n";
         break;
@@ -1487,5 +1508,66 @@ unittest
         assert(cCode.canFind("printf(\"adult\\n\");"), "Should have println in if");
         assert(cCode.canFind("} else {"), "Should have else");
         assert(cCode.canFind("printf(\"minor\\n\");"), "Should have println in else");
+    }
+
+    {
+        auto tokens = lex("main { for mut val i = 0; i < 10; i++ { println \"loop\"; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Basic for loop test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int i = 0; (i<10); i++)"), "Should have for loop header");
+        assert(cCode.canFind("printf(\"loop\\n\");"), "Should have println in for loop");
+    }
+
+    {
+        auto tokens = lex("main { for mut val j: int = 5; j < 20; j++ { println \"counting\"; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For loop with type annotation test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int j = 5; (j<20); j++)"), "Should have for loop with type");
+        assert(cCode.canFind("printf(\"counting\\n\");"), "Should have println");
+    }
+
+    {
+        auto tokens = lex("main { for mut val k = 10; k > 0; k-- { println \"countdown\"; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For loop with decrement test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int k = 10; (k>0); k--)"), "Should have for loop with decrement");
+        assert(cCode.canFind("printf(\"countdown\\n\");"), "Should have println");
+    }
+
+    {
+        auto tokens = lex("main { for mut val n = 0; n < 5; n++ { if n == 3 { break; } } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For loop with break test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int n = 0; (n<5); n++)"), "Should have for loop");
+        assert(cCode.canFind("if ((n==3))"), "Should have if condition");
+        assert(cCode.canFind("break;"), "Should have break statement");
+    }
+
+    {
+        auto tokens = lex("main { for mut val x = 1; x <= 100; x++ { x++; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("For loop with body increment test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("for (int x = 1; (x<=100); x++)"), "Should have for loop");
+        assert(cCode.canFind("x++;"), "Should have increment in body");
     }
 }

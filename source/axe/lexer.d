@@ -253,6 +253,11 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.LOOP, "loop");
                 pos += 4;
             }
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "for")
+            {
+                tokens ~= Token(TokenType.FOR, "for");
+                pos += 3;
+            }
             else if (pos + 5 <= source.length && source[pos .. pos + 5] == "break")
             {
                 tokens ~= Token(TokenType.BREAK, "break");

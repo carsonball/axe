@@ -547,6 +547,221 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     mainNode.children ~= loopNode;
                     break;
 
+                case TokenType.FOR:
+                    pos++; // Skip 'for'
+                    
+                    // Parse initialization (mut val i = 0 or val i = 0)
+                    bool forIsMutable = false;
+                    string forVarName = "";
+                    string forVarType = "";
+                    string forInitValue = "";
+                    
+                    if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
+                    {
+                        forIsMutable = true;
+                        pos++; // Skip 'mut'
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
+                        "Expected 'val' in for loop initialization");
+                    pos++; // Skip 'val'
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                        "Expected variable name in for loop");
+                    forVarName = tokens[pos].value;
+                    pos++;
+                    
+                    // Check for type annotation
+                    if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
+                    {
+                        pos++; // Skip ':'
+                        forVarType = parseType();
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=",
+                        "Expected '=' in for loop initialization");
+                    pos++; // Skip '='
+                    
+                    // Parse init value until semicolon
+                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                    {
+                        forInitValue ~= tokens[pos].value;
+                        pos++;
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                        "Expected ';' after for loop initialization");
+                    pos++; // Skip ';'
+                    
+                    // Parse condition (i < 10)
+                    string forCondition = "";
+                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                    {
+                        forCondition ~= tokens[pos].value;
+                        pos++;
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                        "Expected ';' after for loop condition");
+                    pos++; // Skip ';'
+                    
+                    // Parse increment (i++)
+                    string forIncrement = "";
+                    while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+                    {
+                        forIncrement ~= tokens[pos].value;
+                        pos++;
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after for loop header");
+                    pos++; // Skip '{'
+                    
+                    auto forNode = new ForNode("", forCondition.strip(), forIncrement.strip());
+                    forNode.isMutable = forIsMutable;
+                    forNode.varName = forVarName;
+                    forNode.varType = forVarType.length > 0 ? forVarType : "int";
+                    forNode.initValue = forInitValue.strip();
+                    
+                    // Register the loop variable in scope
+                    currentScope.addVariable(forVarName, forIsMutable);
+                    
+                    // Parse for loop body
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        switch (tokens[pos].type)
+                        {
+                        case TokenType.PRINTLN:
+                            forNode.children ~= parsePrintln();
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
+                            pos++;
+                            break;
+                            
+                        case TokenType.BREAK:
+                            pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after 'break'");
+                            pos++;
+                            forNode.children ~= new BreakNode();
+                            break;
+                            
+                        case TokenType.IDENTIFIER:
+                            string forLoopIdentName = tokens[pos].value;
+                            pos++;
+                            
+                            if (pos < tokens.length && tokens[pos].type == TokenType.INCREMENT)
+                            {
+                                if (!currentScope.isDeclared(forLoopIdentName))
+                                    enforce(false, "Undeclared variable: " ~ forLoopIdentName);
+                                if (!currentScope.isMutable(forLoopIdentName))
+                                    enforce(false, "Cannot increment immutable variable: " ~ forLoopIdentName);
+                                pos++;
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after increment");
+                                pos++;
+                                
+                                forNode.children ~= new IncrementDecrementNode(forLoopIdentName, true);
+                            }
+                            else if (pos < tokens.length && tokens[pos].type == TokenType.DECREMENT)
+                            {
+                                if (!currentScope.isDeclared(forLoopIdentName))
+                                    enforce(false, "Undeclared variable: " ~ forLoopIdentName);
+                                if (!currentScope.isMutable(forLoopIdentName))
+                                    enforce(false, "Cannot decrement immutable variable: " ~ forLoopIdentName);
+                                pos++;
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                    "Expected ';' after decrement");
+                                pos++;
+                                
+                                forNode.children ~= new IncrementDecrementNode(forLoopIdentName, false);
+                            }
+                            else
+                            {
+                                enforce(false, "Unexpected token after identifier in for loop body");
+                            }
+                            break;
+                            
+                        case TokenType.IF:
+                            // Handle if statements in for loops
+                            pos++;
+                            
+                            string forIfCondition;
+                            
+                            // Check if condition has parentheses
+                            if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                            {
+                                pos++; // Skip '('
+                                
+                                while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                                {
+                                    forIfCondition ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                                    "Expected ')' after if condition");
+                                pos++; // Skip ')'
+                            }
+                            else
+                            {
+                                // Parse condition without parentheses until '{'
+                                while (pos < tokens.length && tokens[pos].type != TokenType.LBRACE)
+                                {
+                                    forIfCondition ~= tokens[pos].value;
+                                    pos++;
+                                }
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                                "Expected '{' after if condition");
+                            pos++;
+
+                            auto forIfNode = new IfNode(forIfCondition);
+                            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                            {
+                                if (tokens[pos].type == TokenType.BREAK)
+                                {
+                                    pos++;
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after 'break'");
+                                    pos++;
+                                    forIfNode.children ~= new BreakNode();
+                                }
+                                else if (tokens[pos].type == TokenType.PRINTLN)
+                                {
+                                    forIfNode.children ~= parsePrintln();
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after println");
+                                    pos++;
+                                }
+                                else
+                                {
+                                    enforce(false, "Unexpected token in if body within for loop");
+                                }
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                                "Expected '}' after if body");
+                            pos++;
+
+                            forNode.children ~= forIfNode;
+                            break;
+                            
+                        default:
+                            enforce(false, "Unexpected token in for loop body: " ~ tokens[pos].value);
+                        }
+                    }
+                    
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after for loop body");
+                    pos++;
+                    
+                    mainNode.children ~= forNode;
+                    break;
+
                 case TokenType.IF:
                     pos++;
                     
