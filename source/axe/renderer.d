@@ -47,7 +47,6 @@ string operand(string s, string[string] paramMap = null)
 string generateC(ASTNode ast)
 {
     string cCode;
-    string[] includes = ["#include <stdio.h>", "#include <stdbool.h>"];
     string[string] variables;
     string currentFunction = "";
     string[] functionParams;
@@ -56,25 +55,9 @@ string generateC(ASTNode ast)
     switch (ast.nodeType)
     {
     case "Program":
+        cCode = "#include <stdio.h>\n#include <stdbool.h>\n\n";
         foreach (child; ast.children)
-        {
-            if (child.nodeType == "Function")
-            {
-                auto funcNode = cast(FunctionNode) child;
-                string funcName = funcNode.name;
-                string args = funcNode.params.join(", ");
-
-                cCode ~= "void " ~ funcName ~ "(" ~
-                    (args.length > 0 ? "int " ~ args.replace(",", ", int ") : "void") ~
-                    ");\n";
-            }
-        }
-        cCode ~= includes.join("\n") ~ "\n\n";
-
-        foreach (child; ast.children)
-        {
             cCode ~= generateC(child) ~ "\n";
-        }
         break;
 
     case "Main":
