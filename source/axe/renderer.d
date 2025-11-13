@@ -871,38 +871,108 @@ unittest
     import axe.parser;
     import axe.lexer;
     import std.stdio;
+    import std.string;
 
+    // Test basic program structure
     {
         auto tokens = lex("main { println \"hello\"; }");
         auto ast = parse(tokens);
+        
+        // Test ASM generation
         auto asma = generateAsm(ast);
         assert(asma.canFind("section .data"));
         assert(asma.canFind("msg_0 db 'hello', 0"));
         assert(asma.canFind("call printf"));
+        
+        // Test C generation
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("int main()"));
+        assert(cCode.canFind("printf(\"hello\\n\")"));
     }
 
+    // Test function calls
     {
         auto tokens = lex("main { foo(); }");
         auto ast = parse(tokens);
+        
         auto asma = generateAsm(ast);
         assert(asma.canFind("call foo"));
+        
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("foo()"));
     }
 
+    // Test function calls with parameters
     {
         auto tokens = lex("main { foo(1, 2); }");
         auto ast = parse(tokens);
+        
         auto asma = generateAsm(ast);
         assert(asma.canFind("mov rcx, 1"));
         assert(asma.canFind("mov rdx, 2"));
         assert(asma.canFind("call foo"));
+        
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("foo(1, 2)"));
     }
 
+    // Test loops and breaks
     {
         auto tokens = lex("main { loop { break; } }");
         auto ast = parse(tokens);
+        
         auto asma = generateAsm(ast);
         assert(asma.canFind("loop_0_start:"));
         assert(asma.canFind("jmp loop_0_end"));
         assert(asma.canFind("loop_0_end:"));
+        
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("while (1) {"));
+        assert(cCode.canFind("break;"));
+    }
+
+    // Test if statements
+    {
+        auto tokens = lex("main { if (x > 5) { println \"greater\"; } }");
+        auto ast = parse(tokens);
+        
+        auto cCode = generateC(ast);
+        import std.stdio;
+        writeln(cCode);
+
+        assert(cCode.canFind("if (x > 5)"));
+        assert(cCode.canFind("printf(\"greater\\n\")"));
+    }
+
+    // Test variable assignments and arithmetic
+    {
+        auto tokens = lex("main { x = 5 + 3; y = x - 2; }");
+        auto ast = parse(tokens);
+        
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("int x = (5 + 3)"));
+        assert(cCode.canFind("y = (x - 2)"));
+    }
+
+    // Test function definitions
+    {
+        auto tokens = lex("def foo { println \"in foo\"; } main { foo(); }");
+        auto ast = parse(tokens);
+        
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("void foo()"));
+        assert(cCode.canFind("printf(\\\"in foo\\n\\\")"));
+        assert(cCode.canFind("foo()"));
+    }
+
+    // Test function parameters
+    {
+        auto tokens = lex("def add(a, b) { return a + b; } main { x = add(1, 2); }");
+        auto ast = parse(tokens);
+        
+        auto cCode = generateC(ast);
+        assert(cCode.canFind("void add(int a, int b)"));
+        assert(cCode.canFind("return (a + b)"));
+        assert(cCode.canFind("x = add(1, 2)"));
     }
 }

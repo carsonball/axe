@@ -36,7 +36,7 @@ ASTNode parse(Token[] tokens)
         {
             typeName = tokens[pos].value;
             pos++;
-            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "*")
+            while (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "*")
             {
                 typeName ~= "*";
                 pos++;
@@ -116,10 +116,10 @@ ASTNode parse(Token[] tokens)
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE, "Expected '{' after main");
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after 'main'");
             pos++;
-
-            ASTNode mainNode = ASTNode("Main", [], "");
+            auto mainNode = ASTNode("Main", []);
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 switch (tokens[pos].type)
@@ -197,6 +197,16 @@ ASTNode parse(Token[] tokens)
                                 pos++;
 
                             string cond;
+                            bool hasParen = false;
+                            if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                            {
+                                hasParen = true;
+                                pos++;
+                                while (pos < tokens.length && tokens[pos].type == TokenType
+                                    .WHITESPACE)
+                                    pos++;
+                            }
+
                             if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                             {
                                 cond = tokens[pos].value;
@@ -206,7 +216,8 @@ ASTNode parse(Token[] tokens)
                                     pos++;
 
                                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
-                                    tokens[pos].value == "==")
+                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
+                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
                                 {
                                     pos++;
                                     while (pos < tokens.length && tokens[pos].type == TokenType
@@ -216,10 +227,21 @@ ASTNode parse(Token[] tokens)
                                     if (pos < tokens.length && tokens[pos].type == TokenType
                                         .IDENTIFIER)
                                     {
-                                        cond ~= " == " ~ tokens[pos].value;
+                                        cond ~= " " ~ tokens[pos - 1].value ~ " " ~ tokens[pos]
+                                            .value;
                                         pos++;
                                     }
                                 }
+                            }
+
+                            if (hasParen)
+                            {
+                                while (pos < tokens.length && tokens[pos].type == TokenType
+                                    .WHITESPACE)
+                                    pos++;
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                                    "Expected ')' after if condition");
+                                pos++;
                             }
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -245,6 +267,26 @@ ASTNode parse(Token[] tokens)
                                     ifNode.children ~= ASTNode("Break", [], "");
                                     break;
                                 case TokenType.WHITESPACE, TokenType.NEWLINE:
+                                    pos++;
+                                    break;
+                                case TokenType.PRINTLN:
+                                    pos++;
+                                    while (pos < tokens.length && tokens[pos].type == TokenType
+                                        .WHITESPACE)
+                                        pos++;
+
+                                    enforce(
+                                        pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                        "Expected string after println"
+                                    );
+                                    ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                                    pos++;
+
+                                    while (pos < tokens.length && tokens[pos].type == TokenType
+                                        .WHITESPACE)
+                                        pos++;
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after println");
                                     pos++;
                                     break;
                                 default:
@@ -344,7 +386,9 @@ ASTNode parse(Token[] tokens)
                                     {
                                         args ~= tokens[pos].value;
                                         pos++;
-                                        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                                        if (pos < tokens.length && tokens[pos].type == TokenType
+                                            .COMMA)
+                                        {
                                             args ~= ", ";
                                             pos++;
                                         }
@@ -370,6 +414,15 @@ ASTNode parse(Token[] tokens)
                             }
 
                         default:
+                            import std.stdio;
+
+                            writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos]
+                                    .value, "')");
+                            writeln("Previous tokens:");
+                            foreach (i; max(0, cast(int) pos - 5) .. pos)
+                            {
+                                writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
+                            }
                             enforce(false, "Unexpected token in loop body at " ~ to!string(pos));
                         }
                     }
@@ -416,7 +469,8 @@ ASTNode parse(Token[] tokens)
                         {
                             args ~= tokens[pos].value;
                             pos++;
-                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                            {
                                 args ~= ", ";
                                 pos++;
                             }
@@ -440,7 +494,115 @@ ASTNode parse(Token[] tokens)
                     mainNode.children ~= ASTNode("FunctionCall", [], funcName ~ "(" ~ args ~ ")");
                     break;
 
+                case TokenType.IF:
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    string cond;
+                    bool hasParen = false;
+                    if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                    {
+                        hasParen = true;
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                    }
+
+                    if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                    {
+                        cond = tokens[pos].value;
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
+                            (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
+                                tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
+                        {
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                            {
+                                cond ~= " " ~ tokens[pos - 1].value ~ " " ~ tokens[pos].value;
+                                pos++;
+                            }
+                        }
+                    }
+
+                    if (hasParen)
+                    {
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                            "Expected ')' after if condition");
+                        pos++;
+                    }
+
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after if condition");
+                    pos++;
+
+                    ASTNode ifNode = ASTNode("If", [], cond);
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+                    {
+                        switch (tokens[pos].type)
+                        {
+                        case TokenType.BREAK:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after break");
+                            pos++;
+                            ifNode.children ~= ASTNode("Break", [], "");
+                            break;
+                        case TokenType.WHITESPACE, TokenType.NEWLINE:
+                            pos++;
+                            break;
+                        case TokenType.PRINTLN:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            enforce(
+                                pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                "Expected string after println"
+                            );
+                            ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            pos++;
+
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
+                            pos++;
+                            break;
+                        default:
+                            enforce(false, "Unexpected token in if body: " ~ tokens[pos].value);
+                        }
+                    }
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after if body");
+                    pos++;
+                    mainNode.children ~= ifNode;
+                    break;
+
                 default:
+                    import std.stdio;
+
+                    writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+                    writeln("Previous tokens:");
+                    foreach (i; max(0, cast(int) pos - 5) .. pos)
+                    {
+                        writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
+                    }
                     enforce(false, "Unexpected token in main body at " ~ to!string(pos));
                 }
             }
@@ -499,14 +661,26 @@ ASTNode parse(Token[] tokens)
                         pos++;
 
                     string cond;
+                    bool hasParen = false;
+                    if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                    {
+                        hasParen = true;
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                    }
+
                     if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                     {
                         cond = tokens[pos].value;
                         pos++;
-                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        while (pos < tokens.length && tokens[pos].type == TokenType
+                            .WHITESPACE)
                             pos++;
 
-                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "==")
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
+                            (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
+                                tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
                         {
                             pos++;
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -514,10 +688,19 @@ ASTNode parse(Token[] tokens)
 
                             if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                             {
-                                cond ~= " == " ~ tokens[pos].value;
+                                cond ~= " " ~ tokens[pos - 1].value ~ " " ~ tokens[pos].value;
                                 pos++;
                             }
                         }
+                    }
+
+                    if (hasParen)
+                    {
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                            "Expected ')' after if condition");
+                        pos++;
                     }
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -544,11 +727,31 @@ ASTNode parse(Token[] tokens)
                         case TokenType.WHITESPACE, TokenType.NEWLINE:
                             pos++;
                             break;
+                        case TokenType.PRINTLN:
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            enforce(
+                                pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                "Expected string after println"
+                            );
+                            ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                            pos++;
+
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after println");
+                            pos++;
+                            break;
                         default:
                             import std.stdio;
 
                             writeln("Token type: ", tokens[pos].type);
-                            enforce(false, "Unexpected token in if body: " ~ tokens[pos].value);
+
+                            enforce(false, "Unexpected token in if body: " ~ tokens[pos]
+                                    .value);
 
                         }
                     }
@@ -583,7 +786,8 @@ ASTNode parse(Token[] tokens)
                         {
                             functionArgs ~= tokens[pos].value;
                             pos++;
-                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA) {
+                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                            {
                                 functionArgs ~= ", ";
                                 pos++;
                             }
@@ -660,6 +864,16 @@ ASTNode parse(Token[] tokens)
                                 pos++;
 
                             string cond;
+                            bool hasParen = false;
+                            if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+                            {
+                                hasParen = true;
+                                pos++;
+                                while (pos < tokens.length && tokens[pos].type == TokenType
+                                    .WHITESPACE)
+                                    pos++;
+                            }
+
                             if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                             {
                                 cond = tokens[pos].value;
@@ -669,7 +883,8 @@ ASTNode parse(Token[] tokens)
                                     pos++;
 
                                 if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR &&
-                                    tokens[pos].value == "==")
+                                    (tokens[pos].value == "==" || tokens[pos].value == ">" || tokens[pos].value == "<" ||
+                                        tokens[pos].value == ">=" || tokens[pos].value == "<=" || tokens[pos].value == "!="))
                                 {
                                     pos++;
                                     while (pos < tokens.length && tokens[pos].type == TokenType
@@ -679,10 +894,21 @@ ASTNode parse(Token[] tokens)
                                     if (pos < tokens.length && tokens[pos].type == TokenType
                                         .IDENTIFIER)
                                     {
-                                        cond ~= " == " ~ tokens[pos].value;
+                                        cond ~= " " ~ tokens[pos - 1].value ~ " " ~ tokens[pos]
+                                            .value;
                                         pos++;
                                     }
                                 }
+                            }
+
+                            if (hasParen)
+                            {
+                                while (pos < tokens.length && tokens[pos].type == TokenType
+                                    .WHITESPACE)
+                                    pos++;
+                                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                                    "Expected ')' after if condition");
+                                pos++;
                             }
 
                             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
@@ -710,6 +936,26 @@ ASTNode parse(Token[] tokens)
                                 case TokenType.WHITESPACE, TokenType.NEWLINE:
                                     pos++;
                                     break;
+                                case TokenType.PRINTLN:
+                                    pos++;
+                                    while (pos < tokens.length && tokens[pos].type == TokenType
+                                        .WHITESPACE)
+                                        pos++;
+
+                                    enforce(
+                                        pos < tokens.length && tokens[pos].type == TokenType.STR,
+                                        "Expected string after println"
+                                    );
+                                    ifNode.children ~= ASTNode("Println", [], tokens[pos].value);
+                                    pos++;
+
+                                    while (pos < tokens.length && tokens[pos].type == TokenType
+                                        .WHITESPACE)
+                                        pos++;
+                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                        "Expected ';' after println");
+                                    pos++;
+                                    break;
                                 default:
                                     import std.stdio;
 
@@ -727,6 +973,15 @@ ASTNode parse(Token[] tokens)
                             break;
 
                         default:
+                            import std.stdio;
+
+                            writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos]
+                                    .value, "')");
+                            writeln("Previous tokens:");
+                            foreach (i; max(0, cast(int) pos - 5) .. pos)
+                            {
+                                writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
+                            }
                             enforce(false,
                                 format("Unexpected token in function body at" ~
                                     " position %s: %s (type: %s)\nExpected one of: %s",
@@ -750,6 +1005,14 @@ ASTNode parse(Token[] tokens)
                     break;
 
                 default:
+                    import std.stdio;
+
+                    writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+                    writeln("Previous tokens:");
+                    foreach (i; max(0, cast(int) pos - 5) .. pos)
+                    {
+                        writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
+                    }
                     enforce(false, format(
                             "Unexpected token in function body at position %s: %s (type: %s)\nExpected one of: %s",
                             pos.to!string,
@@ -773,6 +1036,14 @@ ASTNode parse(Token[] tokens)
             break;
 
         default:
+            import std.stdio;
+
+            writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
+            writeln("Previous tokens:");
+            foreach (i; max(0, cast(int) pos - 5) .. pos)
+            {
+                writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
+            }
             enforce(false, "Unexpected token at top level: " ~ tokens[pos].value);
         }
     }

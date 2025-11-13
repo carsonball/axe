@@ -80,6 +80,32 @@ Token[] lex(string source)
             pos++;
             break;
 
+        case '>':
+            if (pos + 1 < source.length && source[pos + 1] == '=')
+            {
+                tokens ~= Token(TokenType.OPERATOR, ">=");
+                pos += 2;
+            }
+            else
+            {
+                tokens ~= Token(TokenType.OPERATOR, ">");
+                pos++;
+            }
+            break;
+
+        case '<':
+            if (pos + 1 < source.length && source[pos + 1] == '=')
+            {
+                tokens ~= Token(TokenType.OPERATOR, "<=");
+                pos += 2;
+            }
+            else
+            {
+                tokens ~= Token(TokenType.OPERATOR, "<");
+                pos++;
+            }
+            break;
+
         case '"':
             size_t ending = source.indexOf('"', pos + 1);
             enforce(ending != -1, "Unterminated string");
