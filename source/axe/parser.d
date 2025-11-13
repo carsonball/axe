@@ -477,7 +477,7 @@ ASTNode parse(Token[] tokens)
 
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                             "Expected '}' after if body");
-                        pos++; // Skip '}'
+                        pos++;
 
                         mainNode.children ~= ifNode;
                         break;
@@ -528,16 +528,15 @@ ASTNode parse(Token[] tokens)
 
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                     "Expected '}' after main body");
-                pos++; // Skip '}'
+                pos++; 
 
-                // Skip any trailing whitespace
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
 
                 assert(pos > startPos, "Parser must advance position");
                 startPos = pos;
                 ast.children ~= mainNode;
-                continue; // Continue to next token
+                continue;
             }
             goto default;
 
