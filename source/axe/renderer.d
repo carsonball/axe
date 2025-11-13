@@ -88,9 +88,12 @@ string generateC(ASTNode ast)
         }
         else
         {
-            cCode ~= funcNode.returnType ~ " " ~ funcName ~ "(" ~
-                (params.length > 0 ? "int " ~ params.join(", int ") : "") ~
-                ") {\n";
+            cCode ~= funcNode.returnType ~ " " ~ funcName ~ "(";
+            if (params.length > 0)
+            {
+                cCode ~= params.join(", ");
+            }
+            cCode ~= ") {\n";
         }
 
         foreach (child; ast.children)
@@ -146,8 +149,8 @@ string generateC(ASTNode ast)
 
         if (declNode.initializer.length > 0)
         {
-            string initializer = processExpression(declNode.initializer);
-            decl ~= " = " ~ initializer;
+            string processedExpr = processExpression(declNode.initializer);
+            decl ~= " = " ~ processedExpr;
         }
 
         cCode ~= decl ~ ";\n";
@@ -932,9 +935,7 @@ unittest
     {
         auto tokens = lex("def foo { println \"in foo\"; } main { foo(); }");
         auto ast = parse(tokens);
-
         auto cCode = generateC(ast);
-        writeln(cCode);
         assert(cCode.canFind("void foo()"));
         assert(cCode.canFind(`printf("in foo\n");`));
         assert(cCode.canFind("foo();"));
@@ -946,6 +947,8 @@ unittest
         auto ast = parse(tokens);
 
         auto cCode = generateC(ast);
+
+        writeln(cCode);
         assert(cCode.canFind("int add(int a, int b)"));
         assert(cCode.canFind("return (a + b)"));
         assert(cCode.canFind("x = add(1, 2)"));
