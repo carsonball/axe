@@ -1,0 +1,8 @@
+// use std.math -> sin, cos, tan;
+
+main {
+    println "Hello, world";
+    raw {
+        printf("Hello, world\n");
+    }
+}
