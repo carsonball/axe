@@ -12,7 +12,7 @@ import axe.structs;
 Token[] lex(string source)
 {
     import std.ascii;
-    
+
     Token[] tokens;
     size_t pos = 0;
 
@@ -101,15 +101,19 @@ Token[] lex(string source)
             pos++;
             break;
 
-        // Handle break keyword
+            // Handle break keyword
         case 'b':
-            if (pos + 4 < source.length && source[pos .. pos + 5] == "break") {
+            if (pos + 4 < source.length && source[pos .. pos + 5] == "break")
+            {
                 tokens ~= Token(TokenType.BREAK, "break");
                 pos += 5;
-            } else {
+            }
+            else
+            {
                 // Handle as identifier
                 size_t start = pos;
-                while (pos < source.length && (source[pos].isAlphaNum || source[pos] == '_')) {
+                while (pos < source.length && (source[pos].isAlphaNum || source[pos] == '_'))
+                {
                     pos++;
                 }
                 tokens ~= Token(TokenType.IDENTIFIER, source[start .. pos]);
@@ -169,7 +173,7 @@ Token[] lex(string source)
             else
             {
                 import std.conv;
-                
+
                 enforce(false, "Unexpected character at position " ~ pos.to!string ~ ": " ~ source[pos .. pos + 1]);
             }
         }
@@ -183,17 +187,38 @@ unittest
     import std.array;
     import std.stdio;
 
-    auto tokens = lex("if x == 0 { break; }");
-    auto filtered = tokens.filter!(t => t.type != TokenType.WHITESPACE).array;
+    {
+        auto tokens = lex("if x == 0 { break; }");
+        auto filtered = tokens.filter!(t => t.type != TokenType.WHITESPACE).array;
+        assert(filtered.length == 8);
+        assert(filtered[0].type == TokenType.IF);
+        assert(filtered[0].value == "if");
+        assert(filtered[1].type == TokenType.IDENTIFIER);
+        assert(filtered[1].value == "x");
+        assert(filtered[2].type == TokenType.OPERATOR);
+        assert(filtered[2].value == "==");
+        assert(filtered[3].type == TokenType.IDENTIFIER);
+        assert(filtered[3].value == "0");
+        assert(filtered[4].type == TokenType.LBRACE);
+    }
+    {
+        auto tokens = lex("println \"hello\";");
+        assert(tokens.length == 4);
+        assert(tokens[0].type == TokenType.PRINTLN);
+        assert(tokens[1].type == TokenType.WHITESPACE);
+        assert(tokens[2].type == TokenType.STR);
+        assert(tokens[2].value == "hello");
+        assert(tokens[3].type == TokenType.SEMICOLON);
+    }
+    {
+        import axe.parser;
 
-    assert(filtered.length == 8);
-    assert(filtered[0].type == TokenType.IF);
-    assert(filtered[0].value == "if");
-    assert(filtered[1].type == TokenType.IDENTIFIER);
-    assert(filtered[1].value == "x");
-    assert(filtered[2].type == TokenType.OPERATOR);
-    assert(filtered[2].value == "==");
-    assert(filtered[3].type == TokenType.IDENTIFIER);
-    assert(filtered[3].value == "0");
-    assert(filtered[4].type == TokenType.LBRACE);
+        auto tokens = lex("main { println \"test\"; }");
+        auto ast = parse(tokens);
+        assert(ast.nodeType == "Program");
+        assert(ast.children.length == 1);
+        assert(ast.children[0].nodeType == "Main");
+        assert(ast.children[0].children[0].nodeType == "Println");
+        assert(ast.children[0].children[0].value == "test");
+    }
 }
