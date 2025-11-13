@@ -1,4 +1,4 @@
-module axe.machine;
+module axe.builds;
 
 import axe.lexer;
 import axe.parser;
