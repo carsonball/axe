@@ -78,6 +78,7 @@ void handleMachineArgs(string[] args)
         }
         else
         {
+            writeln("Generating C...");
             string cCode = generateC(ast);
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);

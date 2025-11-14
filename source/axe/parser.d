@@ -1893,9 +1893,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 case TokenType.RAW:
                     enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                     pos++; // Skip 'raw'
-                    
+
                     // Skip whitespace/newlines
-                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                            .NEWLINE))
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -2269,9 +2270,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     case TokenType.RAW:
                         enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                         pos++; // Skip 'raw'
-                        
+
                         // Skip whitespace/newlines
-                        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                                .NEWLINE))
                             pos++;
 
                         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -2326,9 +2328,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 "Expected '{' after 'test'");
             pos++;
 
-            Scope testScope;
+            Scope testScope = new Scope();
             ASTNode testScopeNode = testNode;
-            
+
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 auto stmt = parseStatementHelper(pos, tokens, testScope, testScopeNode, isAxec);
@@ -2356,17 +2358,18 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             // Parse macro parameters with types
             string[] macroParams;
             string[] macroParamTypes;
-            
+
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                 "Expected '(' after macro name");
             pos++;
 
             while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
             {
-                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE)
                 {
                     pos++;
                     continue;
@@ -2425,7 +2428,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             // Parse macro body (currently only supports raw blocks)
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
-                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE)
                 {
                     pos++;
                     continue;
@@ -2435,8 +2439,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 {
                     enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                     pos++; // Skip 'raw'
-                    
-                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+
+                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                            .NEWLINE))
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -3204,9 +3209,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                 case TokenType.RAW:
                     enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                     pos++; // Skip 'raw'
-                    
+
                     // Skip whitespace/newlines
-                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                            .NEWLINE))
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -3313,7 +3319,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
     case TokenType.ASSERT:
         pos++; // Skip 'assert'
-        
+
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
@@ -3709,139 +3715,166 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         return switchNode;
 
     case TokenType.MUT:
+        writeln("[MUT case] Starting at pos=", pos);
         pos++;
+        writeln("[MUT case] After pos++, pos=", pos, " token=", tokens[pos].type);
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            pos++;
+        writeln("[MUT case] After whitespace skip, pos=", pos, " token=", tokens[pos].type);
         enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
             "Expected 'val' after 'mut'");
+        writeln("[MUT case] About to goto VAL case");
         goto case TokenType.VAL;
 
     case TokenType.VAL:
-        bool isMutable = tokens[pos - 1].type == TokenType.MUT;
-        pos++;
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-            "Expected identifier after 'val'");
-        string varName = tokens[pos].value;
-        pos++;
-
-        string typeName = "";
-        string initializer = "";
-        int refDepth = 0;
-
-        if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
         {
+            writeln("[VAL case] Starting at pos=", pos);
+            // Check if previous non-whitespace token was MUT
+            size_t checkPos = pos - 1;
+            while (checkPos > 0 && (tokens[checkPos].type == TokenType.WHITESPACE || tokens[checkPos].type == TokenType.NEWLINE))
+                checkPos--;
+            bool isMutable = tokens[checkPos].type == TokenType.MUT;
+            writeln("[VAL case] isMutable=", isMutable);
+            
             pos++;
+            writeln("[VAL case] After pos++, pos=", pos);
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
+            writeln("[VAL case] After whitespace skip, pos=", pos, " token=", tokens[pos].type);
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected identifier after 'val'");
+            string varName = tokens[pos].value;
+            writeln("[VAL case] varName=", varName);
+            pos++;
 
-            // Handle ref keyword(s)
-            while (pos < tokens.length && tokens[pos].type == TokenType.REF)
+            string typeName = "";
+            string initializer = "";
+            int refDepth = 0;
+
+            if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
             {
-                refDepth++;
                 pos++;
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
+
+                // Handle ref keyword(s)
+                while (pos < tokens.length && tokens[pos].type == TokenType.REF)
+                {
+                    refDepth++;
+                    pos++;
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+                }
+
+                typeName = parseTypeHelper(pos, tokens);
+                writeln("[VAL case] After parseTypeHelper, typeName=", typeName, " pos=", pos);
             }
 
-            typeName = parseTypeHelper(pos, tokens);
-        }
-
-        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
-        {
-            pos++;
-            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                pos++;
-
-            // Check for model instantiation: new ModelName(...)
-            if (pos < tokens.length && tokens[pos].type == TokenType.NEW)
+            writeln("[VAL case] Before checking for =, pos=", pos, " token=", tokens[pos].type);
+            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
             {
-                pos++; // Skip 'new'
+                pos++;
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
 
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                    "Expected model name after 'new'");
-                string modelName = tokens[pos].value;
-                pos++;
-
-                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                    pos++;
-
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
-                    "Expected '(' after model name");
-                pos++;
-
-                string[string] fieldValues;
-                while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                // Check for model instantiation: new ModelName(...)
+                if (pos < tokens.length && tokens[pos].type == TokenType.NEW)
                 {
-                    if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
-                        .NEWLINE)
+                    pos++; // Skip 'new'
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                        "Expected model name after 'new'");
+                    string modelName = tokens[pos].value;
+                    pos++;
+
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                        "Expected '(' after model name");
+                    pos++;
+
+                    string[string] fieldValues;
+                    while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
                     {
-                        pos++;
-                    }
-                    else if (tokens[pos].type == TokenType.IDENTIFIER)
-                    {
-                        string fieldName = tokens[pos].value;
-                        pos++;
-
-                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                            pos++;
-
-                        enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
-                            "Expected ':' after field name");
-                        pos++;
-
-                        string fieldValue = "";
-                        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType
-                            .RPAREN)
+                        if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                            .NEWLINE)
                         {
-                            if (tokens[pos].type == TokenType.STR)
-                                fieldValue ~= "\"" ~ tokens[pos].value ~ "\"";
-                            else if (tokens[pos].type != TokenType.WHITESPACE)
-                                fieldValue ~= tokens[pos].value;
                             pos++;
                         }
-
-                        fieldValues[fieldName] = fieldValue.strip();
-
-                        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                        else if (tokens[pos].type == TokenType.IDENTIFIER)
+                        {
+                            string fieldName = tokens[pos].value;
                             pos++;
+
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                                "Expected ':' after field name");
+                            pos++;
+
+                            string fieldValue = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType
+                                .RPAREN)
+                            {
+                                if (tokens[pos].type == TokenType.STR)
+                                    fieldValue ~= "\"" ~ tokens[pos].value ~ "\"";
+                                else if (tokens[pos].type != TokenType.WHITESPACE)
+                                    fieldValue ~= tokens[pos].value;
+                                pos++;
+                            }
+
+                            fieldValues[fieldName] = fieldValue.strip();
+
+                            if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                                pos++;
+                        }
+                        else
+                        {
+                            pos++;
+                        }
                     }
-                    else
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                        "Expected ')' after model fields");
+                    pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                        "Expected ';' after model instantiation");
+                    pos++;
+
+                    currentScope.addVariable(varName, isMutable);
+                    return new ModelInstantiationNode(modelName, varName, fieldValues, isMutable);
+                }
+                else
+                {
+                    // Regular initialization
+                    writeln("[VAL case] Parsing initializer, starting at pos=", pos);
+                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                     {
+                        writeln("[VAL case] Initializer loop: pos=", pos, " token=", tokens[pos].type);
+                        if (tokens[pos].type == TokenType.STR)
+                            initializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                        else
+                            initializer ~= tokens[pos].value;
                         pos++;
                     }
-                }
-
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
-                    "Expected ')' after model fields");
-                pos++;
-
-                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                    "Expected ';' after model instantiation");
-                pos++;
-
-                currentScope.addVariable(varName, isMutable);
-                return new ModelInstantiationNode(modelName, varName, fieldValues, isMutable);
-            }
-            else
-            {
-                // Regular initialization
-                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-                {
-                    if (tokens[pos].type == TokenType.STR)
-                        initializer ~= "\"" ~ tokens[pos].value ~ "\"";
-                    else
-                        initializer ~= tokens[pos].value;
-                    pos++;
+                    writeln("[VAL case] After initializer loop, initializer=", initializer);
                 }
             }
+
+            writeln("[VAL case] Before final semicolon check, pos=", pos);
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after variable declaration");
+            pos++;
+
+            writeln("[VAL case] About to return DeclarationNode");
+            currentScope.addVariable(varName, isMutable);
+            return new DeclarationNode(varName, isMutable, initializer, typeName, refDepth);
         }
-
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-            "Expected ';' after variable declaration");
-        pos++;
-
-        currentScope.addVariable(varName, isMutable);
-        return new DeclarationNode(varName, isMutable, initializer, typeName, refDepth);
 
     case TokenType.IDENTIFIER:
         string identName = tokens[pos].value;
@@ -4104,9 +4137,10 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
     case TokenType.RAW:
         enforce(isAxec, "Raw C blocks are only allowed in .axec files");
         pos++; // Skip 'raw'
-        
+
         // Skip whitespace/newlines
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -4129,7 +4163,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         // Safeguard: if we don't recognize the token, we must advance to prevent infinite loops
         writeln("[parseStatementHelper] WARNING: Unhandled token type ", tokens[pos].type, " at pos ", pos);
         enforce(false, "Unexpected token in statement: " ~ tokens[pos].value ~ " (type: " ~ tokens[pos]
-                .type.to!string ~ ")\nFull context: " ~ tokens[pos-5 .. pos+5].map!(t => t.value).join(""));
+                .type.to!string ~ ")\nFull context: " ~ tokens[pos - 5 .. pos + 5].map!(t => t.value)
+                .join(""));
         return null;
     }
 }
@@ -4399,13 +4434,17 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
  */
 private string parseTypeHelper(ref size_t pos, Token[] tokens)
 {
+    import std.stdio : writeln;
+    writeln("[parseTypeHelper] Starting at pos=", pos);
     string typeName = "";
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
 
+    writeln("[parseTypeHelper] After whitespace skip, pos=", pos);
     if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
     {
         typeName = tokens[pos].value;
+        writeln("[parseTypeHelper] Got type name: ", typeName);
         pos++;
 
         // Handle array syntax: type[] or type[size]

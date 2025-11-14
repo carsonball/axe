@@ -200,13 +200,32 @@ def double_to_str(value: double, buffer: char*): char* {
     return buffer;
 }
 
-test {
-    val some_thing: int = 10;
-    
+test {    
     assert(is_alpha(65) != 0, "65 (A) should be alphabetic");
     assert(is_digit(48) != 0, "48 (0) should be a digit");
     assert(is_alnum(97) != 0, "97 (a) should be alphanumeric");
     assert(to_upper(97) == 65, "to_upper(a) should return A");
     assert(to_lower(65) == 97, "to_lower(A) should return a");
     assert(str_ncmp("hello", "help", 3) == 0, "first 3 chars of hello and help should match");
+    
+    mut val buffer: char* = "                                        ";
+    
+    int_to_str(42, buffer);
+    assert(str_ncmp(buffer, "42", 2) == 0, "int_to_str(42) should produce 42");
+    
+    int_to_str(-123, buffer);
+    assert(str_ncmp(buffer, "-123", 4) == 0, "int_to_str(-123) should produce -123");
+    
+    int_to_str(0, buffer);
+    assert(str_ncmp(buffer, "0", 1) == 0, "int_to_str(0) should produce 0");
+    
+    long_to_str(1000, buffer);
+    assert(str_ncmp(buffer, "1000", 4) == 0, "long_to_str(1000) should produce 1000");
+    
+    long_to_str(-9999, buffer);
+    assert(str_ncmp(buffer, "-9999", 5) == 0, "long_to_str(-9999) should produce -9999");
+    
+    assert(str_len("test") == 4, "str_len of test should be 4");
+    assert(str_len("") == 0, "str_len of empty string should be 0");
+    assert(str_len("hello world") == 11, "str_len of hello world should be 11");
 }

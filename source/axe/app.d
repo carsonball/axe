@@ -19,4 +19,5 @@ void main(string[] args)
         return;
     }
     handleMachineArgs(args);
+    writeln("Compiled.");
 }
