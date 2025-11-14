@@ -1,0 +1,12 @@
+def thing_of(x: int): long {
+    return 0;
+}
+
+def destroy(ptr: long) {
+    println "destroyed";
+}
+
+main {
+    val x: int = 5;
+    destroy(thing_of(x));
+}
