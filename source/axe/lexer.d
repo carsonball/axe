@@ -392,16 +392,17 @@ Token[] lex(string source)
             {
                 import std.conv;
 
-                enforce(false, "Unexpected character at position " ~ pos.to!string ~ ": " ~ source[pos .. pos + 1]);
+                enforce(false, "Unexpected character at position " ~ pos.to!string ~ ": " ~ source[pos .. pos + 1] ~
+                        "\nFull context: " ~ source[pos - 10 .. pos + 10]);
             }
         }
     }
 
     import std.array;
 
-    return tokens.filter!(t => t.type != TokenType.WHITESPACE 
-        && t.type != TokenType.NEWLINE 
-        && t.type != TokenType.COMMENT).array;
+    return tokens.filter!(t => t.type != TokenType.WHITESPACE
+            && t.type != TokenType.NEWLINE
+            && t.type != TokenType.COMMENT).array;
 }
 
 unittest
