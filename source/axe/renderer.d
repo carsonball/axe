@@ -93,6 +93,11 @@ string generateC(ASTNode ast)
                 cCode ~= generateC(child);
         }
 
+        // Global variables for command line arguments
+        cCode ~= "\n// Global command line arguments\n";
+        cCode ~= "int __axe_argc = 0;\n";
+        cCode ~= "char** __axe_argv = NULL;\n\n";
+
         cCode ~= "\n";
 
         foreach (child; ast.children)
@@ -137,7 +142,9 @@ string generateC(ASTNode ast)
 
         if (funcNode.name == "main")
         {
-            cCode ~= "int main() {\n";
+            cCode ~= "int main(int argc, char** argv) {\n";
+            cCode ~= "__axe_argc = argc;\n";
+            cCode ~= "__axe_argv = argv;\n";
             version (Windows)
             {
                 cCode ~= "SetConsoleOutputCP(CP_UTF8);\n";
@@ -740,7 +747,9 @@ string generateC(ASTNode ast)
         auto testNode = cast(TestNode) ast;
 
         // Generate main function with test runner
-        cCode ~= "int main() {\n";
+        cCode ~= "int main(int argc, char** argv) {\n";
+        cCode ~= "    __axe_argc = argc;\n";
+        cCode ~= "    __axe_argv = argv;\n";
         version (Windows)
         {
             cCode ~= "SetConsoleOutputCP(65001);\n";

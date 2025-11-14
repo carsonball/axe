@@ -47,7 +47,31 @@ def get_env(name: char*): char* {
     return result;
 }
 
+/// Gets command line arguments. Returns argv array.
+def get_cmdline_params(): char** {
+    mut val result: char** = 0;
+    raw {
+        extern char** __axe_argv;
+        result = __axe_argv;
+    }
+    return result;
+}
+
+/// Gets the count of command line arguments.
+def get_cmdline_count(): int {
+    mut val result: int = 0;
+    raw {
+        extern int __axe_argc;
+        result = __axe_argc;
+    }
+    return result;
+}
+
 test {
     assert(exec("echo test > nul") == 0, "exec should return 0 for successful command");
     assert(get_env("PATH") != 0, "PATH environment variable should exist");
+    assert(get_cmdline_count() >= 1, "argc should be at least 1 (program name)");
+    mut val params: char** = get_cmdline_params();
+    assert(params != 0, "argv should not be null");
+    assert(params[0] != 0, "argv[0] (program name) should not be null");
 }
