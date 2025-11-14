@@ -168,10 +168,11 @@ string generateC(ASTNode ast)
         else
         {
             if (dest in g_isMutable && !g_isMutable[dest])
-                throw new Exception("Cannot assign to immutable variable '" ~ dest ~ "' (declared with 'val')");
-            
+                throw new Exception(
+                    "Cannot assign to immutable variable '" ~ dest ~ "' (declared with 'val')");
+
             string processedExpr = processExpression(expr);
-            
+
             string destWithDeref = dest;
             if (dest in g_refDepths && g_refDepths[dest] > 0)
             {
@@ -180,7 +181,7 @@ string generateC(ASTNode ast)
                     destWithDeref = "*" ~ destWithDeref;
                 }
             }
-            
+
             cCode ~= destWithDeref ~ " = " ~ processedExpr ~ ";\n";
         }
         break;
@@ -210,7 +211,8 @@ string generateC(ASTNode ast)
         auto accessNode = cast(ArrayAccessNode) ast;
         if (accessNode.index2.length > 0)
         {
-            cCode ~= accessNode.arrayName ~ "[" ~ processExpression(accessNode.index) ~ "][" ~ processExpression(accessNode.index2) ~ "]";
+            cCode ~= accessNode.arrayName ~ "[" ~ processExpression(
+                accessNode.index) ~ "][" ~ processExpression(accessNode.index2) ~ "]";
         }
         else
         {
@@ -635,11 +637,11 @@ import std.array;
 private string processCondition(string condition)
 {
     import std.array : replace, split;
-    
+
     condition = condition.replace(" and ", " && ");
     condition = condition.replace(" or ", " || ");
     condition = condition.replace(" xor ", " ^ ");
-    
+
     foreach (op; ["==", "!=", ">", "<", ">=", "<="])
     {
         if (condition.canFind(op))
@@ -1669,7 +1671,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val score: int = 75; if score >= 90 { println \"A\"; } elif score >= 80 { println \"B\"; } elif score >= 70 { println \"C\"; } else { println \"F\"; } }");
+        auto tokens = lex("main { val score: int = 75; if score >= 90 { println \"A\"; } " ~
+                "elif score >= 80 { println \"B\"; } elif score >= 70 { println \"C\"; } else { println \"F\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -1992,7 +1995,8 @@ unittest
     }
 
     {
-        auto tokens = lex("enum State { RUNNING, STOPPED } main { val s: State = State.RUNNING; println s; }");
+        auto tokens = lex(
+            "enum State { RUNNING, STOPPED } main { val s: State = State.RUNNING; println s; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
