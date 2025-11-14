@@ -28,13 +28,10 @@ def init_grid(grid: Cell[rows][cols], rows: int, cols: int, arena: Arena) {
 
             // Allocate a Cell from the arena (not strictly necessary here but for stress-testing arena)
             val cell_ptr: long = arena_alloc(ref_of(arena), sizeof(Cell));
-
             grid[r][c].temperature = 20 + (r * c) mod 50;
-
-            c = c + 1;
+            c++;
         }
-
-        r = r + 1;
+        r++;
     }
 }
 
@@ -76,10 +73,10 @@ def diffuse(grid: Cell[rows][cols], new_grid: Cell[rows][cols], rows: int, cols:
 
             new_grid[r][c].temperature = sum / count;
 
-            c = c + 1;
+            c++;
         }
 
-        r = r + 1;
+        r++;
     }
 }
 
@@ -98,11 +95,11 @@ def print_grid(grid: Cell[rows][cols], rows: int, cols: int) {
 
             print grid[r][c].temperature;
             print " ";
-            c = c + 1;
+            c++;
         }
 
         println "";
-        r = r + 1;
+        r++;
     }
 }
 
@@ -142,7 +139,7 @@ main {
         print_grid(grid, rows, cols);
         println "";
 
-        step = step + 1;
+        step++;
     }
 
     arena_destroy(ref_of(arena));
