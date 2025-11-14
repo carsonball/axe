@@ -2,7 +2,7 @@ use external("stdlib.h");
 use external("string.h");
 
 model Arena {
-    buffer: long; 
+    buffer: uintptr_t; 
     capacity: int;
     offset: int;  
 }
@@ -11,7 +11,7 @@ def arena_create(size: int): Arena {
     mut val arena: Arena;
     
     raw {
-        arena.buffer = (long)malloc(size);
+        arena.buffer = (uintptr_t)malloc(size);
         arena.capacity = size;
         arena.offset = 0;
     }
