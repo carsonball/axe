@@ -1,0 +1,20 @@
+macro copy_of(thing: untyped, dest: untyped, type: untyped) {
+    raw {
+        memcpy(&dest, &thing, sizeof(type));
+    }
+}
+
+// When called with copy_of(grid, new_grid, Cell[10][10]) this should generate:
+// memcpy(&new_grid, &grid, sizeof(Cell[10][10]));
+// But wrap memcpy in some "safeness" code.
+
+model Cell {
+    temperature: int;
+}
+
+main {
+    val grid: Cell[10][10];
+    val new_grid: Cell[10][10];
+    copy_of(grid, new_grid, Cell[10][10]);
+    println "wow it worked :D";
+}

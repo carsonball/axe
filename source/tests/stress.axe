@@ -126,7 +126,7 @@ main {
         diffuse(grid, new_grid, rows, cols);
 
         // Swap grids
-        mut val temp: Cell[10][10] = grid;
+        mut val temp: Cell[10][10] = copy_of(grid);
         grid = new_grid;
         new_grid = temp;
 

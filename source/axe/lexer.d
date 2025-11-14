@@ -212,7 +212,13 @@ Token[] lex(string source)
             break;
 
         case 'm':
-            if (pos + 4 < source.length && source[pos .. pos + 5] == "model" &&
+            if (pos + 4 < source.length && source[pos .. pos + 5] == "macro" &&
+                (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
+            {
+                tokens ~= Token(TokenType.MACRO, "macro");
+                pos += 5;
+            }
+            else if (pos + 4 < source.length && source[pos .. pos + 5] == "model" &&
                 (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
             {
                 tokens ~= Token(TokenType.MODEL, "model");

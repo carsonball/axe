@@ -67,10 +67,11 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             // Replace slashes with underscores for valid C identifiers
             string sanitizedModuleName = useNode.moduleName.replace("/", "_");
 
-            // First pass: build complete mapping of ALL functions and models in the module
+            // First pass: build complete mapping of ALL functions, models, and macros in the module
             // This is needed so internal calls within the module can be renamed
             string[string] moduleFunctionMap;
             string[string] moduleModelMap;
+            string[string] moduleMacroMap;
             
             import std.stdio : writeln;
             writeln("DEBUG imports: Building function map for module: ", useNode.moduleName);
@@ -90,6 +91,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     string prefixedName = sanitizedModuleName ~ "_" ~ modelNode.name;
                     moduleModelMap[modelNode.name] = prefixedName;
                     writeln("  DEBUG: Mapped model '", modelNode.name, "' -> '", prefixedName, "'");
+                }
+                else if (importChild.nodeType == "Macro")
+                {
+                    auto macroNode = cast(MacroNode) importChild;
+                    // Macros don't get prefixed - they expand inline
+                    moduleMacroMap[macroNode.name] = macroNode.name;
+                    writeln("  DEBUG: Mapped macro '", macroNode.name, "'");
                 }
             }
 
@@ -126,6 +134,16 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                         auto newModel = new ModelNode(prefixedName, null);
                         newModel.fields = modelNode.fields;
                         newChildren ~= newModel;
+                    }
+                }
+                else if (importChild.nodeType == "Macro")
+                {
+                    auto macroNode = cast(MacroNode) importChild;
+                    if (useNode.imports.canFind(macroNode.name))
+                    {
+                        // Macros are added directly without prefixing - they expand inline
+                        writeln("  DEBUG: Adding macro '", macroNode.name, "'");
+                        newChildren ~= macroNode;
                     }
                 }
             }

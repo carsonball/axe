@@ -16,6 +16,7 @@ private int[string] g_refDepths;
 private bool[string] g_isMutable;
 private string[string] g_arrayWidthVars;  // Maps array name to its width variable name
 private int[][string] g_functionParamReordering;  // Maps function name to reordering indices
+private MacroNode[string] g_macros;  // Maps macro name to MacroNode for expansion
 
 /** 
  * Converts a string to an operand.
@@ -299,6 +300,53 @@ string generateC(ASTNode ast)
     case "FunctionCall":
         auto callNode = cast(FunctionCallNode) ast;
         string callName = callNode.functionName;
+        
+        // Check if this is a macro call
+        if (callName in g_macros)
+        {
+            writeln("DEBUG: Expanding macro '", callName, "'");
+            auto macroNode = g_macros[callName];
+            
+            // Parse arguments from the call
+            import std.string : split, strip;
+            string[] callArgs;
+            if (callNode.args.length > 0)
+            {
+                // Arguments are already parsed as array
+                foreach (arg; callNode.args)
+                    callArgs ~= arg.strip();
+            }
+            
+            // Build parameter substitution map
+            string[string] paramMap;
+            for (size_t i = 0; i < macroNode.params.length && i < callArgs.length; i++)
+            {
+                paramMap[macroNode.params[i]] = callArgs[i];
+                writeln("  DEBUG: Mapping '", macroNode.params[i], "' -> '", callArgs[i], "'");
+            }
+            
+            // Expand macro body
+            string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
+            foreach (child; macroNode.children)
+            {
+                if (child.nodeType == "RawC")
+                {
+                    auto rawNode = cast(RawCNode) child;
+                    string expandedCode = rawNode.code;
+                    
+                    // Replace parameters in the raw code
+                    foreach (paramName, paramValue; paramMap)
+                    {
+                        expandedCode = expandedCode.replace(paramName, paramValue);
+                    }
+                    
+                    cCode ~= indent ~ expandedCode ~ "\n";
+                }
+            }
+            break;
+        }
+        
+        // Not a macro, handle as regular function call
         string[] processedArgs;
 
         foreach (arg; callNode.args)
@@ -661,6 +709,13 @@ string generateC(ASTNode ast)
         cCode ~= "} " ~ enumNode.name ~ ";\n";
         break;
         
+    case "Macro":
+        // Store macro for later expansion, don't generate code now
+        auto macroNode = cast(MacroNode) ast;
+        g_macros[macroNode.name] = macroNode;
+        writeln("DEBUG: Stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
+        break;
+
     case "Model":
         auto modelNode = cast(ModelNode) ast;
         cCode ~= "typedef struct {\n";

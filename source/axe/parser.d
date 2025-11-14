@@ -2315,6 +2315,130 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             }
             goto default;
 
+        case TokenType.MACRO:
+            pos++; // Skip 'macro'
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected macro name after 'macro'");
+            string macroName = tokens[pos].value;
+            pos++;
+
+            // Parse macro parameters with types
+            string[] macroParams;
+            string[] macroParamTypes;
+            
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+            
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                "Expected '(' after macro name");
+            pos++;
+
+            while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+            {
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                {
+                    pos++;
+                    continue;
+                }
+
+                if (tokens[pos].type == TokenType.IDENTIFIER)
+                {
+                    string paramName = tokens[pos].value;
+                    pos++;
+
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                        "Expected ':' after macro parameter name");
+                    pos++;
+
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                        "Expected type after ':' in macro parameter");
+                    string paramType = tokens[pos].value;
+                    pos++;
+
+                    macroParams ~= paramName;
+                    macroParamTypes ~= paramType;
+
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                    {
+                        pos++;
+                    }
+                }
+                else
+                {
+                    pos++;
+                }
+            }
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after macro parameters");
+            pos++;
+
+            auto macroNode = new MacroNode(macroName, macroParams, macroParamTypes);
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after macro declaration");
+            pos++;
+
+            // Parse macro body (currently only supports raw blocks)
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE)
+                {
+                    pos++;
+                    continue;
+                }
+
+                if (tokens[pos].type == TokenType.RAW)
+                {
+                    enforce(isAxec, "Raw C blocks are only allowed in .axec files");
+                    pos++; // Skip 'raw'
+                    
+                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                        "Expected '{' after 'raw'");
+                    pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                        "Expected raw code content");
+                    string rawCode = tokens[pos].value;
+                    pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                        "Expected '}' after raw block");
+                    pos++;
+
+                    macroNode.children ~= new RawCNode(rawCode);
+                }
+                else
+                {
+                    pos++;
+                }
+            }
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after macro body");
+            pos++;
+
+            ast.children ~= macroNode;
+            continue;
+
         case TokenType.DEF:
             pos++;
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)

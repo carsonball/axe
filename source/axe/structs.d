@@ -66,6 +66,7 @@ enum TokenType
     OR,
     XOR,
     MOD,
+    MACRO,
 }
 
 /** 
@@ -185,6 +186,21 @@ class FunctionNode : ASTNode
         this.name = name;
         this.params = params;
         this.returnType = returnType;
+    }
+}
+
+class MacroNode : ASTNode
+{
+    string name;
+    string[] params;  // Parameter names
+    string[] paramTypes;  // Parameter types (e.g., "untyped")
+    
+    this(string name, string[] params, string[] paramTypes)
+    {
+        super("Macro");
+        this.name = name;
+        this.params = params;
+        this.paramTypes = paramTypes;
     }
 }
 

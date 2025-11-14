@@ -1,0 +1,10 @@
+use external("string.h");
+use external("stdint.h");
+
+macro copy_of(src: untyped, dest: untyped, type: untyped) {
+    raw {
+        if (sizeof(type) > 0) {
+            memcpy(&dest, &src, sizeof(type));
+        }
+    }
+}
