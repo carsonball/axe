@@ -58,6 +58,7 @@ enum TokenType
     IN,
     EXTERNAL,
     REF,
+    ENUM,
 }
 
 /** 
@@ -330,6 +331,19 @@ class ModelNode : ASTNode
         super("Model");
         this.name = name;
         this.fields = fields;
+    }
+}
+
+class EnumNode : ASTNode
+{
+    string name;
+    string[] values;
+
+    this(string name, string[] values)
+    {
+        super("Enum");
+        this.name = name;
+        this.values = values;
     }
 }
 

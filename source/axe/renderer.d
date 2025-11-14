@@ -68,15 +68,24 @@ string generateC(ASTNode ast)
 
         cCode ~= "\n";
 
+        // Generate enums first
+        foreach (child; ast.children)
+        {
+            if (child.nodeType == "Enum")
+                cCode ~= generateC(child) ~ "\n";
+        }
+
+        // Then models
         foreach (child; ast.children)
         {
             if (child.nodeType == "Model")
                 cCode ~= generateC(child) ~ "\n";
         }
 
+        // Then everything else
         foreach (child; ast.children)
         {
-            if (child.nodeType != "Model" && child.nodeType != "ExternalImport")
+            if (child.nodeType != "Model" && child.nodeType != "ExternalImport" && child.nodeType != "Enum")
                 cCode ~= generateC(child) ~ "\n";
         }
         break;
@@ -158,19 +167,18 @@ string generateC(ASTNode ast)
         }
         else
         {
-            writeln("[DEBUG] Assignment to: '", dest, "'");
             string processedExpr = processExpression(expr);
+            
+            // Auto-dereference if dest is a reference variable
             string destWithDeref = dest;
             if (dest in g_refDepths && g_refDepths[dest] > 0)
             {
-                writeln("[DEBUG] Dest is a ref, adding derefs");
                 for (int i = 0; i < g_refDepths[dest]; i++)
                 {
                     destWithDeref = "*" ~ destWithDeref;
                 }
             }
-
-            writeln("[DEBUG] Final assignment: ", destWithDeref, " = ", processedExpr);
+            
             cCode ~= destWithDeref ~ " = " ~ processedExpr ~ ";\n";
         }
         break;
@@ -208,8 +216,6 @@ string generateC(ASTNode ast)
         if (declNode.refDepth > 0)
         {
             g_refDepths[declNode.name] = declNode.refDepth;
-            writeln("[DEBUG] Tracked ref variable: ", declNode.name, " with depth ", declNode
-                    .refDepth);
         }
 
         string baseType = declNode.typeName.length > 0 ? declNode.typeName : "int";
@@ -374,6 +380,19 @@ string generateC(ASTNode ast)
         }
         break;
 
+    case "Enum":
+        auto enumNode = cast(EnumNode) ast;
+        cCode ~= "typedef enum {\n";
+        foreach (i, value; enumNode.values)
+        {
+            cCode ~= "    " ~ value;
+            if (i < enumNode.values.length - 1)
+                cCode ~= ",";
+            cCode ~= "\n";
+        }
+        cCode ~= "} " ~ enumNode.name ~ ";\n";
+        break;
+
     case "Model":
         auto modelNode = cast(ModelNode) ast;
         cCode ~= "typedef struct {\n";
@@ -488,8 +507,6 @@ string generateC(ASTNode ast)
 string processExpression(string expr)
 {
     expr = expr.strip();
-    writeln("[DEBUG] processExpression called with: '", expr, "'");
-    writeln("[DEBUG] Current g_refDepths: ", g_refDepths);
 
     // Handle ref_of() built-in function
     if (expr.canFind("ref_of(") && expr.endsWith(")"))
@@ -497,7 +514,6 @@ string processExpression(string expr)
         auto startIdx = expr.indexOf("ref_of(") + 7;
         auto endIdx = expr.lastIndexOf(")");
         string varName = expr[startIdx .. endIdx].strip();
-        writeln("[DEBUG] ref_of detected for: ", varName);
         return "&" ~ varName;
     }
 
@@ -508,6 +524,20 @@ string processExpression(string expr)
         auto endIdx = expr.lastIndexOf(")");
         string varName = expr[startIdx .. endIdx].strip();
         return "(long)&" ~ varName;
+    }
+
+    if (expr.canFind(".") && !expr.canFind(".len"))
+    {
+        auto parts = expr.split(".");
+        if (parts.length == 2)
+        {
+            string firstPart = parts[0].strip();
+            string secondPart = parts[1].strip();
+            if (firstPart.length > 0 && firstPart[0] >= 'A' && firstPart[0] <= 'Z')
+            {
+                return secondPart;
+            }
+        }
     }
 
     // Handle .len property for arrays
@@ -552,17 +582,14 @@ string processExpression(string expr)
     // Auto-dereference if this is a reference variable
     if (expr in g_refDepths && g_refDepths[expr] > 0)
     {
-        writeln("[DEBUG] Auto-dereferencing '", expr, "' with depth ", g_refDepths[expr]);
         string result = expr;
         for (int i = 0; i < g_refDepths[expr]; i++)
         {
             result = "*" ~ result;
         }
-        writeln("[DEBUG] Result after deref: '", result, "'");
         return result;
     }
 
-    writeln("[DEBUG] Returning as-is: '", expr, "'");
     // Return as-is (preserves member access like "cat.health")
     return expr;
 }
@@ -1918,5 +1945,20 @@ unittest
 
         assert(cCode.canFind("int x = 10;"), "Should have x declaration");
         assert(cCode.canFind("long addr = (long)&x;"), "Should convert address to long");
+    }
+
+    {
+        auto tokens = lex("enum State { RUNNING, STOPPED } main { val s: State = State.RUNNING; println s; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Enum test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("typedef enum {"), "Should have typedef enum declaration");
+        assert(cCode.canFind("} State;"), "Should have State typedef");
+        assert(cCode.canFind("RUNNING"), "Should have enum value RUNNING");
+        assert(cCode.canFind("STOPPED"), "Should have enum value STOPPED");
+        assert(cCode.canFind("State s = RUNNING;"), "Should use enum value without prefix");
     }
 }

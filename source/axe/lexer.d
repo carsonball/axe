@@ -350,6 +350,11 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.CASE, "case");
                 pos += 4;
             }
+            else if (pos + 4 <= source.length && source[pos .. pos + 4] == "enum")
+            {
+                tokens ~= Token(TokenType.ENUM, "enum");
+                pos += 4;
+            }
             else if (source[pos].isAlphaNum())
             {
                 size_t start = pos;

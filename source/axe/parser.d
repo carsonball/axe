@@ -262,6 +262,43 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             ast.children ~= new ModelNode(modelName, fields);
             continue;
 
+        case TokenType.ENUM:
+            pos++; // Skip 'enum'
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected enum name after 'enum'");
+            string enumName = tokens[pos].value;
+            pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
+                "Expected '{' after enum name");
+            pos++; // Skip '{'
+
+            string[] enumValues;
+            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            {
+                if (tokens[pos].type == TokenType.IDENTIFIER)
+                {
+                    enumValues ~= tokens[pos].value;
+                    pos++;
+                }
+                else if (tokens[pos].type == TokenType.COMMA)
+                {
+                    pos++; // Skip comma
+                }
+                else
+                {
+                    pos++; // Skip whitespace/newlines
+                }
+            }
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                "Expected '}' after enum body");
+            pos++; // Skip '}'
+
+            ast.children ~= new EnumNode(enumName, enumValues);
+            continue;
+
         case TokenType.USE:
             pos++; // Skip 'use'
 
