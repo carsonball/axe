@@ -1328,20 +1328,20 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val x = 5; x = 10; }");
+        auto tokens = lex("main { mut val x = 5; x = 10; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("Variable reassignment test:");
         writeln(cCode);
 
-        assert(cCode.canFind("const int x = 5;"), "Should declare x");
+        assert(cCode.canFind("int x = 5;"), "Should declare x");
         assert(cCode.canFind("x = 10;"), "Should reassign x");
     }
 
     {
         auto tokens = lex(
-            "def test() { val x = 0; loop { println \"test\"; x = x + 1; if x == 5 { break; } } }");
+            "def test() { mut val x = 0; loop { println \"test\"; x = x + 1; if x == 5 { break; } } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
