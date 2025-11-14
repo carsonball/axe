@@ -14,6 +14,8 @@ import std.string;
 
 private int[string] g_refDepths;
 private bool[string] g_isMutable;
+private string[string] g_arrayWidthVars;  // Maps array name to its width variable name
+private int[][string] g_functionParamReordering;  // Maps function name to reordering indices
 
 /** 
  * Converts a string to an operand.
@@ -137,9 +139,16 @@ string generateC(ASTNode ast)
                 import std.stdio : writeln;
                 import std.string : split, strip, indexOf, lastIndexOf;
 
-                string[] processedParams;
+                // First pass: separate array params from dimension params
+                struct ParamInfo {
+                    string type;
+                    string name;
+                    bool isArray;
+                    int dimensions;
+                }
+                ParamInfo[] paramInfos;
 
-                foreach (param; params)
+                foreach (param; funcNode.params)
                 {
                     writeln("DEBUG: Processing param: '", param, "'");
 
@@ -167,22 +176,83 @@ string generateC(ASTNode ast)
                         string paramType = param[0 .. lastSpace].strip();
                         string paramName = param[lastSpace + 1 .. $].strip();
 
-                        // Check if this is an array type
-                        auto bracketPos = paramType.indexOf('[');
-                        if (bracketPos >= 0)
+                        ParamInfo info;
+                        info.type = paramType;
+                        info.name = paramName;
+                        info.isArray = paramType.canFind('[');
+                        if (info.isArray)
                         {
-                            // Flatten arrays to pointers: int[][] -> int*, int[] -> int*
-                            paramType = paramType[0 .. bracketPos].strip() ~ "*";
+                            import std.algorithm : count;
+                            info.dimensions = cast(int)paramType.count('[');
                         }
-
-                        processedParams ~= paramType ~ " " ~ paramName;
-                    }
-                    else
-                    {
-                        processedParams ~= param;
+                        paramInfos ~= info;
                     }
                 }
 
+                // Second pass: reorder so dimensions come before arrays
+                // and convert array syntax to VLA
+                string[] dimensionParams;
+                string[] arrayParams;
+                int[] reorderMap;  // Maps new position to original position
+
+                // Track dimension param indices
+                int[] dimensionIndices;
+                int[] arrayIndices;
+                
+                for (int i = 0; i < paramInfos.length; i++)
+                {
+                    if (paramInfos[i].isArray)
+                        arrayIndices ~= i;
+                    else
+                        dimensionIndices ~= i;
+                }
+
+                foreach (info; paramInfos)
+                {
+                    if (info.isArray)
+                    {
+                        // For 2D arrays, we need to find the dimension parameters
+                        // Look for int/long params that come after this array
+                        string[] dims;
+                        foreach (other; paramInfos)
+                        {
+                            if (!other.isArray && (other.type == "int" || other.type == "long"))
+                            {
+                                dims ~= other.name;
+                            }
+                        }
+                        
+                        // Convert int[][] to VLA syntax: int m[rows][cols]
+                        auto bracketPos = info.type.indexOf('[');
+                        string baseType = info.type[0 .. bracketPos];
+                        
+                        if (info.dimensions == 2 && dims.length >= 2)
+                        {
+                            // Use VLA syntax with dimension variables
+                            arrayParams ~= baseType ~ " " ~ info.name ~ "[" ~ dims[0] ~ "][" ~ dims[1] ~ "]";
+                        }
+                        else if (info.dimensions == 1 && dims.length >= 1)
+                        {
+                            arrayParams ~= baseType ~ " " ~ info.name ~ "[" ~ dims[0] ~ "]";
+                        }
+                        else
+                        {
+                            // Fallback to pointer
+                            arrayParams ~= baseType ~ "* " ~ info.name;
+                        }
+                    }
+                    else
+                    {
+                        dimensionParams ~= info.type ~ " " ~ info.name;
+                    }
+                }
+
+                // Build reorder map: dimensions first, then arrays
+                reorderMap = dimensionIndices ~ arrayIndices;
+                g_functionParamReordering[funcName] = reorderMap;
+
+                // Combine: dimensions first, then arrays
+                string[] processedParams = dimensionParams ~ arrayParams;
                 cCode ~= processedParams.join(", ");
             }
             cCode ~= ") {\n";
@@ -205,6 +275,20 @@ string generateC(ASTNode ast)
 
         foreach (arg; callNode.args)
             processedArgs ~= processExpression(arg);
+
+        // Reorder arguments if this function has reordered parameters
+        if (callName in g_functionParamReordering)
+        {
+            int[] reorderMap = g_functionParamReordering[callName];
+            string[] reorderedArgs;
+            reorderedArgs.length = processedArgs.length;
+            
+            for (int i = 0; i < reorderMap.length && i < processedArgs.length; i++)
+            {
+                reorderedArgs[i] = processedArgs[reorderMap[i]];
+            }
+            processedArgs = reorderedArgs;
+        }
 
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
         cCode ~= indent ~ callName ~ "(" ~ processedArgs.join(", ") ~ ");\n";
@@ -302,10 +386,9 @@ string generateC(ASTNode ast)
         string processedValue = processExpression(arrayAssignNode.value);
         if (arrayAssignNode.index2.length > 0)
         {
-            // 2D array assignment - use flattened syntax
+            // 2D array assignment - keep as-is
             string processedIndex2 = processExpression(arrayAssignNode.index2);
-            string widthVar = "width"; // Default assumption
-            cCode ~= arrayAssignNode.arrayName ~ "[(" ~ processedIndex ~ ") * " ~ widthVar ~ " + (" ~ processedIndex2 ~ ")] = " ~ processedValue ~ ";\n";
+            cCode ~= arrayAssignNode.arrayName ~ "[" ~ processedIndex ~ "][" ~ processedIndex2 ~ "] = " ~ processedValue ~ ";\n";
         }
         else
         {
@@ -335,28 +418,8 @@ string generateC(ASTNode ast)
             arrayPart = baseType[bracketPos .. $];
             baseType = baseType[0 .. bracketPos];
 
-            // Flatten 2D arrays: int[10][10] -> int[100]
-            if (arrayPart.count('[') == 2)
-            {
-                // Extract dimensions
-                import std.regex : matchAll, regex;
-
-                auto dimPattern = regex(r"\[(\d+)\]");
-                auto matches = matchAll(arrayPart, dimPattern);
-                if (!matches.empty)
-                {
-                    auto match1 = matches.front;
-                    matches.popFront();
-                    if (!matches.empty)
-                    {
-                        auto match2 = matches.front;
-                        int dim1 = match1[1].to!int;
-                        int dim2 = match2[1].to!int;
-                        int totalSize = dim1 * dim2;
-                        arrayPart = "[" ~ totalSize.to!string ~ "]";
-                    }
-                }
-            }
+            // Keep 2D arrays as 2D for proper pointer arithmetic
+            // int[10][10] stays as int[10][10]
         }
 
         for (int i = 0; i < declNode.refDepth; i++)
@@ -694,46 +757,7 @@ string processExpression(string expr)
     expr = expr.replace(" or ", " || ");
     expr = expr.replace(" xor ", " ^ ");
 
-    // Second, transform 2D array accesses before any other processing
-    // This must happen early to avoid the expression being wrapped in parens first
-    string widthVar = "width"; // Default assumption for 2D arrays
-
-    // Keep replacing until no more 2D accesses found
-    bool foundMatch = true;
-    int maxIterations = 10; // Prevent infinite loops
-    int iterations = 0;
-
-    bool hadArrayTransform = false;
-    while (foundMatch && iterations < maxIterations)
-    {
-        iterations++;
-        // Match: word [ anything-without-nested-brackets ] [ anything-without-nested-brackets ]
-        auto arrayAccessPattern = regex(r"(\w+)\s*\[\s*([^\[\]]+)\s*\]\s*\[\s*([^\[\]]+)\s*\]");
-        auto match = matchFirst(expr, arrayAccessPattern);
-        if (!match.empty)
-        {
-            string arrayName = match[1];
-            string index1 = match[2].strip();
-            string index2 = match[3].strip();
-
-            // Replace with flattened access - wrap the index calculation in parens
-            // to prevent operator precedence issues
-            string flattened = arrayName ~ "[(" ~ index1 ~ ") * " ~ widthVar ~ " + (" ~ index2 ~ ")]";
-            expr = replace(expr, match[0], flattened);
-            hadArrayTransform = true;
-        }
-        else
-        {
-            foundMatch = false;
-        }
-    }
-
-    // If we transformed array accesses, return immediately to avoid
-    // the operator-splitting logic below from breaking our syntax
-    if (hadArrayTransform)
-    {
-        return expr;
-    }
+    // No transformation needed for 2D arrays - they work naturally in C!
 
     // Handle ref_of() built-in function
     if (expr.canFind("ref_of(") && expr.endsWith(")"))
@@ -2219,44 +2243,6 @@ unittest
         assert(cCode.canFind("RUNNING"), "Should have enum value RUNNING");
         assert(cCode.canFind("STOPPED"), "Should have enum value STOPPED");
         assert(cCode.canFind("State s = RUNNING;"), "Should use enum value without prefix");
-    }
-
-    {
-        auto tokens = lex("main { val grid: int[10][10]; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("2D array declaration flattening test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("int grid[100]"), "Should flatten int[10][10] to int[100]");
-        assert(!cCode.canFind("[10][10]"), "Should not have 2D array syntax");
-    }
-
-    {
-        auto tokens = lex("def foo(grid: int[][], width: int, height: int) { } main { }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("2D array parameter flattening test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("void foo(int* grid, int width, int height)"), 
-            "Should flatten int[][] parameter to int*");
-        assert(!cCode.canFind("int[][]"), "Should not have 2D array syntax in parameters");
-    }
-
-    {
-        auto tokens = lex("def foo(grid: int[][], width: int) { val x = grid[2][3]; } main { }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("2D array access flattening test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("grid[(2) * width + (3)]"), 
-            "Should flatten grid[2][3] to grid[(2) * width + (3)]");
-        assert(!cCode.canFind("grid[2][3]"), "Should not have 2D array access syntax");
     }
 
     {
