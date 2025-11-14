@@ -452,6 +452,21 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             string moduleName = tokens[pos].value;
             pos++;
 
+            // Handle module paths like "stdlib/arena" (tokenized as stdlib, /, arena)
+            while (pos < tokens.length && tokens[pos].type == TokenType.SLASH)
+            {
+                moduleName ~= "/";
+                pos++;
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                    "Expected identifier after '/' in module path");
+                moduleName ~= tokens[pos].value;
+                pos++;
+            }
+
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                pos++;
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                 "Expected '(' after module name");
             pos++; // Skip '('
@@ -459,6 +474,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             string[] imports;
             while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
             {
+                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                    pos++;
+                    
+                if (pos >= tokens.length || tokens[pos].type == TokenType.RPAREN)
+                    break;
+                    
                 if (tokens[pos].type == TokenType.IDENTIFIER)
                 {
                     imports ~= tokens[pos].value;
@@ -477,6 +498,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                 "Expected ')' after imports");
             pos++; // Skip ')'
+
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                 "Expected ';' after use statement");
