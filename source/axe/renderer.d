@@ -939,17 +939,25 @@ string processExpression(string expr)
     foreach (macroName, macroNode; g_macros)
     {
         import std.string : indexOf, split, strip;
-        string macroCallPattern = macroName ~ "(";
+        import std.regex : regex, matchFirst;
         
-        if (expr.canFind(macroCallPattern))
+        // Match macro name followed by optional whitespace and opening paren
+        auto macroPattern = regex(macroName ~ r"\s*\(");
+        auto match = matchFirst(expr, macroPattern);
+        
+        if (match)
         {
             writeln("DEBUG processExpression: Found macro call '", macroName, "' in expression");
         }
         
-        while (expr.canFind(macroCallPattern))
+        while (match)
         {
-            auto startIdx = expr.indexOf(macroCallPattern);
-            auto parenStart = startIdx + macroCallPattern.length;
+            auto startIdx = match.pre.length;
+            // Find the opening paren (skip any whitespace after macro name)
+            size_t parenStart = startIdx + macroName.length;
+            while (parenStart < expr.length && (expr[parenStart] == ' ' || expr[parenStart] == '\t'))
+                parenStart++;
+            parenStart++; // Skip the '(' itself
             
             // Find matching closing paren
             int depth = 1;
@@ -1012,6 +1020,9 @@ string processExpression(string expr)
             
             // Replace macro call with expanded code
             expr = expr[0 .. startIdx] ~ "(" ~ expandedCode ~ ")" ~ expr[parenEnd + 1 .. $];
+            
+            // Search for next occurrence
+            match = matchFirst(expr, macroPattern);
         }
     }
 
@@ -2729,7 +2740,7 @@ unittest
         writeln("Macro in condition test:");
         writeln(cCode);
 
-        assert(cCode.canFind("if") && (cCode.canFind("(2*3)==6") || cCode.canFind("(2 * 3) == 6")), 
+        assert(cCode.canFind("if") && (cCode.canFind("( 2 * 3 )==6") || cCode.canFind("(2 * 3) == 6")), 
             "Should expand macro in if condition");
     }
 }
