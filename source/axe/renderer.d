@@ -826,7 +826,22 @@ private string processCondition(string condition)
     
     writeln("DEBUG processCondition after replace: '", condition, "'");
 
-    foreach (op; ["==", "!=", ">", "<", ">=", "<="])
+    // Handle logical operators first (&&, ||) to split complex conditions
+    foreach (op; ["&&", "||"])
+    {
+        if (condition.canFind(op))
+        {
+            auto parts = condition.split(op);
+            if (parts.length == 2)
+            {
+                string result = "(" ~ processCondition(parts[0].strip()) ~ " " ~ op ~ " " ~ processCondition(parts[1].strip()) ~ ")";
+                return result;
+            }
+        }
+    }
+    
+    // Then handle comparison operators
+    foreach (op; ["==", "!=", ">=", "<=", ">", "<"])
     {
         if (condition.canFind(op))
         {
