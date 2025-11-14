@@ -401,10 +401,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     enumValues ~= tokens[pos].value;
                     pos++;
                 }
-                else if (tokens[pos].type == TokenType.COMMA)
-                {
-                    pos++; // Skip comma
-                }
+                // else if (tokens[pos].type == TokenType.COMMA)
+                // {
+                //     pos++; // Skip comma
+                // }
                 else
                 {
                     pos++; // Skip whitespace/newlines
