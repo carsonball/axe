@@ -525,6 +525,22 @@ string generateC(ASTNode ast)
         {
             string processedExpr = processExpression(declNode.initializer);
 
+            // Special case: char* with string literal should become char[] for writability
+            if (baseType == "char*" && processedExpr.length > 0 && processedExpr[0] == '"')
+            {
+                import std.string : replace;
+                // Calculate actual string length from the literal (subtract 2 for quotes, add 1 for null terminator)
+                size_t bufferSize = processedExpr.length - 2 + 1;
+                
+                // Change from char* to char[] with exact size needed
+                type = declNode.isMutable ? "char" : "const char";
+                decl = type ~ " " ~ declNode.name ~ "[" ~ bufferSize.to!string ~ "]";
+                // Use strcpy to copy the string literal into the buffer
+                cCode ~= decl ~ ";\n";
+                cCode ~= "strcpy(" ~ declNode.name ~ ", " ~ processedExpr ~ ");\n";
+                break;
+            }
+
             // Convert array initializer syntax: [1,2,3] -> {1,2,3}
             if (arrayPart.length > 0 && processedExpr.length > 0 && processedExpr[0] == '[')
             {
@@ -737,7 +753,7 @@ string generateC(ASTNode ast)
         cCode ~= "    int passed = 0;\n";
         cCode ~= "    int failed = 0;\n\n";
         
-        // Process each assert
+        // Process all statements in test block
         foreach (child; testNode.children)
         {
             if (child.nodeType == "Assert")
@@ -752,6 +768,18 @@ string generateC(ASTNode ast)
                 cCode ~= "        printf(\"\\033[31m✗ FAIL:\\033[0m " ~ assertNode.message ~ "\\n\");\n";
                 cCode ~= "        failed++;\n";
                 cCode ~= "    }\n\n";
+            }
+            else
+            {
+                // Handle other statements (declarations, function calls, etc.)
+                string stmt = generateC(child);
+                if (stmt.length > 0)
+                {
+                    // Indent the statement
+                    cCode ~= "    " ~ stmt.replace("\n", "\n    ");
+                    if (!stmt.endsWith("\n"))
+                        cCode ~= "\n";
+                }
             }
         }
         
@@ -1087,14 +1115,38 @@ string processExpression(string expr)
         return expr;
     }
 
-    // Check for operators, but be careful not to split on dots (member access)
+    // Check for operators, but be careful not to split on dots (member access) or operators inside strings
     foreach (op; [
             "+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||"
         ])
     {
         if (expr.canFind(op) && op != "")
         {
-            auto parts = expr.split(op);
+            // Smart split that respects string literals
+            string[] parts;
+            string current = "";
+            bool inString = false;
+            
+            for (size_t i = 0; i < expr.length; i++)
+            {
+                if (expr[i] == '"' && (i == 0 || expr[i-1] != '\\'))
+                {
+                    inString = !inString;
+                    current ~= expr[i];
+                }
+                else if (!inString && i + op.length <= expr.length && expr[i .. i + op.length] == op)
+                {
+                    parts ~= current;
+                    current = "";
+                    i += op.length - 1; // Skip the operator
+                }
+                else
+                {
+                    current ~= expr[i];
+                }
+            }
+            parts ~= current;
+            
             if (parts.length == 2)
             {
                 return "(" ~ processExpression(parts[0]) ~ op ~ processExpression(parts[1]) ~ ")";
@@ -2077,7 +2129,8 @@ unittest
         writeln("Type annotation test:");
         writeln(cCode);
 
-        assert(cCode.canFind("const char* x = \"hello\";"), "Should use char* type annotation");
+        assert(cCode.canFind("const char x[6];"), "Should convert char* with string literal to char[] with exact size");
+        assert(cCode.canFind("strcpy(x, \"hello\");"), "Should use strcpy for string literal initialization");
         assert(cCode.canFind("int y = 42;"), "Should use int type annotation for mutable");
         assert(!cCode.canFind("const int y"), "Mutable variable should not be const");
     }

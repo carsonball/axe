@@ -3381,6 +3381,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             "Expected ';' after assert statement");
         pos++;
 
+        writeln("[ASSERT] Final condition: '", condition.strip(), "'");
+        writeln("[ASSERT] Message: '", message, "'");
         return new AssertNode(condition.strip(), message);
 
     case TokenType.CONTINUE:

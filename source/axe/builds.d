@@ -40,7 +40,7 @@ string compileAndRunAsm(string asmCode)
     return runResult.output;
 }
 
-void handleMachineArgs(string[] args)
+bool handleMachineArgs(string[] args)
 {
     try
     {
@@ -71,7 +71,7 @@ void handleMachineArgs(string[] args)
             if (result.canFind("Error:"))
             {
                 stderr.writeln(result);
-                return;
+                return false;
             }
 
             stdout.writeln(result);
@@ -102,7 +102,7 @@ void handleMachineArgs(string[] args)
                     "Fallthrough error, report the bug at https://github.com/navid-m/axe/issues:\nTrace:\n",
                     e[1]
                 );
-                return;
+                return false;
             }
             if (!args.canFind("-e"))
             {
@@ -126,6 +126,7 @@ void handleMachineArgs(string[] args)
                 }
             }
         }
+        return true;
     }
     catch (Exception e)
     {
@@ -139,5 +140,6 @@ void handleMachineArgs(string[] args)
         {
             stderr.writeln("Compilation error: ", e.msg);
         }
+        return false;
     }
 }

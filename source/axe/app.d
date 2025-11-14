@@ -18,6 +18,9 @@ void main(string[] args)
         writeln("\t[-e = emit generated code as file | -asm = emit assembly code | -r = run after compile]");
         return;
     }
-    handleMachineArgs(args);
-    writeln("Compiled.");
+    if (handleMachineArgs(args)) {
+        writeln("Compiled.");
+    } else {
+        writeln("Compilation failed.");
+    }
 }
