@@ -143,6 +143,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         return ArrayTypeInfo(elementType, size, size2);
     }
 
+
     /** 
      * Parses println argument (string literal or expression)
      * 
@@ -207,6 +208,39 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             }
             return new PrintNode(expr.strip(), true);
         }
+    }
+
+
+    /**
+     * Parse a simple statement (println or print) and return the node.
+     * Handles the semicolon requirement.
+     * Returns null if the current token is not a simple statement.
+     */
+    ASTNode parseSimpleStatement()
+    {
+        ASTNode result = null;
+        
+        if (tokens[pos].type == TokenType.PRINTLN)
+        {
+            result = parsePrintln();
+        }
+        else if (tokens[pos].type == TokenType.PRINT)
+        {
+            result = parsePrint();
+        }
+        else
+        {
+            return null;
+        }
+        
+        // Consume semicolon
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after statement");
+        pos++;
+        
+        return result;
     }
 
     /** 
@@ -2268,24 +2302,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     pos++;
                     break;
 
-                case TokenType.PRINTLN:
-                    funcNode.children ~= parsePrintln();
-
-                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                        pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                        "Expected ';' after println");
-                    pos++;
-                    break;
-
-                case TokenType.PRINT:
-                    funcNode.children ~= parsePrint();
-
-                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                        pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                        "Expected ';' after print");
-                    pos++;
+                case TokenType.PRINTLN, TokenType.PRINT:
+                    auto stmt = parseSimpleStatement();
+                    if (stmt !is null)
+                        funcNode.children ~= stmt;
                     break;
 
                 case TokenType.IF:
@@ -2361,23 +2381,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         case TokenType.WHITESPACE, TokenType.NEWLINE:
                             pos++;
                             break;
-                        case TokenType.PRINTLN:
-                            ifNode.children ~= parsePrintln();
-
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after println");
-                            pos++;
-                            break;
-                        case TokenType.PRINT:
-                            ifNode.children ~= parsePrint();
-
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after print");
-                            pos++;
+                        case TokenType.PRINTLN, TokenType.PRINT:
+                            auto stmt = parseSimpleStatement();
+                            if (stmt !is null)
+                                ifNode.children ~= stmt;
                             break;
                         case TokenType.IDENTIFIER:
                             string varName = tokens[pos].value;
@@ -2542,24 +2549,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                             pos++;
                             break;
 
-                        case TokenType.PRINTLN:
-                            loopNode.children ~= parsePrintln();
-
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after println");
-                            pos++;
-                            break;
-
-                        case TokenType.PRINT:
-                            loopNode.children ~= parsePrint();
-
-                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                                pos++;
-                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                "Expected ';' after print");
-                            pos++;
+                        case TokenType.PRINTLN, TokenType.PRINT:
+                            auto stmt = parseSimpleStatement();
+                            if (stmt !is null)
+                                loopNode.children ~= stmt;
                             break;
 
                         case TokenType.BREAK:
@@ -2654,25 +2647,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                                 case TokenType.WHITESPACE, TokenType.NEWLINE:
                                     pos++;
                                     break;
-                                case TokenType.PRINTLN:
-                                    ifNode.children ~= parsePrintln();
-
-                                    while (pos < tokens.length && tokens[pos].type == TokenType
-                                        .WHITESPACE)
-                                        pos++;
-                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                        "Expected ';' after println");
-                                    pos++;
-                                    break;
-                                case TokenType.PRINT:
-                                    ifNode.children ~= parsePrint();
-
-                                    while (pos < tokens.length && tokens[pos].type == TokenType
-                                        .WHITESPACE)
-                                        pos++;
-                                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                                        "Expected ';' after print");
-                                    pos++;
+                                case TokenType.PRINTLN, TokenType.PRINT:
+                                    auto stmt = parseSimpleStatement();
+                                    if (stmt !is null)
+                                        ifNode.children ~= stmt;
                                     break;
                                 case TokenType.IDENTIFIER:
                                     string varName = tokens[pos].value;
