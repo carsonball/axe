@@ -31,22 +31,23 @@ def arena_destroy(arena: ref Arena) {
     }
 }
 
-/// Allocates memory from the arena.
-def arena_alloc(arena: ref Arena, size: int): long {
-    mut val result: long = 0;
-    
+/// Allocates memory from the arena, returns a proper reference pointer.
+def arena_alloc(arena: ref Arena, size: int): ref void {
+    mut val result: ref void = nil;
+
     raw {
         if (arena->offset + size > arena->capacity) {
             printf("Arena out of memory!\n");
-            return 0;
+            return nil;
         }
-        result = arena->buffer + arena->offset;
-        arena->offset += size;        
+        result = (void *)(arena->buffer + arena->offset);
+        arena->offset += size;
         arena->offset = (arena->offset + 7) & ~7;
     }
-    
+
     return result;
 }
+
 
 /// Allocates memory for an array from the arena.
 def arena_alloc_array(arena: ref Arena, element_size: int, count: int): long {

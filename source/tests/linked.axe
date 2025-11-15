@@ -14,21 +14,23 @@ model Node {
     next: ref Node;
 }
 
-def new_node(arena: Arena, value: int): ref Node {
-    val ptr: long = arena_alloc(ref_of(arena), size_of(Node));
-    mut val n: ref Node = deref(ptr);
+/// Allocate a new Node from the arena and initialize it
+def new_node(arena: ref Arena, value: int): ref Node {
+    mut val n: ref Node = arena_alloc(arena, size_of(Node));
     n.value = value;
     n.next = nil;
     return n;
 }
 
-def list_push_front(head: ref Node, arena: Arena, value: int): ref Node {
+/// Push a new value to the front of the list
+def list_push_front(head: ref Node, arena: ref Arena, value: int): ref Node {
     mut val new_head: ref Node = new_node(arena, value);
     new_head.next = head;
     return new_head;
 }
 
-def list_push_back(head: ref Node, arena: Arena, value: int): ref Node {
+/// Push a new value to the back of the list
+def list_push_back(head: ref Node, arena: ref Arena, value: int): ref Node {
     if head == nil {
         return new_node(arena, value);
     }
@@ -45,15 +47,14 @@ def list_push_back(head: ref Node, arena: Arena, value: int): ref Node {
     return head;
 }
 
-/// Print linked list
+/// Print linked list values
 def list_print(head: ref Node) {
     mut val cur: ref Node = head;
 
     loop {
-        if cur.next == nil {
+        if cur == nil {
             break;
         }
-
         print cur.value;
         print " ";
         cur = cur.next;
@@ -66,10 +67,10 @@ main {
     mut val arena: Arena = arena_create(65536);
     mut val head: ref Node = nil;
 
-    head = list_push_front(head, arena, 10);
-    head = list_push_front(head, arena, 5);
-    head = list_push_back(head, arena, 20);
-    head = list_push_back(head, arena, 25);
+    head = list_push_front(head, ref_of(arena), 10);
+    head = list_push_front(head, ref_of(arena), 5);
+    head = list_push_back(head, ref_of(arena), 20);
+    head = list_push_back(head, ref_of(arena), 25);
 
     println "List contents:";
     list_print(head);
