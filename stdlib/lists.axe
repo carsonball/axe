@@ -30,7 +30,7 @@ def int_list_new(arena: ref Arena, capacity: int): ref IntList {
 def int_list_push(lst: ref IntList, arena: ref Arena, value: int) {
     if lst.length >= lst.cap {
         val new_cap: int = lst.cap * 2;
-        val new_data: ref int = arena_alloc(arena, new_cap * size_of(int));
+        mut val new_data: ref int = arena_alloc(arena, new_cap * size_of(int));
         copy(lst.data[0], new_data[0], int[lst.length]);
         lst.data = new_data;
         lst.cap = new_cap;

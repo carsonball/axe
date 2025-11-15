@@ -885,17 +885,26 @@ string generateC(ASTNode ast)
 
     case "Model":
         auto modelNode = cast(ModelNode) ast;
-        // Forward declare the struct for self-referencing
         cCode ~= "struct " ~ modelNode.name ~ ";\n";
         cCode ~= "typedef struct " ~ modelNode.name ~ " {\n";
         foreach (field; modelNode.fields)
         {
             string fieldType = field.type;
-            // If field type is the same as the model name, make it a pointer
-            if (field.type == modelNode.name)
+            writeln("DEBUG model field: name='", field.name, "' type='", field.type, "'");
+
+            // Handle ref types - convert "ref T" to "T*"
+            if (fieldType.startsWith("ref "))
             {
-                fieldType = "struct " ~ field.type ~ "*";
+                fieldType = fieldType[4 .. $].strip() ~ "*";
             }
+
+            // If field type is the same as the model name, make it a pointer
+            // This logic is now handled by the 'ref' type conversion above
+            // if (field.type == modelNode.name)
+            // {
+            //     fieldType = "struct " ~ field.type ~ "*";
+            // }
+
             cCode ~= "    " ~ fieldType ~ " " ~ field.name ~ ";\n";
         }
         cCode ~= "} " ~ modelNode.name ~ ";\n\n";
@@ -1363,7 +1372,7 @@ string processExpression(string expr, string context = "")
     // Auto-dereference if this is a reference variable
     if (expr in g_refDepths && g_refDepths[expr] > 0)
     {
-        if (context == "println" || context == "assignment")
+        if (context == "println") // Remove "assignment" from here
         {
             string result = expr;
             for (int i = 0; i < g_refDepths[expr]; i++)
