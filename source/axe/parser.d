@@ -4233,7 +4233,8 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-        "Expected '{' after if condition");
+        "Expected '{' after if condition here: " ~ tokens[pos - 5 .. pos + 5].map!(t => t.value)
+                .join(""));
     pos++;
 
     auto ifNode = new IfNode(cond.strip());

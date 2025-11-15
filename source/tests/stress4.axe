@@ -1,0 +1,95 @@
+use stdlib/arena (
+    Arena,
+    arena_create,
+    arena_destroy,
+    arena_alloc,
+    arena_get_remaining
+);
+
+main {
+    println "=== ASCII MOUNTAIN DEMO ===";
+
+    // configuration
+    val width: int = 80;
+    val max_height: int = 25;
+
+    // arena for scratch allocations
+    mut val arena: Arena = arena_create(65536);
+
+    // heightmap buffer on stack
+    mut val height: int[width];
+
+    // initialize rough terrain
+    mut val i: int = 0;
+    mut val h: int = max_height / 2;
+
+    loop {
+        if i >= width { break; }
+
+        // small random walk
+        // (deterministic fake-random pattern)
+        if i mod 7 == 0 {
+            h = h + 2;
+        } elif i mod 5 == 0 {
+            h = h - 3;
+        } elif i mod 3 == 0 {
+            h = h + 1;
+        } else {
+            h = h - 1;
+        }
+
+        // clamp
+        if h < 0 { h = 0; }
+        if h > max_height { h = max_height; }
+
+        height[i] = h;
+
+        i = i + 1;
+    }
+
+    // smooth terrain (3 passes)
+    mut val pass: int = 0;
+    loop {
+        if pass >= 3 { break; }
+
+        mut val x: int = 1;
+        loop {
+            if x >= width - 1 { break; }
+            height[x] = (height[x-1] + height[x] * 2 + height[x+1]) / 4;
+            x = x + 1;
+        }
+
+        pass = pass + 1;
+    }
+
+    // draw from top to bottom
+    mut val row: int = max_height;
+    loop {
+        if row < 0 { break; }
+
+        mut val col: int = 0;
+        loop {
+            if col >= width { break; }
+
+            if height[col] >= row {
+                print "#";
+            } else {
+                print " ";
+            }
+
+            col = col + 1;
+        }
+
+        println "";
+        row = row - 1;
+    }
+
+    println "";
+    print "Arena remaining: ";
+    print arena_get_remaining(ref_of(arena));
+    println "";
+
+    arena_destroy(ref_of(arena));
+    println "Arena destroyed — memory freed!";
+    println "=== END ===";
+}
