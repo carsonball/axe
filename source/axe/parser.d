@@ -2534,8 +2534,53 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
+                    // Check for member access (dot notation)
+                    if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+                    {
+                        pos++; // Skip '.'
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                            "Expected field name after '.'");
+                        string fieldName = tokens[pos].value;
+                        pos++;
+
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+
+                        if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                        {
+                            // Check if the object is mutable
+                            if (!currentScope.isDeclared(identName))
+                            {
+                                enforce(false, "Undeclared variable: " ~ identName);
+                            }
+                            if (!currentScope.isMutable(identName))
+                            {
+                                enforce(false, "Cannot assign to member of immutable variable: " ~ identName);
+                            }
+
+                            pos++;
+                            string value = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                if (tokens[pos].type == TokenType.STR)
+                                    value ~= "\"" ~ tokens[pos].value ~ "\"";
+                                else
+                                    value ~= tokens[pos].value;
+                                pos++;
+                            }
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after field assignment");
+                            pos++;
+                            // Use AssignmentNode with dot notation for field assignment
+                            funcNode.children ~= new AssignmentNode(identName ~ "." ~ fieldName, value.strip());
+                        }
+                        else
+                        {
+                            enforce(false, "Expected '=' after member access");
+                        }
+                    }
                     // Check if this is an assignment
-                    if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+                    else if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
                     {
                         // Variable assignment
                         if (!currentScope.isDeclared(identName))
@@ -2616,7 +2661,15 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                     }
                     else
                     {
-                        enforce(false, "Expected '=' or '(' after identifier");
+                        import std.stdio;
+                        writeln("Unexpected token at position ", pos, ": ", tokens[pos].type, " ('",
+                            tokens[pos].value, "')");
+                        writeln("Previous tokens:");
+                        foreach (i; max(0, cast(int) pos - 5) .. pos)
+                        {
+                            writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
+                        }
+                        enforce(false, "Expected '=' or '(' after identifier here");
                     }
                     break;
 
