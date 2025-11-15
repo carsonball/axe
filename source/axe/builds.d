@@ -40,6 +40,14 @@ string compileAndRunAsm(string asmCode)
     return runResult.output;
 }
 
+/** 
+ * Handles compile arguments.
+ *
+ * Params:
+ *   args = Command line arguments
+ * Returns: 
+ *   True if successful, false otherwise
+ */
 bool handleMachineArgs(string[] args)
 {
     try
@@ -82,9 +90,11 @@ bool handleMachineArgs(string[] args)
             string cCode = generateC(ast);
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
-            
-            string[] clangCmd = ["clang", replace(name, ext, ".c"), "-Wno-everything", "-Os"];
-            
+
+            string[] clangCmd = [
+                "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os"
+            ];
+
             foreach (arg; args)
             {
                 if (arg.startsWith("-I"))
@@ -92,9 +102,9 @@ bool handleMachineArgs(string[] args)
                     clangCmd ~= arg;
                 }
             }
-            
+
             clangCmd ~= ["-o", replace(name, ext, ".exe")];
-            
+
             auto e = execute(clangCmd);
             if (e[0] != 0)
             {
@@ -108,18 +118,16 @@ bool handleMachineArgs(string[] args)
             {
                 remove(replace(name, ext, ".c"));
             }
-            
-            // Run the executable if -r flag is present
             if (args.canFind("-r"))
             {
                 string exePath = replace(name, ext, ".exe");
                 auto runResult = execute([exePath]);
-                
+
                 if (runResult.status != 0)
                 {
                     stderr.writeln("Program exited with code ", runResult.status);
                 }
-                
+
                 if (runResult.output.length > 0)
                 {
                     stdout.write(runResult.output);
