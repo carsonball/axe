@@ -1225,13 +1225,11 @@ string processExpression(string expr)
             for (size_t i = 1; i < parts.length; i++)
             {
                 string field = parts[i].strip();
-                string op = ".";
-                if (isPointer || (currentType ~ "." ~ field in g_pointerFields))
-                    op = "->";
+                string op = isPointer ? "->" : ".";
                 result ~= op ~ field;
 
                 // Update pointer status for next field
-                if (op == "->")
+                if (currentType ~ "." ~ field in g_pointerFields)
                     isPointer = true;
                 else
                     isPointer = false;
@@ -2962,6 +2960,6 @@ unittest
         writeln("Pointer field access in if condition test:");
         writeln(cCode);
 
-        assert(cCode.canFind("if ((head->next->value==5))"), "Should use -> for pointer field access in if condition");
+        assert(cCode.canFind("if ((head.next->value==5))"), "Should use -> for pointer field access in if condition");
     }
 }
