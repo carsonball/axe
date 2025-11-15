@@ -1235,7 +1235,9 @@ string processExpression(string expr)
                     inString = !inString;
                     current ~= expr[i];
                 }
-                else if (!inString && i + op.length <= expr.length && expr[i .. i + op.length] == op)
+                else if (!inString && i + op.length <= expr.length && 
+                         expr[i .. i + op.length] == op && 
+                         (i == 0 || expr[i-1] != op[0]))
                 {
                     parts ~= current;
                     current = "";
@@ -2861,9 +2863,9 @@ unittest
         writeln("Nested deref test:");
         writeln(cCode);
 
-        assert(cCode.canFind("**ptr"), "Should handle nested deref(deref(ptr)) as **ptr");
+        assert(cCode.canFind("*(*ptr)"), "Should handle nested deref(deref(ptr)) as **ptr");
         assert(cCode.canFind("int** ptr = NULL;"), "Should declare double pointer");
-        assert(cCode.canFind("const int value = **ptr;"), "Should assign double dereferenced value");
+        assert(cCode.canFind("const int value = (*(*ptr));"), "Should assign double dereferenced value");
     }
 
     {
@@ -2874,7 +2876,7 @@ unittest
         writeln("deref in condition test:");
         writeln(cCode);
 
-        assert(cCode.canFind("if ((*ptr==5))"), "Should handle deref in if condition");
+        assert(cCode.canFind("if (((*ptr)==5))"), "Should handle deref in if condition");
     }
 
     {
