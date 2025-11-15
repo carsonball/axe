@@ -22,7 +22,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
 
     ASTNode[] newChildren;
     string[string] importedFunctions;
-    string[string] importedModels;  // Track model renames
+    string[string] importedModels;
 
     foreach (child; programNode.children)
     {
@@ -63,19 +63,16 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             auto importTokens = lex(importSource);
             auto importAst = parse(importTokens, true);
             auto importProgram = cast(ProgramNode) importAst;
-
-            // Replace slashes with underscores for valid C identifiers
             string sanitizedModuleName = useNode.moduleName.replace("/", "_");
 
-            // First pass: build complete mapping of ALL functions, models, and macros in the module
-            // This is needed so internal calls within the module can be renamed
             string[string] moduleFunctionMap;
             string[string] moduleModelMap;
             string[string] moduleMacroMap;
-            
+
             import std.stdio : writeln;
+
             writeln("DEBUG imports: Building function map for module: ", useNode.moduleName);
-            
+
             foreach (importChild; importProgram.children)
             {
                 if (importChild.nodeType == "Function")
@@ -115,12 +112,12 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                         auto newFunc = new FunctionNode(prefixedName, funcNode.params);
                         newFunc.returnType = funcNode.returnType;
                         newFunc.children = funcNode.children;
-                        
+
                         writeln("  DEBUG: Renaming calls in function '", prefixedName, "'");
                         // Rename internal calls within this function
                         renameFunctionCalls(newFunc, moduleFunctionMap);
                         renameTypeReferences(newFunc, moduleModelMap);
-                        
+
                         newChildren ~= newFunc;
                     }
                 }
@@ -167,7 +164,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
 void renameFunctionCalls(ASTNode node, string[string] nameMap)
 {
     import std.stdio : writeln;
-    
+
     if (node.nodeType == "FunctionCall")
     {
         auto callNode = cast(FunctionCallNode) node;
@@ -257,17 +254,17 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
 {
     import std.algorithm : startsWith;
     import std.array : split, join;
-    
+
     if (node.nodeType == "Function")
     {
         auto funcNode = cast(FunctionNode) node;
-        
+
         // Update return type
         if (funcNode.returnType in typeMap)
         {
             funcNode.returnType = typeMap[funcNode.returnType];
         }
-        
+
         // Update parameter types
         for (size_t i = 0; i < funcNode.params.length; i++)
         {
@@ -284,12 +281,12 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
                         parts[0] = newType;
                     }
                     // Handle ref types
-                    else if (parts.length >= 3 && parts[0] == "ref" && parts[1] == oldType)
+            else if (parts.length >= 3 && parts[0] == "ref" && parts[1] == oldType)
                     {
                         parts[1] = newType;
                     }
                     // Handle array types
-                    else if (parts[0].startsWith(oldType ~ "["))
+            else if (parts[0].startsWith(oldType ~ "["))
                     {
                         parts[0] = parts[0].replace(oldType ~ "[", newType ~ "[");
                     }
