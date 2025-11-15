@@ -3265,7 +3265,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             {
                 writeln(i, ": ", tokens[i].type, " ('", tokens[i].value, "')");
             }
-            enforce(false, "Unexpected token at top level: " ~ tokens[pos].value);
+            enforce(false, "Unexpected token at top level: " ~ tokens[pos].value ~
+                    "\nFull context: " ~ tokens[max(0, cast(int) pos - 5) .. pos].map!(t => t.value).join(""));
         }
     }
 

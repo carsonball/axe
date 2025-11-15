@@ -19,7 +19,7 @@ private int[][string] g_functionParamReordering;
 private MacroNode[string] g_macros;
 private bool[string] g_pointerFields;
 private string[string] g_varType;
-private int[string] g_isPointerVar;
+private string[string] g_isPointerVar;
 
 /** 
  * Converts a string to an operand.
@@ -398,8 +398,9 @@ string generateC(ASTNode ast)
             for (size_t i = 0; i < macroNode.params.length && i < callArgs.length;
                 i++)
             {
-                paramMap[macroNode.params[i]] = callArgs[i];
-                writeln("  DEBUG: Mapping '", macroNode.params[i], "' -> '", callArgs[i], "'");
+                string processedArg = processExpression(callArgs[i]);
+                paramMap[macroNode.params[i]] = processedArg;
+                writeln("  DEBUG: Mapping '", macroNode.params[i], "' -> '", processedArg, "'");
             }
 
             string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
@@ -565,9 +566,9 @@ string generateC(ASTNode ast)
             baseType ~= "*";
 
         g_varType[declNode.name] = baseType;
-        g_isPointerVar[declNode.name] = declNode.refDepth > 0 ? 1 : 0;
+        g_isPointerVar[declNode.name] = declNode.refDepth > 0 ? "true" : "false";
         if (declNode.refDepth > 0)
-            writeln("DEBUG set g_isPointerVar['", declNode.name, "'] = 1");
+            writeln("DEBUG set g_isPointerVar['", declNode.name, "'] = true");
 
         string type = declNode.isMutable ? baseType : "const " ~ baseType;
         string decl = type ~ " " ~ declNode.name ~ arrayPart;
@@ -928,7 +929,7 @@ string generateC(ASTNode ast)
         // Check if this member access is to a pointer field, if the object is already a pointer (contains ->), or if the object is a pointer variable
         if (memberNode.objectName.canFind("->") ||
             (memberNode.objectName ~ "." ~ memberNode.memberName in g_pointerFields) ||
-            (memberNode.objectName in g_isPointerVar && g_isPointerVar[memberNode.objectName] > 0))
+            (memberNode.objectName in g_isPointerVar && g_isPointerVar[memberNode.objectName] == "true"))
         {
             accessOp = "->";
         }
@@ -1098,7 +1099,7 @@ string processExpression(string expr, string context = "")
             for (size_t i = 0; i < macroNode.params.length && i < callArgs.length;
                 i++)
             {
-                paramMap[macroNode.params[i]] = callArgs[i];
+                paramMap[macroNode.params[i]] = processExpression(callArgs[i]);
             }
 
             // Expand macro body
@@ -1241,11 +1242,14 @@ string processExpression(string expr, string context = "")
         int depth = 1;
         while (endPos < expr.length && depth > 0)
         {
-            if (expr[endPos] == '[') depth++;
-            else if (expr[endPos] == ']') depth--;
+            if (expr[endPos] == '[')
+                depth++;
+            else if (expr[endPos] == ']')
+                depth--;
             endPos++;
         }
-        if (depth > 0) return expr; // malformed
+        if (depth > 0)
+            return expr; // malformed
         string index = expr[bracketPos + 1 .. endPos - 1].strip();
         string rest = expr[endPos .. $].strip();
         string processedBase = processExpression(base);
@@ -1271,8 +1275,8 @@ string processExpression(string expr, string context = "")
             // Handle member access chain
             string result = first;
             string currentType = g_varType.get(first, "");
-            bool isPointer = g_isPointerVar.get(first, 0) > 0;
-            writeln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, 0));
+            bool isPointer = g_isPointerVar.get(first, "false") == "true";
+            writeln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, "false"));
             writeln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
 
             for (size_t i = 1; i < parts.length; i++)
@@ -1292,13 +1296,13 @@ string processExpression(string expr, string context = "")
     }
 
     // Handle .len property for arrays
-    import std.regex : regex, matchFirst;
-    auto lenMatch = matchFirst(expr, regex(r"^(.+)\.len$"));
-    if (lenMatch)
-    {
-        string arrayName = lenMatch[1].strip();
-        return "(sizeof(" ~ arrayName ~ ")/sizeof(" ~ arrayName ~ "[0]))";
-    }
+    // import std.regex : regex, matchFirst;
+    // auto lenMatch = matchFirst(expr, regex(r"^(.+)\.len$"));
+    // if (lenMatch)
+    // {
+    //     string arrayName = lenMatch[1].strip();
+    //     return "(sizeof(" ~ arrayName ~ ")/sizeof(" ~ arrayName ~ "[0]))";
+    // }
 
     // Don't process if it's already parenthesized
     if (expr.canFind("(") && expr.endsWith(")"))
@@ -1954,18 +1958,18 @@ string generateAsm(ASTNode ast)
 string generateStackTraceHandlers()
 {
     string code = "";
-    version(Windows)
+    version (Windows)
     {
         code ~= "#include <dbghelp.h>\n";
     }
-    else version(Posix)
+    else version (Posix)
     {
         code ~= "#include <execinfo.h>\n";
         code ~= "#include <signal.h>\n";
         code ~= "#include <unistd.h>\n";
     }
     code ~= "\n";
-    version(Windows)
+    version (Windows)
     {
         code ~= "static void axe_win_print_backtrace(void) {\n";
         code ~= "    HANDLE process = GetCurrentProcess();\n";
@@ -2002,7 +2006,7 @@ string generateStackTraceHandlers()
         code ~= "    return EXCEPTION_EXECUTE_HANDLER;\n";
         code ~= "}\n";
     }
-    else version(Posix)
+    else version (Posix)
     {
         code ~= "static void axe_segv_handler(int sig) {\n";
         code ~= "    const char* name = (sig == SIGSEGV ? \"SIGSEGV\" : (sig == SIGABRT ? \"SIGABRT\" : \"SIGNAL\"));\n";
@@ -2024,11 +2028,11 @@ string generateStackTraceHandlers()
 string generateStackTraceSetup()
 {
     string code;
-    version(Windows)
+    version (Windows)
     {
         code ~= "    SetUnhandledExceptionFilter(axe_unhandled_exception_filter);\n";
     }
-    else version(Posix)
+    else version (Posix)
     {
         code ~= "    signal(SIGSEGV, axe_segv_handler);\n";
         code ~= "    signal(SIGABRT, axe_segv_handler);\n";
