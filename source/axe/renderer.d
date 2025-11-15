@@ -577,11 +577,11 @@ string generateC(ASTNode ast)
             string var = "";
             if (processedExpr.startsWith("*"))
             {
-                var = processedExpr[1..$];
+                var = processedExpr[1 .. $];
             }
             else if (processedExpr.startsWith("(*") && processedExpr.endsWith(")"))
             {
-                var = processedExpr[2..$-1];
+                var = processedExpr[2 .. $ - 1];
             }
             if (var != "")
             {
@@ -589,7 +589,7 @@ string generateC(ASTNode ast)
                 {
                     string T = type;
                     if (T.endsWith("*"))
-                        T = T[0..$-1];
+                        T = T[0 .. $ - 1];
                     if (type.endsWith("*"))
                         processedExpr = "(" ~ T ~ "*)" ~ var;
                     else
@@ -1927,7 +1927,7 @@ string generateAsm(ASTNode ast)
 
 string generateStackTraceHandlers()
 {
-    string code = "#include <windows.h>\n";
+    string code = "";
     code ~= "#include <stdio.h>\n";
     code ~= "#include <dbghelp.h>\n";
     code ~= "#include <signal.h>\n";
@@ -1973,15 +1973,18 @@ string generateStackTraceHandlers()
     code ~= "    _exit(139);\n";
     code ~= "}\n";
     code ~= "\n";
-    code ~= "static LONG WINAPI axe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {\n";
-    code ~= "    (void)info;\n";
-    code ~= "    fprintf(stderr, \"Fatal: Unhandled exception.\\n\");\n";
-    code ~= "    axe_win_print_backtrace();\n";
-    code ~= "    fflush(stderr);\n";
-    code ~= "    ExitProcess(1);\n";
-    code ~= "    return EXCEPTION_EXECUTE_HANDLER;\n";
-    code ~= "}\n";
-    code ~= "\n";
+    version (Windows)
+    {
+        code ~= "static LONG WINAPI axe_unhandled_exception_filter(EXCEPTION_POINTERS* info) {\n";
+        code ~= "    (void)info;\n";
+        code ~= "    fprintf(stderr, \"Fatal: Unhandled exception.\\n\");\n";
+        code ~= "    axe_win_print_backtrace();\n";
+        code ~= "    fflush(stderr);\n";
+        code ~= "    ExitProcess(1);\n";
+        code ~= "    return EXCEPTION_EXECUTE_HANDLER;\n";
+        code ~= "}\n";
+        code ~= "\n";
+    }
     return code;
 }
 
@@ -3035,7 +3038,8 @@ unittest
     }
 
     {
-        auto tokens = lex("model Test { field: int } main { mut val ptr: ref Test; ptr.field = 5; }");
+        auto tokens = lex(
+            "model Test { field: int } main { mut val ptr: ref Test; ptr.field = 5; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -3058,7 +3062,8 @@ unittest
 
     {
         // Test deref on long variable (e.g., from arena_alloc)
-        auto tokens = lex("model Test { value: int } main { val ptr: long = 123; mut val n: ref Test = deref(ptr); }");
+        auto tokens = lex(
+            "model Test { value: int } main { val ptr: long = 123; mut val n: ref Test = deref(ptr); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
