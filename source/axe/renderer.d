@@ -1151,6 +1151,40 @@ string processExpression(string expr)
         expr = expr[0 .. startIdx] ~ "(long)&" ~ varName ~ expr[parenEnd + 1 .. $];
     }
 
+    // Handle deref() built-in function - replace all occurrences (with or without spaces)
+    while (expr.canFind("deref"))
+    {
+        auto startIdx = expr.indexOf("deref");
+        if (startIdx == -1)
+            break;
+
+        // Skip past "deref" and any whitespace
+        size_t pos = startIdx + 5;
+        while (pos < expr.length && (expr[pos] == ' ' || expr[pos] == '\t'))
+            pos++;
+
+        if (pos >= expr.length || expr[pos] != '(')
+            break;
+
+        auto parenStart = pos + 1; // After "("
+
+        // Find matching closing paren
+        int depth = 1;
+        size_t parenEnd = parenStart;
+        while (parenEnd < expr.length && depth > 0)
+        {
+            if (expr[parenEnd] == '(')
+                depth++;
+            else if (expr[parenEnd] == ')')
+                depth--;
+            if (depth > 0)
+                parenEnd++;
+        }
+
+        string varName = expr[parenStart .. parenEnd].strip();
+        expr = expr[0 .. startIdx] ~ "*" ~ varName ~ expr[parenEnd + 1 .. $];
+    }
+
     if (expr.canFind(".") && !expr.canFind(".len"))
     {
         auto parts = expr.split(".");
@@ -2804,5 +2838,54 @@ unittest
         assert(cCode.canFind("if") && (cCode.canFind("( 2 * 3 )==6") || cCode.canFind(
                 "(2 * 3) == 6")),
             "Should expand macro in if condition");
+    }
+
+    // deref tests
+    {
+        auto tokens = lex("main { mut val ptr: int* = NULL; val value: int = deref(ptr); }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("deref test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("*ptr"), "Should replace deref(ptr) with *ptr");
+        assert(cCode.canFind("int* ptr = NULL;"), "Should declare pointer variable");
+        assert(cCode.canFind("const int value = (*ptr);"), "Should assign dereferenced value");
+    }
+
+    {
+        auto tokens = lex("main { mut val ptr: int** = NULL; val value: int = deref(deref(ptr)); }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Nested deref test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("**ptr"), "Should handle nested deref(deref(ptr)) as **ptr");
+        assert(cCode.canFind("int** ptr = NULL;"), "Should declare double pointer");
+        assert(cCode.canFind("const int value = **ptr;"), "Should assign double dereferenced value");
+    }
+
+    {
+        auto tokens = lex("main { mut val ptr: int* = NULL; if deref(ptr) == 5 { println \"equal\"; } }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("deref in condition test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("if ((*ptr==5))"), "Should handle deref in if condition");
+    }
+
+    {
+        auto tokens = lex("main { mut val ptr: int* = NULL; deref(ptr) = 10; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("deref assignment test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("*ptr = 10;"), "Should handle deref on left side of assignment");
     }
 }
