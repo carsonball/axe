@@ -90,10 +90,21 @@ bool handleMachineArgs(string[] args)
             string cCode = generateC(ast);
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
+            string[] clangCmd;
 
-            string[] clangCmd = [
-                "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os"
-            ];
+            if (args.canFind("--release"))
+            {
+                clangCmd = [
+                    "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os"
+                ];
+            }
+            else
+            {
+                clangCmd = [
+                    "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os",
+                    "-ldbghelp"
+                ];
+            }
 
             foreach (arg; args)
             {
