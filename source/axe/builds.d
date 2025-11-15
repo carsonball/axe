@@ -101,9 +101,12 @@ bool handleMachineArgs(string[] args)
             else
             {
                 clangCmd = [
-                    "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os",
-                    "-ldbghelp"
+                    "clang", replace(name, ext, ".c"), "-Wno-everything", "-Os"
                 ];
+                version(Windows)
+                {
+                    clangCmd ~= "-ldbghelp";
+                }
             }
 
             foreach (arg; args)
