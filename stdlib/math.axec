@@ -1,0 +1,18 @@
+/// Clamps a value between a minimum and maximum value
+def clamp(value: int, min: int, max: int): int {
+    if value < min {
+        return min;
+    } elif value > max {
+        return max;
+    } else {
+        return value;
+    }
+}
+
+test {
+    val x: int = 5;
+    val y: int = 10;
+    val z: int = 15;
+    
+    assert(clamp(x, y, z) == 10, "clamp(x, y, z) should be 10");
+}
