@@ -20,6 +20,7 @@ private MacroNode[string] g_macros;
 private bool[string] g_pointerFields;
 private string[string] g_varType;
 private string[string] g_isPointerVar;
+private string[string] g_functionPrefixes;
 
 /** 
  * Converts a string to an operand.
@@ -70,6 +71,7 @@ string generateC(ASTNode ast)
         g_pointerFields.clear();
         g_isPointerVar.clear();
         g_varType.clear();
+        g_functionPrefixes.clear();
 
         foreach (child; ast.children)
         {
@@ -78,6 +80,18 @@ string generateC(ASTNode ast)
                 auto macroNode = cast(MacroNode) child;
                 g_macros[macroNode.name] = macroNode;
                 writeln("DEBUG: Pre-stored macro '", macroNode.name, "' with ", macroNode.params.length, " parameters");
+            }
+            if (child.nodeType == "Use")
+            {
+                auto useNode = cast(UseNode) child;
+                string modulePrefix = useNode.moduleName.replace("/", "_");
+                foreach (importName; useNode.imports)
+                {
+                    if (importName.length > 0 && !(importName[0] >= 'A' && importName[0] <= 'Z'))
+                    {
+                        g_functionPrefixes[importName] = modulePrefix ~ "_" ~ importName;
+                    }
+                }
             }
         }
 
@@ -393,8 +407,20 @@ string generateC(ASTNode ast)
         string callName = callNode.functionName;
 
         if (callName.canFind("."))
-            callName = callName.replace(".", "_");
-
+        {
+            if (callName.canFind(".new")) // Special case for Model.new
+            {
+                callName = callName.replace(".new", "_new_list"); // or whatever convention
+            }
+            else
+            {
+                callName = callName.replace(".", "_");
+            }
+        }
+        else if (callName in g_functionPrefixes)
+        {
+            callName = g_functionPrefixes[callName];
+        }
         if (callName in g_macros)
         {
             writeln("DEBUG: Expanding macro '", callName, "'");

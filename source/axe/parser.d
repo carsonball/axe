@@ -6,6 +6,8 @@ import std.string;
 import std.algorithm;
 import axe.structs;
 
+private string[string] g_typeAliases;
+
 /** 
  * Parses an array of tokens into an abstract syntax tree (AST).
  * 
@@ -23,6 +25,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
     import std.string;
     import std.algorithm;
     import axe.structs : Scope;
+
+    g_typeAliases.clear();
 
     writeln("Starting parse with tokens:");
     foreach (i, token; tokens)
@@ -95,6 +99,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         else
         {
             enforce(false, "Invalid type specification");
+        }
+
+        if (typeName in g_typeAliases)
+        {
+            typeName = g_typeAliases[typeName];
         }
 
         return refPrefix ~ typeName;
@@ -407,8 +416,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         pos++;
 
                     enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                        "Expected method name after 'def', full context: " ~ tokens[max(0, cast(int) pos - 5) .. pos].map!(t => t.value)
-                        .join(""));
+                        "Expected method name after 'def', full context: " ~ tokens[max(0, cast(int) pos - 5) .. pos]
+                            .map!(t => t.value)
+                            .join(""));
                     string methodName = tokens[pos].value;
                     pos++;
 
@@ -448,8 +458,24 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
                         "Expected '{' after method declaration");
                     pos++;
 
-                    // Parse method body (same as regular function)
                     Scope methodScope = new Scope();
+
+                    // Register method parameters in the scope
+                    foreach (param; params)
+                    {
+                        // Extract parameter name from "type name" format
+                        import std.string : split, strip;
+
+                        auto parts = param.strip().split();
+                        if (parts.length >= 2)
+                        {
+                            string paramName = parts[$ - 1]; // Last part is the name
+                            // Parameters are immutable by default (unless ref)
+                            bool isMutable = param.canFind("ref ");
+                            methodScope.addVariable(paramName, isMutable);
+                        }
+                    }
+
                     ASTNode methodScopeNode = funcNode;
 
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
@@ -620,6 +646,19 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                 "Expected ';' after use statement");
             pos++; // Skip ';'
+
+            string modulePrefix = moduleName.replace("/", "_"); // "stdlib_arena"
+
+            // For each imported identifier, create a type alias
+            foreach (importName; imports)
+            {
+                // Assume imports that start with uppercase are types
+                if (importName.length > 0 && importName[0] >= 'A' && importName[0] <= 'Z')
+                {
+                    writeln("Storing alias, ", importName, " -> ", modulePrefix ~ "_" ~ importName);
+                    g_typeAliases[importName] = modulePrefix ~ "_" ~ importName;
+                }
+            }
 
             ast.children ~= new UseNode(moduleName, imports);
             continue;
@@ -3970,15 +4009,97 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
         if (pos < tokens.length && tokens[pos].type == TokenType.DOT)
         {
-            // Field access: obj.field = value
+            // Could be: obj.field = value, obj.field[index] = value, OR Model.method(...)
             pos++; // Skip '.'
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                "Expected field name after '.'");
-            string fieldName = tokens[pos].value;
+                "Expected field name or method name after '.'");
+            string memberName = tokens[pos].value;
             pos++;
 
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
+
+            // Check if this is a method call: Model.method(...)
+            if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+            {
+                // This is a namespaced function call
+                string namespacedFunction = identName ~ "." ~ memberName;
+
+                pos++;
+                string[] args;
+                string currentArg = "";
+                int parenDepth = 0;
+
+                while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
+                {
+                    if (tokens[pos].type == TokenType.LPAREN)
+                    {
+                        parenDepth++;
+                        currentArg ~= tokens[pos].value;
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.RPAREN)
+                    {
+                        parenDepth--;
+                        currentArg ~= tokens[pos].value;
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.COMMA && parenDepth == 0)
+                    {
+                        args ~= currentArg.strip();
+                        currentArg = "";
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.WHITESPACE)
+                    {
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.STR)
+                    {
+                        currentArg ~= "\"" ~ tokens[pos].value ~ "\"";
+                        pos++;
+                    }
+                    else
+                    {
+                        currentArg ~= tokens[pos].value;
+                        pos++;
+                    }
+                }
+
+                if (currentArg.strip().length > 0)
+                    args ~= currentArg.strip();
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                    "Expected ')' after function arguments");
+                pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after function call");
+                pos++;
+                return new FunctionCallNode(namespacedFunction, args.join(", "));
+            }
+
+            // Otherwise, check for array access on the field: obj.field[index]
+            string fullLeftSide = identName ~ "." ~ memberName;
+            while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+            {
+                pos++; // Skip '['
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                string indexExpr = "";
+                while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+                {
+                    indexExpr ~= tokens[pos].value;
+                    pos++;
+                }
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACKET,
+                    "Expected ']' after array index");
+                pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                fullLeftSide ~= "[" ~ indexExpr ~ "]";
+            }
 
             if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
             {
@@ -4010,8 +4131,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
                     "Expected ';' after field assignment");
                 pos++;
-                // Use AssignmentNode with dot notation for field assignment
-                return new AssignmentNode(identName ~ "." ~ fieldName, value.strip());
+                // Use AssignmentNode with the full left side expression
+                return new AssignmentNode(fullLeftSide, value.strip());
             }
         }
         else if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
@@ -4600,6 +4721,12 @@ private string parseTypeHelper(ref size_t pos, Token[] tokens)
             typeName ~= "*";
             pos++;
         }
+    }
+
+    if (typeName in g_typeAliases)
+    {
+        writeln("Resolved alias: ", typeName, " -> ", g_typeAliases[typeName]);
+        typeName = g_typeAliases[typeName];
     }
 
     return typeName;

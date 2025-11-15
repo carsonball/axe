@@ -388,7 +388,8 @@ class UseNode : ASTNode
 {
     string moduleName;
     string[] imports;
-
+    string[string] functionPrefixes;
+    
     this(string moduleName, string[] imports)
     {
         super("Use");
@@ -409,7 +410,7 @@ class ModelNode : ASTNode
 
     Field[] fields;
     FunctionNode[] methods;
-    
+
     this(string name, string[string] fieldsMap)
     {
         super("Model");
