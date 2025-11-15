@@ -1385,7 +1385,7 @@ string processExpression(string expr, string context = "")
                 {
                     parts ~= current;
                     current = "";
-                    i += op.length - 1; // Skip the operator
+                    i += cast(int)op.length - 1;
                 }
                 else
                 {
