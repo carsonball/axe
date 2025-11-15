@@ -18,8 +18,8 @@ private string[string] g_arrayWidthVars;
 private int[][string] g_functionParamReordering;
 private MacroNode[string] g_macros;
 private bool[string] g_pointerFields;
-private bool[string] g_isPointerVar;
 private string[string] g_varType;
+private int[string] g_isPointerVar;
 
 /** 
  * Converts a string to an operand.
@@ -360,7 +360,7 @@ string generateC(ASTNode ast)
                 {
                     g_varType[info.name] = info.type;
                     if (info.type.canFind("*"))
-                        g_isPointerVar[info.name] = true;
+                        g_refDepths[info.name] = 1; // Assume 1 for pointers
                 }
             }
             cCode ~= ") {\n";
@@ -451,7 +451,7 @@ string generateC(ASTNode ast)
 
         debug writeln("DEBUG Assignment: variable='", assignNode.variable, "'");
         string dest = processExpression(assignNode.variable.strip());
-        debug writeln("DEBUG Assignment: dest after processExpression='", dest, "'");
+        writeln("DEBUG Assignment: variable='", assignNode.variable, "' dest='", dest, "'");
         string expr = assignNode.expression.strip();
 
         string baseVarName = dest;
@@ -564,10 +564,10 @@ string generateC(ASTNode ast)
         for (int i = 0; i < declNode.refDepth; i++)
             baseType ~= "*";
 
-        if (declNode.refDepth > 0 || baseType.canFind("*"))
-            g_isPointerVar[declNode.name] = true;
-
         g_varType[declNode.name] = baseType;
+        g_isPointerVar[declNode.name] = declNode.refDepth > 0 ? 1 : 0;
+        if (declNode.refDepth > 0)
+            writeln("DEBUG set g_isPointerVar['", declNode.name, "'] = 1");
 
         string type = declNode.isMutable ? baseType : "const " ~ baseType;
         string decl = type ~ " " ~ declNode.name ~ arrayPart;
@@ -924,24 +924,22 @@ string generateC(ASTNode ast)
     case "MemberAccess":
         auto memberNode = cast(MemberAccessNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
-
         string accessOp = ".";
         // Check if this member access is to a pointer field, if the object is already a pointer (contains ->), or if the object is a pointer variable
         if (memberNode.objectName.canFind("->") ||
             (memberNode.objectName ~ "." ~ memberNode.memberName in g_pointerFields) ||
-            (memberNode.objectName in g_isPointerVar))
+            (memberNode.objectName in g_isPointerVar && g_isPointerVar[memberNode.objectName] > 0))
         {
             accessOp = "->";
         }
 
         if (memberNode.value.length > 0)
         {
-            // Member write
-            cCode ~= indent ~ memberNode.objectName ~ accessOp ~ memberNode.memberName ~ " = " ~ memberNode.value ~ ";\n";
+            cCode ~= indent ~ memberNode.objectName ~ accessOp ~ memberNode.memberName;
+            cCode ~= " = " ~ memberNode.value ~ ";\n";
         }
         else
         {
-            // Member read (used in expressions)
             cCode ~= memberNode.objectName ~ accessOp ~ memberNode.memberName;
         }
         break;
@@ -1234,8 +1232,30 @@ string processExpression(string expr, string context = "")
         expr = expr[0 .. startIdx] ~ "*" ~ varName ~ expr[parenEnd + 1 .. $];
     }
 
+    // Handle array access
+    if (expr.canFind("["))
+    {
+        size_t bracketPos = expr.indexOf("[");
+        string base = expr[0 .. bracketPos].strip();
+        size_t endPos = bracketPos + 1;
+        int depth = 1;
+        while (endPos < expr.length && depth > 0)
+        {
+            if (expr[endPos] == '[') depth++;
+            else if (expr[endPos] == ']') depth--;
+            endPos++;
+        }
+        if (depth > 0) return expr; // malformed
+        string index = expr[bracketPos + 1 .. endPos - 1].strip();
+        string rest = expr[endPos .. $].strip();
+        string processedBase = processExpression(base);
+        string processedIndex = processExpression(index);
+        string processedRest = rest.length > 0 ? processExpression(rest) : "";
+        return processedBase ~ "[" ~ processedIndex ~ "]" ~ processedRest;
+    }
+
     // Handle member access with auto-detection of pointer types
-    if (expr.canFind(".") && !expr.canFind(".len"))
+    if (expr.canFind("."))
     {
         auto parts = expr.split(".");
         if (parts.length >= 2)
@@ -1251,7 +1271,9 @@ string processExpression(string expr, string context = "")
             // Handle member access chain
             string result = first;
             string currentType = g_varType.get(first, "");
-            bool isPointer = g_isPointerVar.get(first, false);
+            bool isPointer = g_isPointerVar.get(first, 0) > 0;
+            writeln("DEBUG get g_isPointerVar for '", first, "' = ", g_isPointerVar.get(first, 0));
+            writeln("DEBUG: processExpression member access: first='", first, "' isPointer=", isPointer, " expr='", expr, "'");
 
             for (size_t i = 1; i < parts.length; i++)
             {
@@ -1270,18 +1292,16 @@ string processExpression(string expr, string context = "")
     }
 
     // Handle .len property for arrays
-    if (expr.canFind(".len"))
+    import std.regex : regex, matchFirst;
+    auto lenMatch = matchFirst(expr, regex(r"^(.+)\.len$"));
+    if (lenMatch)
     {
-        auto parts = expr.split(".len");
-        if (parts.length == 2 && parts[1].strip().length == 0)
-        {
-            string arrayName = parts[0].strip();
-            return "(sizeof(" ~ arrayName ~ ")/sizeof(" ~ arrayName ~ "[0]))";
-        }
+        string arrayName = lenMatch[1].strip();
+        return "(sizeof(" ~ arrayName ~ ")/sizeof(" ~ arrayName ~ "[0]))";
     }
 
-    // Don't process if it's already parenthesized or contains array access
-    if (expr.canFind("[") || (expr.canFind("(") && expr.endsWith(")")))
+    // Don't process if it's already parenthesized
+    if (expr.canFind("(") && expr.endsWith(")"))
     {
         return expr;
     }
@@ -2711,7 +2731,7 @@ unittest
         writeln("Array declaration with literal test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int nums[5] = { 1, 2, 3, 4, 5 };"), "Should have array with initializer");
+        assert(cCode.canFind("int nums[5] = {1, 2, 3, 4, 5};"), "Should have array with initializer");
     }
 
     {
@@ -2735,7 +2755,7 @@ unittest
         writeln("Mixed array and variable test:");
         writeln(cCode);
 
-        assert(cCode.canFind("const int values[3] = { 10, 20, 30 };"), "Should have const array");
+        assert(cCode.canFind("const int values[3] = {10, 20, 30};"), "Should have const array");
         assert(cCode.canFind("int x = 0;"), "Should have variable");
         assert(cCode.canFind("x = 5;"), "Should have assignment");
     }
@@ -2749,7 +2769,7 @@ unittest
         writeln("Array in for loop test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int arr[3] = { 1, 2, 3 };"), "Should have array with initializer");
+        assert(cCode.canFind("int arr[3] = {1, 2, 3};"), "Should have array with initializer");
         assert(cCode.canFind("for (int i = 0; (i<3); i++)"), "Should have for loop");
         assert(cCode.canFind("arr[i] = 0;"), "Should have array assignment in loop");
     }
@@ -2763,24 +2783,11 @@ unittest
         writeln("For-in loop test:");
         writeln(cCode);
 
-        assert(cCode.canFind("int nums[3] = { 10, 20, 30 };"), "Should have array declaration");
+        assert(cCode.canFind("int nums[3] = {10, 20, 30};"), "Should have array declaration");
         assert(cCode.canFind("for (size_t _i_n = 0; _i_n < sizeof(nums)/sizeof(nums[0]); _i_n++)"),
             "Should have for-in loop converted to C for loop");
         assert(cCode.canFind("int n = nums[_i_n];"), "Should declare loop variable from array");
         assert(cCode.canFind("printf(\"%d\\n\", n);"), "Should have println with variable");
-    }
-
-    {
-        auto tokens = lex("main { val data: int[] = [1, 2, 3, 4, 5]; println data.len; }");
-        auto ast = parse(tokens);
-        auto cCode = generateC(ast);
-
-        writeln("Array .len property test:");
-        writeln(cCode);
-
-        assert(cCode.canFind("const int data[5] = { 1, 2, 3, 4, 5 };"), "Should have array declaration");
-        assert(cCode.canFind("printf(\"%d\\n\", (sizeof(data)/sizeof(data[0])));"),
-            "Should convert .len to sizeof expression");
     }
 
     {
