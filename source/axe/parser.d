@@ -3581,6 +3581,30 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
         }
     }
 
+    bool hasEntryPoint = false;
+    foreach (child; ast.children)
+    {
+        if (child.nodeType == "Function")
+        {
+            auto funcNode = cast(FunctionNode) child;
+            if (funcNode.name == "main")
+            {
+                hasEntryPoint = true;
+                break;
+            }
+        }
+        else if (child.nodeType == "Test")
+        {
+            hasEntryPoint = true;
+            break;
+        }
+    }
+
+    if (!hasEntryPoint)
+    {
+        enforce(false, "No entry point defined. You must have either a 'main { }' or 'test { }' block.");
+    }
+
     return ast;
 }
 
