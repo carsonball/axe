@@ -657,7 +657,7 @@ string generateC(ASTNode ast)
             }
             if (var != "")
             {
-                if (var in g_varType && g_varType[var] == "long")
+                if (var in g_varType && g_varType[var] == "int64_t")
                 {
                     string T = type;
                     if (T.endsWith("*"))
@@ -2388,10 +2388,10 @@ unittest
         writeln("Variable-length array parameter reordering test:");
         writeln(cCode);
 
-        assert(cCode.canFind("void test_func(int width, int height, int grid[height][width]);"), 
+        assert(cCode.canFind("void test_func(int32_t width, int32_t height, int32_t grid[height][width]);"), 
                "Forward declaration should have dimension parameters before array parameter");
         
-        assert(cCode.canFind("void test_func(int width, int height, int grid[height][width])"), 
+        assert(cCode.canFind("void test_func(int32_t width, int32_t height, int32_t grid[height][width])"), 
                "Function definition should have dimension parameters before array parameter");
     }
 }
