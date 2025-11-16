@@ -2662,7 +2662,6 @@ unittest
     }
 
     {
-        // Test deref on long variable (e.g., from arena_alloc)
         auto tokens = lex(
             "model Test { value: int } main { val ptr: long = 123; mut val n: ref Test = deref(ptr); }");
         auto ast = parse(tokens);
@@ -2672,5 +2671,18 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("Test* n = (Test*)ptr;"), "Should cast long to pointer type when deref in declaration");
+    }
+
+    {
+        auto tokens = lex("model SomeModel { value: int, def some_function() { println \"Hello from model method\"; } } main { mut val obj: SomeModel; obj.some_function(); }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Model with function test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("struct SomeModel"), "Should generate struct for model");
+        assert(cCode.canFind("void SomeModel_some_function("), "Should generate function declaration for model method");
+        assert(cCode.canFind("obj_some_function();"), "Should generate function call in main");
     }
 }
