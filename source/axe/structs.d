@@ -557,7 +557,7 @@ class Scope
 
 class PlatformNode : ASTNode
 {
-    string platform; // "windows" or "posix"
+    string platform;
     
     this(string platform)
     {
