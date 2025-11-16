@@ -41,8 +41,6 @@ model Arena {
             }
             result = (void *)(arena->buffer + arena->offset);
             arena->offset += size;
-
-            // Align to 8 bytes
             arena->offset = (arena->offset + 7) & ~7;
         }
 
