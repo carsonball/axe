@@ -1418,10 +1418,11 @@ string processExpression(string expr, string context = "")
     {
         if (expr.canFind(op) && op != "")
         {
-            // Smart split that respects string literals
+            // Smart split that respects string literals and parentheses
             string[] parts;
             string current = "";
             bool inString = false;
+            int parenDepth = 0;
 
             for (size_t i = 0; i < expr.length; i++)
             {
@@ -1430,7 +1431,17 @@ string processExpression(string expr, string context = "")
                     inString = !inString;
                     current ~= expr[i];
                 }
-                else if (!inString && i + op.length <= expr.length &&
+                else if (!inString && expr[i] == '(')
+                {
+                    parenDepth++;
+                    current ~= expr[i];
+                }
+                else if (!inString && expr[i] == ')')
+                {
+                    parenDepth--;
+                    current ~= expr[i];
+                }
+                else if (!inString && parenDepth == 0 && i + op.length <= expr.length &&
                     expr[i .. i + op.length] == op &&
                     (i == 0 || expr[i - 1] != op[0]))
                 {

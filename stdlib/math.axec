@@ -227,4 +227,45 @@ test {
     assert(approx_equal(atan(1.0), PI/4.0, 0.05), "atan(1) should be ~pi/4");
     assert(approx_equal(exp(1.0), E, 0.05), "exp(1) should be ~E");
     assert(approx_equal(ln(E), 1.0, 0.05), "ln(E) should be ~1");
+    assert(clamp(5, 0, 10) == 5, "clamp mid");
+    assert(clamp(-5, 0, 10) == 0, "clamp below");
+    assert(clamp(50, 0, 10) == 10, "clamp above");
+    assert(clamp_float(5.5, 0.0, 10.0) == 5.5, "clamp_float mid");
+    assert(clamp_float(-1.0, 0.0, 10.0) == 0.0, "clamp_float below");
+    assert(clamp_float(20.0, 0.0, 10.0) == 10.0, "clamp_float above");
+    assert(absolute(-5.0) == 5.0, "absolute neg");
+    assert(absolute(5.0) == 5.0, "absolute pos");
+    assert(floor(5.2) == 5.0, "floor positive");
+    assert(floor(-1.2) == -2.0, "floor negative fractional");
+    assert(floor(-1.0) == -1.0, "floor negative exact");
+    assert(ceil(5.2) == 6.0, "ceil positive");
+    assert(ceil(-1.2) == -1.0, "ceil negative fractional");
+    assert(ceil(2.0) == 2.0, "ceil exact");
+    assert(round(5.4) == 5.0, "round down");
+    assert(round(5.6) == 6.0, "round up");
+    assert(round(-1.4) == -1.0, "round negative down");
+    assert(round(-1.6) == -2.0, "round negative up");
+    assert(approx_equal(sqrt(2.0), 1.4142, 0.01), "sqrt(2)");
+    assert(approx_equal(sqrt(0.25), 0.5, 0.01), "sqrt(0.25)");
+    assert(approx_equal(sqrt(10000.0), 100.0, 0.01), "sqrt(10000)");
+    assert(approx_equal(reduce_angle(PI), PI, 0.001), "reduce pi");
+    assert(approx_equal(reduce_angle(PI + TWO_PI), PI, 0.001), "reduce angle wrap");
+    assert(approx_equal(reduce_angle(-PI), TWO_PI - PI, 0.001), "reduce negative");
+    assert(approx_equal(mod_float(10.5, 2.0), 0.5, 0.001), "mod float basic");
+    assert(approx_equal(mod_float(-1.0, 2.0), 1.0, 0.001), "mod float negative");
+    assert(approx_equal(pow(2.0, 10), 1024.0, 0.001), "pow positive exp");
+    assert(approx_equal(pow(2.0, -3), 0.125, 0.001), "pow negative exp");
+    assert(approx_equal(pow(5.0, 0), 1.0, 0.0001), "pow zero");
+    assert(approx_equal(ln(exp(2.0)), 2.0, 0.05), "ln(exp(x)) ≈ x");
+    assert(approx_equal(exp(ln(2.0)), 2.0, 0.05), "exp(ln(x)) ≈ x");
+    assert(approx_equal(sin(0.0), 0.0, 0.01), "sin(0)");
+    assert(approx_equal(cos(PI), -1.0, 0.05), "cos(pi)");
+
+    val s: float = sin(1.0);
+    val c: float = cos(1.0);
+
+    assert(approx_equal(s*s + c*c, 1.0, 0.05), "sin^2 + cos^2 = 1");
+    assert(approx_equal(atan(0.0), 0.0, 0.01), "atan(0)");
+    assert(approx_equal(asin(0.0), 0.0, 0.05), "asin(0)");
+    assert(approx_equal(acos(1.0), 0.0, 0.05), "acos(1)");
 }
