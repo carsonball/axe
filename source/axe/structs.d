@@ -200,6 +200,7 @@ class MacroNode : ASTNode
     string name;
     string[] params;  // Parameter names
     string[] paramTypes;  // Parameter types (e.g., "untyped")
+    Token[] bodyTokens;  // Store the macro body as tokens for expansion
     
     this(string name, string[] params, string[] paramTypes)
     {

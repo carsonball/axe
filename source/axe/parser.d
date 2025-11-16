@@ -2567,6 +2567,87 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 ast.children ~= mainNode;
                 continue;
             }
+            
+            // Check if this is a macro invocation
+            string identName = tokens[pos].value;
+            if (identName in g_macros)
+            {
+                pos++; // Skip macro name
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                    "Expected '(' after macro name");
+                pos++; // Skip '('
+                
+                // Parse macro arguments
+                string[] macroArgs;
+                while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+                {
+                    if (tokens[pos].type == TokenType.WHITESPACE)
+                    {
+                        pos++;
+                        continue;
+                    }
+                    
+                    if (tokens[pos].type == TokenType.COMMA)
+                    {
+                        pos++;
+                        continue;
+                    }
+                    
+                    macroArgs ~= tokens[pos].value;
+                    pos++;
+                }
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                    "Expected ')' after macro arguments");
+                pos++; // Skip ')'
+                
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after macro invocation");
+                pos++; // Skip ';'
+                
+                // Expand macro
+                auto macroDef = g_macros[identName];
+                Token[] expandedTokens = macroDef.bodyTokens.dup;
+                
+                // Substitute parameters in the token stream
+                foreach (ref token; expandedTokens)
+                {
+                    for (size_t i = 0; i < macroDef.params.length && i < macroArgs.length; i++)
+                    {
+                        if (token.type == TokenType.IDENTIFIER)
+                        {
+                            // For raw blocks, substitute within the entire string content
+                            // For other identifiers, exact match only
+                            if (token.value == macroDef.params[i])
+                            {
+                                token.value = macroArgs[i];
+                            }
+                            else
+                            {
+                                // Also substitute within multi-line raw blocks
+                                import std.array : replace;
+                                token.value = token.value.replace(macroDef.params[i], macroArgs[i]);
+                            }
+                        }
+                    }
+                }
+                
+                // Parse the expanded tokens
+                auto expandedAST = parse(expandedTokens, isAxec, false);
+                foreach (child; expandedAST.children)
+                {
+                    ast.children ~= child;
+                }
+                
+                continue;
+            }
+            
             goto default;
 
         case TokenType.TEST:
@@ -2677,49 +2758,46 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 "Expected '{' after macro declaration");
             pos++;
 
-            // Parse macro body (currently only supports raw blocks)
-            while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
+            // Store macro body tokens for later expansion (don't parse now)
+            Token[] bodyTokens;
+            int braceDepth = 1;
+
+            while (pos < tokens.length && braceDepth > 0)
             {
-                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
-                    .NEWLINE)
+                auto t = tokens[pos];
+
+                if (t.type == TokenType.LBRACE)
                 {
+                    braceDepth++;
+                    bodyTokens ~= t;
+                    pos++;
+                    continue;
+                }
+                else if (t.type == TokenType.RBRACE)
+                {
+                    braceDepth--;
+                    if (braceDepth == 0)
+                    {
+                        // Consume the matching closing '}' and stop
+                        pos++;
+                        break;
+                    }
+                    // Still inside the body; keep this '}'
+                    bodyTokens ~= t;
                     pos++;
                     continue;
                 }
 
-                if (tokens[pos].type == TokenType.RAW)
-                {
-                    enforce(isAxec, "Raw C blocks are only allowed in .axec files");
-                    pos++; // Skip 'raw'
-
-                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
-                            .NEWLINE))
-                        pos++;
-
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-                        "Expected '{' after 'raw'");
-                    pos++;
-
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                        "Expected raw code content");
-                    string rawCode = tokens[pos].value;
-                    pos++;
-
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
-                        "Expected '}' after raw block");
-                    pos++;
-
-                    macroNode.children ~= new RawCNode(rawCode);
-                }
-                else
-                {
-                    pos++;
-                }
+                // Any other token is part of the macro body
+                bodyTokens ~= t;
+                pos++;
             }
 
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
-                "Expected '}' after macro body");
-            pos++;
+            enforce(braceDepth == 0, "Expected '}' after macro body");
+            macroNode.bodyTokens = bodyTokens;
+
+            // Store macro for later expansion
+            g_macros[macroName] = MacroDef(macroParams, bodyTokens);
 
             ast.children ~= macroNode;
             continue;
