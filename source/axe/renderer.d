@@ -279,6 +279,7 @@ string generateC(ASTNode ast)
         cCode ~= "#include <stdbool.h>\n";
         cCode ~= "#include <stdlib.h>\n";
         cCode ~= "#include <string.h>\n";
+        cCode ~= "#include <stdint.h>\n";
         cCode ~= "\n";
 
         version (Windows)
