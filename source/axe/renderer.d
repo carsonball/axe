@@ -610,7 +610,7 @@ string generateC(ASTNode ast)
         g_varType[declNode.name] = baseType;
         g_isPointerVar[declNode.name] = declNode.refDepth > 0 ? "true" : "false";
         if (declNode.refDepth > 0)
-            writeln("DEBUG set g_isPointerVar['", declNode.name, "'] = true");
+            debug writeln("DEBUG set g_isPointerVar['", declNode.name, "'] = true");
 
         string type = declNode.isMutable ? baseType : "const " ~ baseType;
         string decl = type ~ " " ~ declNode.name ~ arrayPart;
@@ -648,27 +648,21 @@ string generateC(ASTNode ast)
             {
                 import std.string : replace;
 
-                // Calculate actual string length from the literal (subtract 2 for quotes, add 1 for null terminator)
                 size_t bufferSize = processedExpr.length - 2 + 1;
 
-                // Change from char* to char[] with exact size needed
                 type = declNode.isMutable ? "char" : "const char";
                 decl = type ~ " " ~ declNode.name ~ "[" ~ bufferSize.to!string ~ "]";
-                // Use strcpy to copy the string literal into the buffer
                 cCode ~= decl ~ ";\n";
                 cCode ~= "strcpy(" ~ declNode.name ~ ", " ~ processedExpr ~ ");\n";
                 break;
             }
 
-            // Convert array initializer syntax: [1,2,3] -> {1,2,3}
             if (arrayPart.length > 0 && processedExpr.length > 0 && processedExpr[0] == '[')
             {
                 import std.string : replace, split;
 
-                // If array size not specified (e.g., int[]), calculate from initializer
                 if (arrayPart == "[]")
                 {
-                    // Count elements in initializer
                     auto elements = processedExpr[1 .. $ - 1].split(",");
                     arrayPart = "[" ~ elements.length.to!string ~ "]";
                     decl = type ~ " " ~ declNode.name ~ arrayPart;
@@ -722,11 +716,9 @@ string generateC(ASTNode ast)
         loopLevel--;
         cCode ~= "}";
 
-        // Handle elif/else chain - elif nodes are stored as IfNodes in elseBody
         IfNode currentNode = ifNode;
         while (currentNode.elseBody.length == 1 && currentNode.elseBody[0].nodeType == "If")
         {
-            // This is an elif
             auto elifNode = cast(IfNode) currentNode.elseBody[0];
             cCode ~= " else if (" ~ processCondition(elifNode.condition) ~ ") {\n";
             loopLevel++;
@@ -738,12 +730,9 @@ string generateC(ASTNode ast)
 
             loopLevel--;
             cCode ~= "}";
-
-            // Move to the next node in the chain
             currentNode = elifNode;
         }
 
-        // Handle final else block (if not another elif)
         if (currentNode.elseBody.length > 0)
         {
             cCode ~= " else {\n";
