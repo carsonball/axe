@@ -103,7 +103,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
             enforce(false, "Invalid type specification");
         }
 
-        // Validate that the type is not forbidden
         validateTypeNotForbidden(typeName);
 
         if (typeName in g_typeAliases)
@@ -323,13 +322,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                 pos++;
                         }
 
-                        // Check if this is an array type
                         size_t savedPos = pos;
                         string baseType = parseType();
 
                         if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
                         {
-                            // Array parameter - parse full array type
                             pos = savedPos;
                             auto arrayInfo = parseArrayType();
                             writeln("DEBUG parseArgs: elementType='", arrayInfo.elementType, "' size='", arrayInfo.size, "' size2='", arrayInfo
@@ -4477,23 +4474,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 {
                     enforce(false, "Undeclared variable: " ~ identName);
                 }
-                // Check mutability for member access assignments
-                // Function parameters in function scope allow member access (for cases like dest.data[i] = ...)
-                // but local variables declared with 'val' should not allow member access
-                // We need to distinguish: if we're in main/global scope, enforce mutability strictly
-                // If we're in a function scope, we can be more lenient for parameters
-                // For now, check mutability - this will prevent: val cat = ...; cat.health = 90;
-                // but function parameters will need to be handled differently
                 if (!currentScope.isMutable(identName))
                 {
-                    // Check if this might be a function parameter by seeing if we're in a function context
-                    // For main scope, always enforce mutability
-                    // For function scope, we could allow it, but let's be consistent for now
-                    // Actually, let's check: if the variable is in scope but not mutable, and we're doing
-                    // member access, we should allow it only if it's a function parameter
-                    // Since we can't easily distinguish, let's enforce the check but make an exception
-                    // for the common case of function parameters modifying data structures
-                    // For now, enforce mutability check - this will catch the test case
                     enforce(false, "Cannot assign to member '" ~ memberName ~
                             "' of immutable variable '" ~ identName ~ "'");
                 }
