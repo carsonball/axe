@@ -11,7 +11,17 @@ def random(a: i32, b: i32): i32 {
     }
 }
 
+def random_float(a: f32, b: f32): f32 {
+    randomize();
+    raw {
+        return (rand() / (float)RAND_MAX) * (b - a) + a;
+    }
+}
+
 test {
     assert(random(1, 10) >= 1, "Random number should be between 1 and 10");
     assert(random(1, 10) <= 10, "Random number should be between 1 and 10");
+    
+    assert(random_float(1.0, 10.0) >= 1.0, "Random float should be between 1.0 and 10.0");
+    assert(random_float(1.0, 10.0) <= 10.0, "Random float should be between 1.0 and 10.0");
 }
