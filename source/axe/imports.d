@@ -33,20 +33,29 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
 
             if (useNode.moduleName.startsWith("stdlib/"))
             {
-                string homeDir = getUserHomeDir();
-                if (homeDir.length == 0)
-                {
-                    throw new Exception("Could not determine user home directory");
-                }
-
                 string moduleName = useNode.moduleName[7 .. $];
-                modulePath = buildPath(homeDir, ".axe", "stdlib", moduleName ~ ".axec");
-
-                if (!exists(modulePath))
+                
+                string localPath = buildPath(baseDir, "stdlib", moduleName ~ ".axec");
+                if (exists(localPath))
                 {
-                    throw new Exception(
-                        "Stdlib module not found: " ~ modulePath ~
-                            "\nMake sure the module is installed in ~/.axe/stdlib/");
+                    modulePath = localPath;
+                }
+                else
+                {
+                    string homeDir = getUserHomeDir();
+                    if (homeDir.length == 0)
+                    {
+                        throw new Exception("Could not determine user home directory");
+                    }
+
+                    modulePath = buildPath(homeDir, ".axe", "stdlib", moduleName ~ ".axec");
+
+                    if (!exists(modulePath))
+                    {
+                        throw new Exception(
+                            "Stdlib module not found: " ~ modulePath ~
+                                "\nMake sure the module is installed in ~/.axe/stdlib/ or in a local stdlib/ directory");
+                    }
                 }
             }
             else
@@ -69,10 +78,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             string[string] moduleModelMap;
             string[string] moduleMacroMap;
 
-            import std.stdio : writeln;
-
-            writeln("DEBUG imports: Building function map for module: ", useNode.moduleName);
-
             foreach (importChild; importProgram.children)
             {
                 if (importChild.nodeType == "Function")
@@ -80,14 +85,12 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     auto funcNode = cast(FunctionNode) importChild;
                     string prefixedName = sanitizedModuleName ~ "_" ~ funcNode.name;
                     moduleFunctionMap[funcNode.name] = prefixedName;
-                    writeln("  DEBUG: Mapped function '", funcNode.name, "' -> '", prefixedName, "'");
                 }
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
                     string prefixedName = sanitizedModuleName ~ "_" ~ modelNode.name;
                     moduleModelMap[modelNode.name] = prefixedName;
-                    writeln("  DEBUG: Mapped model '", modelNode.name, "' -> '", prefixedName, "'");
                     
                     // Also map all methods within this model
                     foreach (method; modelNode.methods)
@@ -99,7 +102,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                             // We need to prefix them with the module name
                             string prefixedMethodName = sanitizedModuleName ~ "_" ~ methodFunc.name;
                             moduleFunctionMap[methodFunc.name] = prefixedMethodName;
-                            writeln("  DEBUG: Mapped method '", methodFunc.name, "' -> '", prefixedMethodName, "'");
                         }
                     }
                 }
@@ -108,11 +110,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     auto macroNode = cast(MacroNode) importChild;
                     // Macros don't get prefixed - they expand inline
                     moduleMacroMap[macroNode.name] = macroNode.name;
-                    writeln("  DEBUG: Mapped macro '", macroNode.name, "'");
                 }
             }
 
-            writeln("DEBUG imports: Processing imported items");
             foreach (importChild; importProgram.children)
             {
                 if (importChild.nodeType == "Function")
@@ -125,8 +125,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                         auto newFunc = new FunctionNode(prefixedName, funcNode.params);
                         newFunc.returnType = funcNode.returnType;
                         newFunc.children = funcNode.children;
-
-                        writeln("  DEBUG: Renaming calls in function '", prefixedName, "'");
                         
                         // Rename internal calls within this function
                         renameFunctionCalls(newFunc, moduleFunctionMap);
@@ -156,14 +154,15 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                                 newMethod.returnType = methodFunc.returnType;
                                 newMethod.children = methodFunc.children;
                                 
-                                writeln("  DEBUG: Processing model method '", prefixedMethodName, "'");
-                                
                                 // Rename function calls within the method to use prefixed names
                                 renameFunctionCalls(newMethod, moduleFunctionMap);
                                 renameTypeReferences(newMethod, moduleModelMap);
                                 
                                 // Add method to newModel's methods array
                                 newModel.methods ~= newMethod;
+                                
+                                // Also add this method to importedFunctions so user code can call it
+                                importedFunctions[methodFunc.name] = prefixedMethodName;
                             }
                         }
                         
@@ -176,7 +175,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     if (useNode.imports.canFind(macroNode.name))
                     {
                         // Macros are added directly without prefixing - they expand inline
-                        writeln("  DEBUG: Adding macro '", macroNode.name, "'");
                         newChildren ~= macroNode;
                     }
                 }
@@ -185,6 +183,11 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
         else
         {
             // This is user code - rename function calls and type references
+            writeln("DEBUG imports: Renaming user code with ", importedFunctions.length, " imported functions");
+            foreach (key, value; importedFunctions)
+            {
+                writeln("  DEBUG: importedFunctions['", key, "'] = '", value, "'");
+            }
             renameFunctionCalls(child, importedFunctions);
             renameTypeReferences(child, importedModels);
             
@@ -208,24 +211,50 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
 }
 
 /**
+ * Convert ModelName_methodName to a regex pattern ModelName\s*\.\s*methodName
+ * Only replaces the FIRST underscore (between model and method name)
+ */
+string convertToModelMethodPattern(string modelMethodName)
+{
+    import std.string : indexOf;
+    auto firstUnderscore = modelMethodName.indexOf('_');
+    if (firstUnderscore == -1)
+        return modelMethodName;
+    
+    return modelMethodName[0 .. firstUnderscore] ~ "\\s*\\.\\s*" ~ modelMethodName[firstUnderscore + 1 .. $];
+}
+
+/**
  * Recursively rename function calls to use prefixed names
  */
 void renameFunctionCalls(ASTNode node, string[string] nameMap)
 {
-    import std.stdio : writeln;
-
     if (node.nodeType == "FunctionCall")
     {
         auto callNode = cast(FunctionCallNode) node;
+        // Check direct match first
         if (callNode.functionName in nameMap)
         {
-            string oldName = callNode.functionName;
             callNode.functionName = nameMap[callNode.functionName];
-            writeln("    DEBUG renameFunctionCalls: Renamed call '", oldName, "' -> '", callNode.functionName, "'");
         }
+        // Also check if it's in dot notation and needs to be converted
         else
         {
-            writeln("    DEBUG renameFunctionCalls: Call '", callNode.functionName, "' not in map");
+            foreach (oldName, newName; nameMap)
+            {
+                if (oldName.canFind("_"))
+                {
+                    // Convert Model_method to Model.method pattern with regex
+                    import std.regex : regex, matchFirst;
+                    string modelMethod = convertToModelMethodPattern(oldName);
+                    auto pattern = regex("^" ~ modelMethod ~ "$");
+                    if (matchFirst(callNode.functionName, pattern))
+                    {
+                        callNode.functionName = newName;
+                        break;
+                    }
+                }
+            }
         }
     }
     else if (node.nodeType == "Print")
@@ -255,24 +284,54 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto returnNode = cast(ReturnNode) node;
         foreach (oldName, newName; nameMap)
         {
+            // Check for underscore notation: Model_method(
             string oldCall = oldName ~ "(";
             if (returnNode.expression.canFind(oldCall))
             {
                 returnNode.expression = returnNode.expression.replace(oldCall, newName ~ "(");
-                writeln("    DEBUG renameFunctionCalls: Renamed call in return: '", oldName, "' -> '", newName, "'");
+            }
+            
+            // Also check for dot notation: Model.method( or Model . method(
+            import std.regex : regex, replaceAll;
+            if (returnNode.expression.canFind(".") && oldName.canFind("_"))
+            {
+                string modelMethod = convertToModelMethodPattern(oldName);
+                auto dotPattern = regex(modelMethod ~ "\\s*\\(");
+                string newExpr = replaceAll(returnNode.expression, dotPattern, newName ~ "(");
+                if (newExpr != returnNode.expression)
+                {
+                    returnNode.expression = newExpr;
+                }
             }
         }
     }
     else if (node.nodeType == "Declaration")
     {
         auto declNode = cast(DeclarationNode) node;
+        writeln("    DEBUG renameFunctionCalls Declaration: initializer='", declNode.initializer, "'");
         foreach (oldName, newName; nameMap)
         {
+            // Check for underscore notation: Model_method(
             string oldCall = oldName ~ "(";
             if (declNode.initializer.canFind(oldCall))
             {
-                declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
                 writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName, "' -> '", newName, "'");
+                declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
+            }
+            
+            // Also check for dot notation: Model.method( or Model . method(
+            import std.regex : regex, replaceAll;
+            if (declNode.initializer.canFind(".") && oldName.canFind("_"))
+            {
+                string modelMethod = convertToModelMethodPattern(oldName);
+                auto dotPattern = regex(modelMethod ~ "\\s*\\(");
+                writeln("    DEBUG: Trying regex pattern '", modelMethod, "\\s*\\(' on '", declNode.initializer, "'");
+                string newInit = replaceAll(declNode.initializer, dotPattern, newName ~ "(");
+                if (newInit != declNode.initializer)
+                {
+                    writeln("    DEBUG: Regex matched! Replaced '", declNode.initializer, "' -> '", newInit, "'");
+                    declNode.initializer = newInit;
+                }
             }
         }
     }
@@ -281,11 +340,24 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto assignNode = cast(AssignmentNode) node;
         foreach (oldName, newName; nameMap)
         {
+            // Check for underscore notation: Model_method(
             string oldCall = oldName ~ "(";
             if (assignNode.expression.canFind(oldCall))
             {
                 assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
-                writeln("    DEBUG renameFunctionCalls: Renamed call in assignment: '", oldName, "' -> '", newName, "'");
+            }
+            
+            // Also check for dot notation: Model.method( or Model . method(
+            import std.regex : regex, replaceAll;
+            if (assignNode.expression.canFind(".") && oldName.canFind("_"))
+            {
+                string modelMethod = convertToModelMethodPattern(oldName);
+                auto dotPattern = regex(modelMethod ~ "\\s*\\(");
+                string newExpr = replaceAll(assignNode.expression, dotPattern, newName ~ "(");
+                if (newExpr != assignNode.expression)
+                {
+                    assignNode.expression = newExpr;
+                }
             }
         }
     }

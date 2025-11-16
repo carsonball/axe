@@ -1,8 +1,5 @@
 use stdlib/arena (
-    Arena,
-    arena_create,
-    arena_destroy,
-    arena_alloc
+    Arena
 );
 
 use stdlib/memory (
@@ -18,8 +15,8 @@ model IntList {
 
     /// Initialize a new IntList with a given capacity
     def new_list(arena: ref Arena, capacity: int): ref IntList {
-        mut val lst: ref IntList = arena_alloc(arena, size_of(IntList));
-        lst.data = arena_alloc(arena, capacity * size_of(int));
+        mut val lst: ref IntList = Arena.alloc(arena, size_of(IntList));
+        lst.data = Arena.alloc_array(arena, size_of(int), capacity);
         lst.length = 0;
         lst.cap = capacity;
         return lst;
@@ -29,7 +26,7 @@ model IntList {
     def push(lst: ref IntList, arena: ref Arena, value: int) {
         if lst.length >= lst.cap {
             val new_cap: int = lst.cap * 2;
-            mut val new_data: ref int = arena_alloc(arena, new_cap * size_of(int));
+            mut val new_data: ref int = Arena.alloc_array(arena, size_of(int), new_cap);
             copy(lst.data[0], new_data[0], int[lst.length]);
             lst.data = new_data;
             lst.cap = new_cap;
@@ -58,7 +55,7 @@ model IntList {
 }
 
 test {
-    mut val arena: Arena = arena_create(65536);
+    mut val arena: Arena = Arena.create(65536);
     mut val my_list: ref IntList = IntList.new_list(ref_of(arena), 4);
 
     IntList.push(my_list, ref_of(arena), 10);
@@ -73,5 +70,5 @@ test {
     println "Element at index 2:";
     println IntList.get(my_list, 2);
 
-    arena_destroy(ref_of(arena));
+    Arena.destroy(ref_of(arena));
 }

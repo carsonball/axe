@@ -511,7 +511,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
             pos++; // Skip '{'
 
             ModelNode.Field[] orderedFields;
-            FunctionNode[] modelMethods; // <-- ADD THIS
+            FunctionNode[] modelMethods;
 
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
@@ -634,7 +634,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false)
 
             auto modelNode = new ModelNode(modelName, null);
             modelNode.fields = orderedFields;
-            modelNode.methods = modelMethods; // <-- ADD THIS
+            modelNode.methods = modelMethods;
             ast.children ~= modelNode;
             continue;
         case TokenType.ENUM:
