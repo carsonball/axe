@@ -34,29 +34,21 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             if (useNode.moduleName.startsWith("stdlib/"))
             {
                 string moduleName = useNode.moduleName[7 .. $];
-                
-                string localPath = buildPath(baseDir, "stdlib", moduleName ~ ".axec");
-                if (exists(localPath))
+                string homeDir = getUserHomeDir();
+                if (homeDir.length == 0)
                 {
-                    modulePath = localPath;
+                    throw new Exception("Could not determine user home directory");
                 }
-                else
+
+                modulePath = buildPath(homeDir, ".axe", "stdlib", moduleName ~ ".axec");
+
+                if (!exists(modulePath))
                 {
-                    string homeDir = getUserHomeDir();
-                    if (homeDir.length == 0)
-                    {
-                        throw new Exception("Could not determine user home directory");
-                    }
-
-                    modulePath = buildPath(homeDir, ".axe", "stdlib", moduleName ~ ".axec");
-
-                    if (!exists(modulePath))
-                    {
-                        throw new Exception(
-                            "Stdlib module not found: " ~ modulePath ~
-                                "\nMake sure the module is installed in ~/.axe/stdlib/ or in a local stdlib/ directory");
-                    }
+                    throw new Exception(
+                        "Stdlib module not found: " ~ modulePath ~
+                            "\nMake sure the module is installed in ~/.axe/stdlib/ or in a local stdlib/ directory");
                 }
+
             }
             else
             {
@@ -91,7 +83,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     auto modelNode = cast(ModelNode) importChild;
                     string prefixedName = sanitizedModuleName ~ "_" ~ modelNode.name;
                     moduleModelMap[modelNode.name] = prefixedName;
-                    
+
                     // Also map all methods within this model
                     foreach (method; modelNode.methods)
                     {
@@ -125,7 +117,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                         auto newFunc = new FunctionNode(prefixedName, funcNode.params);
                         newFunc.returnType = funcNode.returnType;
                         newFunc.children = funcNode.children;
-                        
+
                         // Rename internal calls within this function
                         renameFunctionCalls(newFunc, moduleFunctionMap);
                         renameTypeReferences(newFunc, moduleModelMap);
@@ -142,7 +134,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                         importedModels[modelNode.name] = prefixedName;
                         auto newModel = new ModelNode(prefixedName, null);
                         newModel.fields = modelNode.fields;
-                        
+
                         // Process model methods - rename and add them to newChildren
                         foreach (method; modelNode.methods)
                         {
@@ -150,22 +142,23 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                             if (methodFunc !is null)
                             {
                                 string prefixedMethodName = moduleFunctionMap[methodFunc.name];
-                                auto newMethod = new FunctionNode(prefixedMethodName, methodFunc.params);
+                                auto newMethod = new FunctionNode(prefixedMethodName, methodFunc
+                                        .params);
                                 newMethod.returnType = methodFunc.returnType;
                                 newMethod.children = methodFunc.children;
-                                
+
                                 // Rename function calls within the method to use prefixed names
                                 renameFunctionCalls(newMethod, moduleFunctionMap);
                                 renameTypeReferences(newMethod, moduleModelMap);
-                                
+
                                 // Add method to newModel's methods array
                                 newModel.methods ~= newMethod;
-                                
+
                                 // Also add this method to importedFunctions so user code can call it
                                 importedFunctions[methodFunc.name] = prefixedMethodName;
                             }
                         }
-                        
+
                         newChildren ~= newModel;
                     }
                 }
@@ -190,7 +183,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
             }
             renameFunctionCalls(child, importedFunctions);
             renameTypeReferences(child, importedModels);
-            
+
             // If this is a model with methods, also rename calls within those methods
             if (child.nodeType == "Model")
             {
@@ -201,7 +194,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
                     renameTypeReferences(method, importedModels);
                 }
             }
-            
+
             newChildren ~= child;
         }
     }
@@ -217,10 +210,11 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec)
 string convertToModelMethodPattern(string modelMethodName)
 {
     import std.string : indexOf;
+
     auto firstUnderscore = modelMethodName.indexOf('_');
     if (firstUnderscore == -1)
         return modelMethodName;
-    
+
     return modelMethodName[0 .. firstUnderscore] ~ "\\s*\\.\\s*" ~ modelMethodName[firstUnderscore + 1 .. $];
 }
 
@@ -238,7 +232,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             callNode.functionName = nameMap[callNode.functionName];
         }
         // Also check if it's in dot notation and needs to be converted
-        else
+    else
         {
             foreach (oldName, newName; nameMap)
             {
@@ -246,6 +240,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 {
                     // Convert Model_method to Model.method pattern with regex
                     import std.regex : regex, matchFirst;
+
                     string modelMethod = convertToModelMethodPattern(oldName);
                     auto pattern = regex("^" ~ modelMethod ~ "$");
                     if (matchFirst(callNode.functionName, pattern))
@@ -290,9 +285,10 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 returnNode.expression = returnNode.expression.replace(oldCall, newName ~ "(");
             }
-            
+
             // Also check for dot notation: Model.method( or Model . method(
             import std.regex : regex, replaceAll;
+
             if (returnNode.expression.canFind(".") && oldName.canFind("_"))
             {
                 string modelMethod = convertToModelMethodPattern(oldName);
@@ -318,9 +314,10 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName, "' -> '", newName, "'");
                 declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
             }
-            
+
             // Also check for dot notation: Model.method( or Model . method(
             import std.regex : regex, replaceAll;
+
             if (declNode.initializer.canFind(".") && oldName.canFind("_"))
             {
                 string modelMethod = convertToModelMethodPattern(oldName);
@@ -346,9 +343,10 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
             }
-            
+
             // Also check for dot notation: Model.method( or Model . method(
             import std.regex : regex, replaceAll;
+
             if (assignNode.expression.canFind(".") && oldName.canFind("_"))
             {
                 string modelMethod = convertToModelMethodPattern(oldName);
