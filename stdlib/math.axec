@@ -39,12 +39,12 @@ def maximum(a: float, b: float): float {
 /// Approximate square root using Newton-Raphson
 def sqrt(value: float): float {
     if value <= 0.0 { return 0.0; }
-    mut val x: float = 0.0;
+
+    mut val x: float = 1.0;
     if value >= 1.0 {
         x = value * 0.5;
-    } else {
-        x = 1.0;
     }
+    
     for mut val i = 0; i < 50; i++ {
         mut val last: float = x;
         x = 0.5 * (x + value / x);
@@ -53,15 +53,17 @@ def sqrt(value: float): float {
     return x;
 }
 
-/// Power function for positive integer exponents
+/// Power function for integer exponents
 def pow(base: float, exp: int): float {
     mut val result: float = 1.0;
     mut val b: float = base;
     mut val e: int = exp;
+
     if e < 0 {
         b = 1.0 / b;
         e = -e;
     }
+
     for mut val i = 0; i < e; i++ {
         if e mod 2 == 1 {
             result = result * b;
@@ -72,7 +74,7 @@ def pow(base: float, exp: int): float {
     return result;
 }
 
-/// Exponential function e^x using series
+/// Exponential using series (20 iterations)
 def exp(x: float): float {
     mut val sum: float = 1.0;
     mut val term: float = 1.0;
@@ -86,38 +88,39 @@ def exp(x: float): float {
 /// Natural logarithm using Newton-Raphson
 def ln(x: float): float {
     if x <= 0.0 { return 0.0; }
+
     mut val y: float = x - 1.0;
-    mut val last: float = 0.0;
-    for mut val i = 0; i < 20; i++ {
-        last = y;
-        y = y - (exp(y) - x) / exp(y);
-        if last == y { break; }
+    for mut val i = 0; i < 25; i++ {
+        mut val last: float = y;
+        mut val ey: float = exp(y);
+        y = y - (ey - x) / ey;
+        if approx_equal(last, y, 0.0000001) { break; }
     }
     return y;
 }
 
-/// Sine using Taylor series
+/// Sine (Taylor)
 def sin(x: float): float {
     mut val term: float = x;
     mut val sum: float = x;
-    mut val x_squared: float = x * x;
+    mut val x2: float = x * x;
     mut val n: int = 1;
     for mut val i = 1; i < 10; i++ {
-        term = -term * x_squared / ((2 * n) * (2 * n + 1));
+        term = -term * x2 / ((2 * n) * (2 * n + 1));
         sum = sum + term;
         n = n + 1;
     }
     return sum;
 }
 
-/// Cosine using Taylor series
+/// Cosine (Taylor)
 def cos(x: float): float {
     mut val term: float = 1.0;
     mut val sum: float = 1.0;
-    mut val x_squared: float = x * x;
+    mut val x2: float = x * x;
     mut val n: int = 1;
     for mut val i = 1; i < 10; i++ {
-        term = -term * x_squared / ((2 * n - 1) * (2 * n));
+        term = -term * x2 / ((2 * n - 1) * (2 * n));
         sum = sum + term;
         n = n + 1;
     }
@@ -129,14 +132,14 @@ def tan(x: float): float {
     return sin(x) / cos(x);
 }
 
-/// Arcsine using series
+/// Arcsine (series)
 def asin(x: float): float {
     mut val term: float = x;
     mut val sum: float = x;
     mut val n: int = 1;
-    mut val x_squared: float = x * x;
+    mut val x2: float = x * x;
     for mut val i = 1; i < 10; i++ {
-        term = term * x_squared * (2 * n - 1) / (2 * n);
+        term = term * x2 * (2 * n - 1) / (2 * n);
         sum = sum + term / (2 * n + 1);
         n = n + 1;
     }
@@ -148,14 +151,14 @@ def acos(x: float): float {
     return PI / 2.0 - asin(x);
 }
 
-/// Arctangent using series
+/// Arctangent (series)
 def atan(x: float): float {
     mut val term: float = x;
     mut val sum: float = x;
-    mut val x_squared: float = x * x;
+    mut val x2: float = x * x;
     mut val sign: float = -1.0;
     for mut val n = 3; n < 20; n += 2 {
-        term = term * x_squared;
+        term = term * x2;
         sum = sum + sign * term / n;
         sign = -sign;
     }
@@ -163,13 +166,13 @@ def atan(x: float): float {
 }
 
 test {
-    print "sqrt(16) ≈"; println sqrt(16.0);
-    print "sin(PI/2) ≈"; println sin(PI/2.0);
-    print "cos(0) ≈"; println cos(0.0);
-    print "tan(PI/4) ≈"; println tan(PI/4.0);
-    print "asin(1) ≈"; println asin(1.0);
-    print "acos(0) ≈"; println acos(0.0);
-    print "atan(1) ≈"; println atan(1.0);
-    print "exp(1) ≈"; println exp(1.0);
-    print "ln(E) ≈"; println ln(E);
+    assert(approx_equal(sqrt(16.0), 4.0, 0.001), "sqrt(16) should be ~4");
+    assert(approx_equal(sin(PI/2.0), 1.0, 0.01), "sin(pi/2) should be ~1");
+    assert(approx_equal(cos(0.0), 1.0, 0.01), "cos(0) should be ~1");
+    assert(approx_equal(tan(PI/4.0), 1.0, 0.05), "tan(pi/4) should be ~1");
+    assert(approx_equal(asin(1.0), PI/2.0, 0.05), "asin(1) should be ~pi/2");
+    assert(approx_equal(acos(0.0), PI/2.0, 0.05), "acos(0) should be ~pi/2");
+    assert(approx_equal(atan(1.0), PI/4.0, 0.05), "atan(1) should be ~pi/4");
+    assert(approx_equal(exp(1.0), E, 0.05), "exp(1) should be ~E");
+    assert(approx_equal(ln(E), 1.0, 0.05), "ln(E) should be ~1");
 }
