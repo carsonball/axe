@@ -379,8 +379,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             foreach (oldName, newName; nameMap)
             {
                 printlnNode.message = printlnNode.message.replace(oldName ~ "(", newName ~ "(");
-
-                // Also replace dot notation
                 string oldCallDot = oldName.replace("_", ".") ~ "(";
                 printlnNode.message = printlnNode.message.replace(oldCallDot, newName ~ "(");
             }
@@ -397,7 +395,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 returnNode.expression = returnNode.expression.replace(oldCall, newName ~ "(");
             }
 
-            // Also replace dot notation
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (returnNode.expression.canFind(oldCallDot))
             {
@@ -427,16 +424,15 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             string oldCall = oldName ~ "(";
             if (declNode.initializer.canFind(oldCall))
             {
-                writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '",
+                debug writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '",
                     oldName, "' -> '", newName, "'");
                 declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
             }
 
-            // Also replace dot notation
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (declNode.initializer.canFind(oldCallDot))
             {
-                writeln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
+                debug writeln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
                     oldCallDot, "' -> '", newName, "(");
                 declNode.initializer = declNode.initializer.replace(oldCallDot, newName ~ "(");
             }
