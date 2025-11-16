@@ -220,7 +220,7 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto callNode = cast(FunctionCallNode) node;
         if (callNode.functionName in nameMap)
             callNode.functionName = nameMap[callNode.functionName];
-    else
+        else
         {
             foreach (oldName, newName; nameMap)
             {
@@ -295,11 +295,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         writeln("    DEBUG renameFunctionCalls Declaration: initializer='", declNode.initializer, "'");
         foreach (oldName, newName; nameMap)
         {
-            // Check for underscore notation: Model_method(
             string oldCall = oldName ~ "(";
             if (declNode.initializer.canFind(oldCall))
             {
-                writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '", oldName, "' -> '", newName, "'");
+                writeln("    DEBUG renameFunctionCalls: Renamed call in declaration: '",
+                    oldName, "' -> '", newName, "'");
                 declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
             }
 
@@ -311,7 +311,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 string modelMethod = convertToModelMethodPattern(oldName);
                 auto dotPattern = regex("\\b" ~ modelMethod ~ "\\s*\\(");
-                writeln("    DEBUG: Trying regex pattern '\\b", modelMethod, "\\s*\\(' on '", declNode.initializer, "'");
+                writeln("    DEBUG: Trying regex pattern '\\b", modelMethod, "\\s*\\(' on '",
+                    declNode.initializer, "'");
                 string newInit = replaceAll(declNode.initializer, dotPattern, newName ~ "(");
                 if (newInit != declNode.initializer)
                 {
