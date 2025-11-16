@@ -7,52 +7,52 @@ use stdlib/memory (
     size_of
 );
 
-/// Model for a dynamic integer list
-model IntList {
-    data: ref int;
-    length: int;
-    cap: int;
+macro make_list(name: string, type: string) {
+    model name {
+        data: ref type;
+        length: int;
+        cap: int;
 
-    /// Initialize a new IntList with a given capacity
-    def new_list(arena: ref Arena, capacity: int): ref IntList {
-        mut val lst: ref IntList = Arena.alloc(arena, size_of(IntList));
-        lst.data = Arena.alloc_array(arena, size_of(int), capacity);
-        lst.length = 0;
-        lst.cap = capacity;
-        return lst;
-    }
-
-    /// Append a value to the list, expanding if necessary
-    def push(lst: ref IntList, arena: ref Arena, value: int) {
-        if lst.length >= lst.cap {
-            val new_cap: int = lst.cap * 2;
-            mut val new_data: ref int = Arena.alloc_array(arena, size_of(int), new_cap);
-            copy(lst.data[0], new_data[0], int[lst.length]);
-            lst.data = new_data;
-            lst.cap = new_cap;
+        def new_list(arena: ref Arena, capacity: int): ref name {
+            mut val lst: ref name = Arena.alloc(arena, size_of(name));
+            lst.data = Arena.alloc_array(arena, size_of(type), capacity);
+            lst.length = 0;
+            lst.cap = capacity;
+            return lst;
         }
-        lst.data[lst.length] = value;
-        lst.length = lst.length + 1;
-    }
 
-    /// Get element by index
-    def get(lst: ref IntList, index: int): int {
-        if index < 0 or index >= lst.length {
-            println "Index out of bounds!";
-            return 0;
+        def push(lst: ref name, arena: ref Arena, value: type) {
+            if lst.length >= lst.cap {
+                val new_cap: int = lst.cap * 2;
+                mut val new_data: ref type = Arena.alloc_array(arena, size_of(type), new_cap);
+                copy(lst.data[0], new_data[0], type[lst.length]);
+                lst.data = new_data;
+                lst.cap = new_cap;
+            }
+            lst.data[lst.length] = value;
+            lst.length = lst.length + 1;
         }
-        return lst.data[index];
-    }
 
-    /// Print the list
-    def print_all(lst: ref IntList) {
-        for mut val i = 0; i < lst.length; i++ {
-            print lst.data[i];
-            print " ";
+        def get(lst: ref name, index: int): type {
+            if index < 0 or index >= lst.length {
+                println "Index out of bounds!";
+                return 0;
+            }
+            return lst.data[index];
         }
-        println "";
+
+        def print_all(lst: ref name) {
+            for mut val i = 0; i < lst.length; i++ {
+                print lst.data[i];
+                print " ";
+            }
+            println "";
+        }
     }
 }
+
+make_list(IntList, int);
+
 
 test {
     mut val arena: Arena = Arena.create(65536);

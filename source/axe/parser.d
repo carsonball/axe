@@ -8,6 +8,14 @@ import axe.structs;
 
 private string[string] g_typeAliases;
 
+struct MacroDef
+{
+    string[] params;
+    Token[] bodyTokens;
+}
+
+private MacroDef[string] g_macros;
+
 /**
  * Parses an array of tokens into an abstract syntax tree (AST).
  * 
