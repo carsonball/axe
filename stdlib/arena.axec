@@ -3,12 +3,12 @@ use external("string.h");
 
 /// Arena for memory allocation.
 model Arena {
-    buffer: uintptr_t;
-    capacity: int;
-    offset: int;
+    buffer: usize;
+    capacity: i32;
+    offset: i32;
 
     /// Creates a new arena with the specified size.
-    def create(size: int): Arena {
+    def create(size: i32): Arena {
         mut val arena: Arena;
         
         raw {
@@ -31,7 +31,7 @@ model Arena {
     }
 
     /// Allocates memory from the arena, returns a proper reference pointer.
-    def alloc(arena: ref Arena, size: int): ref void {
+    def alloc(arena: ref Arena, size: i32): ref void {
         mut val result: ref void = nil;
 
         raw {
@@ -48,8 +48,8 @@ model Arena {
     }
 
     /// Allocates memory for an array from the arena.
-    def alloc_array(arena: ref Arena, element_size: int, count: int): ref void {
-        mut val total_size: int = element_size * count;
+    def alloc_array(arena: ref Arena, element_size: i32, count: i32): ref void {
+        mut val total_size: i32 = element_size * count;
         return Arena.alloc(arena, total_size);
     }
 
@@ -62,8 +62,8 @@ model Arena {
     }
 
     /// Returns the amount of memory used by the arena.
-    def used(arena: ref Arena): int {
-        mut val result: int = 0;
+    def used(arena: ref Arena): i32 {
+        mut val result: i32 = 0;
         raw {
             result = arena->offset;
         }
@@ -71,8 +71,8 @@ model Arena {
     }
 
     /// Returns the amount of remaining memory in the arena.
-    def remaining(arena: ref Arena): int {
-        mut val result: int = 0;
+    def remaining(arena: ref Arena): i32 {
+        mut val result: i32 = 0;
         raw {
             result = arena->capacity - arena->offset;
         }
