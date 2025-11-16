@@ -1,20 +1,20 @@
 /// Print out some float with no newline
-def print_float(value: float) {
+def print_float(value: f32) {
     raw {
         printf("%.10f", value);
     }
 }
 
 /// Print a float with newline
-def println_float(value: float) {
+def println_float(value: f32) {
     raw {
         printf("%.10f\n", value);
     }
 }
 
 test {
-    val x: float = 3.14159;
-    val y: float = 2.71828;
+    val x: f32 = 3.14159;
+    val y: f32 = 2.71828;
 
     print "Testing print_float: ";
     print_float(x);
