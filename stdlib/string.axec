@@ -1,5 +1,3 @@
-import stdlib.os;
-
 /// String model representing a dynamic string with length tracking.
 model String {
     data: char*;
@@ -29,15 +27,20 @@ def str_len(s: String): usize {
 
 /// Copies source string to destination. Modifies dest in place.
 def str_copy(src: String, dest: String): void {
-    for usize i = 0; i < src.len; i++ {
+    for mut val i = 0; i < src.len; i++ {
         dest.data[i] = src.data[i];
     }
 }
 
 /// Compares two strings. Returns 0 if equal.
 def str_cmp(a: String, b: String): i32 {
-    usize len = a.len < b.len ? a.len : b.len;
-    for usize i = 0; i < len; i++ {
+    usize len;
+    if (a.len < b.len) {
+        len = a.len;
+    } else {
+        len = b.len;
+    }
+    for mut val i = 0; i < len; i++ {
         if a.data[i] < b.data[i] return -1;
         if a.data[i] > b.data[i] return 1;
     }

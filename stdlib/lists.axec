@@ -9,10 +9,10 @@ use stdlib/string (
 macro make_list(name: string, type: string, nullval: untyped) {
     model name {
         data: ref type;
-        length: int;
-        cap: int;
+        length: i32;
+        cap: i32;
 
-        def new_list(arena: ref Arena, capacity: int): ref name {
+        def new_list(arena: ref Arena, capacity: i32): ref name {
             mut val lst: ref name;
             raw {
                 lst = (name*)stdlib_arena_Arena_alloc(arena, sizeof(name));
@@ -25,7 +25,7 @@ macro make_list(name: string, type: string, nullval: untyped) {
 
         def push(lst: ref name, arena: ref Arena, value: type) {
             if lst.length >= lst.cap {
-                val new_cap: int = lst.cap * 2;
+                val new_cap: i32 = lst.cap * 2;
                 mut val new_data: ref type;
                 raw {
                     new_data = (type*)stdlib_arena_Arena_alloc_array(arena, sizeof(type), new_cap);
@@ -40,7 +40,7 @@ macro make_list(name: string, type: string, nullval: untyped) {
             lst.length = lst.length + 1;
         }
 
-        def get(lst: ref name, index: int): type {
+        def get(lst: ref name, index: i32): type {
             if index < 0 or index >= lst.length {
                 println "Index out of bounds!";
                 return nullval;
@@ -58,11 +58,11 @@ macro make_list(name: string, type: string, nullval: untyped) {
     }
 }
 
-make_list(IntList, int, 0);
-make_list(FloatList, float, 0.0);
+make_list(IntList, i32, 0);
+make_list(FloatList, f32, 0.0);
 make_list(CharList, char, "");
-make_list(LongList, long, 0);
-make_list(DoubleList, double, 0.0);
+make_list(LongList, i64, 0);
+make_list(DoubleList, f64, 0.0);
 
 test {
     mut val arena: Arena = Arena.create(65536);
