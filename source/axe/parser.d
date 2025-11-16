@@ -302,18 +302,39 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 {
                     pos++;
                 }
-                else if (tokens[pos].type == TokenType.IDENTIFIER)
+                else if (tokens[pos].type == TokenType.MUT || tokens[pos].type == TokenType.IDENTIFIER)
                 {
+                    // Check for 'mut' keyword before parameter name (mut name: Type)
+                    bool isMutable = false;
+                    if (tokens[pos].type == TokenType.MUT)
+                    {
+                        isMutable = true;
+                        pos++;
+                        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                            pos++;
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                            "Expected parameter name after 'mut'");
+                    }
+                    
                     string paramName = tokens[pos].value;
                     pos++;
                     if (pos < tokens.length && tokens[pos].type == TokenType.COLON)
                     {
                         pos++;
 
-                        // Check for ref keyword before type
-                        string refPrefix = "";
+                        // Check for mut keyword after colon (name: mut Type)
                         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                             pos++;
+                        if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
+                        {
+                            isMutable = true;
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                        }
+
+                        // Check for ref keyword before type
+                        string refPrefix = "";
                         if (pos < tokens.length && tokens[pos].type == TokenType.REF)
                         {
                             refPrefix = "ref ";
@@ -345,12 +366,20 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                     fullType ~= "[]";
                             }
 
-                            writeln("DEBUG parseArgs: fullType='", fullType, "' paramName='", paramName, "'");
-                            args ~= fullType ~ " " ~ paramName;
+                            writeln("DEBUG parseArgs: fullType='", fullType, "' paramName='", paramName, "' isMutable=", isMutable);
+                            // Prefix with "mut " if parameter is mutable
+                            string mutPrefix = isMutable ? "mut " : "";
+                            string paramStr = mutPrefix ~ fullType ~ " " ~ paramName;
+                            writeln("DEBUG parseArgs: storing param as '", paramStr, "'");
+                            args ~= paramStr;
                         }
                         else
                         {
-                            args ~= refPrefix ~ baseType ~ " " ~ paramName;
+                            // Prefix with "mut " if parameter is mutable
+                            string mutPrefix = isMutable ? "mut " : "";
+                            string paramStr = mutPrefix ~ refPrefix ~ baseType ~ " " ~ paramName;
+                            writeln("DEBUG parseArgs: storing param as '", paramStr, "' (non-array, isMutable=", isMutable, ")");
+                            args ~= paramStr;
                         }
                     }
                     else
@@ -458,19 +487,22 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     Scope funcScope = new Scope();
                     ASTNode funcScopeNode = funcNode;
 
-                    // Register function parameters in the scope
-                    foreach (param; params)
-                    {
-                        import std.string : split, strip;
+            // Register function parameters in the scope
+            foreach (param; params)
+            {
+                import std.string : split, strip;
 
-                        auto parts = param.strip().split();
-                        if (parts.length >= 2)
-                        {
-                            string paramName = parts[$ - 1];
-                            bool isMutable = param.canFind("ref ");
-                            funcScope.addVariable(paramName, isMutable);
-                        }
-                    }
+                auto parts = param.strip().split();
+                if (parts.length >= 2)
+                {
+                    string paramName = parts[$ - 1];
+                    // Check for both "mut " prefix and "ref " in type
+                    // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
+                    bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith("ref ");
+                    writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
+                    funcScope.addVariable(paramName, isMutable);
+                }
+            }
 
                     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                     {
@@ -592,8 +624,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         if (parts.length >= 2)
                         {
                             string paramName = parts[$ - 1]; // Last part is the name
-                            // Parameters are immutable by default (unless ref)
-                            bool isMutable = param.canFind("ref ");
+                            // Parameters are immutable by default (unless mut or ref)
+                            // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
+                            bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith("ref ");
                             methodScope.addVariable(paramName, isMutable);
                         }
                     }
@@ -2882,6 +2915,9 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
             }
 
             auto funcNode = new FunctionNode(currentFuncName, params, returnType);
+            writeln("DEBUG: Function '", currentFuncName, "' has ", params.length, " parameters:");
+            foreach (p; params)
+                writeln("  DEBUG: param='", p, "'");
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
@@ -2902,7 +2938,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 if (parts.length >= 2)
                 {
                     string paramName = parts[$ - 1];
-                    bool isMutable = param.canFind("ref ");
+                    // Check for both "mut " prefix and "ref " in type
+                    // Check if param starts with "mut " or contains " ref " (with spaces to avoid false matches)
+                    bool isMutable = param.startsWith("mut ") || param.canFind(" ref ") || param.startsWith("ref ");
+                    writeln("DEBUG: Registering parameter '", paramName, "' from param string '", param, "' as mutable=", isMutable);
                     funcScope.addVariable(paramName, isMutable);
                 }
             }
@@ -4474,7 +4513,9 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 {
                     enforce(false, "Undeclared variable: " ~ identName);
                 }
-                if (!currentScope.isMutable(identName))
+                bool isVarMutable = currentScope.isMutable(identName);
+                writeln("DEBUG: Member access check for '", identName, "': isMutable=", isVarMutable);
+                if (!isVarMutable)
                 {
                     enforce(false, "Cannot assign to member '" ~ memberName ~
                             "' of immutable variable '" ~ identName ~ "'");

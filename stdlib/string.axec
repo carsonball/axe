@@ -26,9 +26,9 @@ def str_len(s: String): usize {
 }
 
 /// Copies source string to destination. Modifies dest in place.
-def str_copy(src: String, dest: String): void {
+def str_copy(src: String, desta: mut String): void {
     for mut val i = 0; i < src.len; i++ {
-        dest.data[i] = src.data[i];
+        desta.data[i] = src.data[i];
     }
 }
 
