@@ -115,7 +115,7 @@ def pow(base: float, exp: int): float {
     loop {
         if e == 0 { break; }
 
-        if (e - (e / 2) * 2) == 1 {
+        if e - (e / 2) * 2 == 1 {
             result = result * b;
         }
 

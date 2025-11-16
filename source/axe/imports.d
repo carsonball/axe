@@ -376,6 +376,10 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             foreach (oldName, newName; nameMap)
             {
                 printNode.message = printNode.message.replace(oldName ~ "(", newName ~ "(");
+
+                // Also replace dot notation
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                printNode.message = printNode.message.replace(oldCallDot, newName ~ "(");
             }
         }
     }
@@ -387,6 +391,10 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             foreach (oldName, newName; nameMap)
             {
                 printlnNode.message = printlnNode.message.replace(oldName ~ "(", newName ~ "(");
+
+                // Also replace dot notation
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                printlnNode.message = printlnNode.message.replace(oldCallDot, newName ~ "(");
             }
         }
     }
@@ -399,6 +407,13 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             if (returnNode.expression.canFind(oldCall))
             {
                 returnNode.expression = returnNode.expression.replace(oldCall, newName ~ "(");
+            }
+
+            // Also replace dot notation
+            string oldCallDot = oldName.replace("_", ".") ~ "(";
+            if (returnNode.expression.canFind(oldCallDot))
+            {
+                returnNode.expression = returnNode.expression.replace(oldCallDot, newName ~ "(");
             }
 
             import std.regex : regex, replaceAll;
@@ -429,7 +444,16 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 declNode.initializer = declNode.initializer.replace(oldCall, newName ~ "(");
             }
 
-            // Also check for dot notation: Model.method( or Model . method(
+            // Also replace dot notation
+            string oldCallDot = oldName.replace("_", ".") ~ "(";
+            if (declNode.initializer.canFind(oldCallDot))
+            {
+                writeln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
+                    oldCallDot, "' -> '", newName, "(");
+                declNode.initializer = declNode.initializer.replace(oldCallDot, newName ~ "(");
+            }
+
+            // Also check for dot notation with regex: Model.method( or Model . method(
             // Use word boundary to ensure we don't match floating point literals like 0.5
             import std.regex : regex, replaceAll;
 
@@ -457,6 +481,13 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             if (assignNode.expression.canFind(oldCall))
             {
                 assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
+            }
+
+            // Also replace dot notation
+            string oldCallDot = oldName.replace("_", ".") ~ "(";
+            if (assignNode.expression.canFind(oldCallDot))
+            {
+                assignNode.expression = assignNode.expression.replace(oldCallDot, newName ~ "(");
             }
 
             import std.regex : regex, replaceAll;
