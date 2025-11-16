@@ -1,4 +1,3 @@
-
 ## Integer Types
 
 | Axe Type | C Type      | Notes |
