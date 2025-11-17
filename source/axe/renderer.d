@@ -1713,17 +1713,19 @@ string processExpression(string expr, string context = "")
             string first = parts[0].strip();
             string second = parts[1].strip();
 
-            // Skip if this is a numeric literal (e.g., 2.0, 3.14)
-            // Check if both parts are all digits
+            // Special case: pure numeric float literal like "1 . 0" or "3.14"
+            // Only trigger this when the *entire* expression is numeric.
             import std.algorithm : all;
             import std.ascii : isDigit;
+            import std.string : strip;
 
-            if (first.length > 0 && first.all!isDigit && second.length > 0 && second.all!isDigit)
+            string noSpace = expr.strip().replace(" ", "");
+            bool onlyDigitsAndDot = noSpace.length > 0 &&
+                noSpace.all!(c => isDigit(c) || c == '.');
+
+            if (onlyDigitsAndDot)
             {
-                // This is a float literal - return it with spaces removed
-                import std.array : replace;
-
-                return expr.replace(" ", "");
+                return noSpace;
             }
 
             // Check if this is a function call (Model.method(...)) - convert to {prefixedModelName}_method(...)
@@ -1790,7 +1792,8 @@ string processExpression(string expr, string context = "")
                 }
             }
 
-            if (first.length > 0 && first[0] >= 'A' && first[0] <= 'Z')
+            // Enum access: only when the left side is a simple identifier (no operators/parentheses)
+            if (!firstHasOps && first.length > 0 && first[0] >= 'A' && first[0] <= 'Z')
             {
                 // Enum access: State.RUNNING -> RUNNING
                 return parts[1].strip();

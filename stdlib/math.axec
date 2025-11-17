@@ -189,15 +189,22 @@ def tan(x: f64): f64 {
 /// Arcsine
 def asin(x: f64): f64 {
     x = clamp_float(x, -1.0, 1.0);
+
+    if x > 0.7071067811865476 {
+        return HALF_PI - asin(sqrt(1.0 - x*x));
+    } elif x < -0.7071067811865476 {
+        return -HALF_PI + asin(sqrt(1.0 - x*x));
+    }
+
     mut val term: f64 = x;
     mut val sum: f64 = x;
-    mut val n: i32 = 1;
     mut val x2: f64 = x * x;
-    for mut val i = 1; i < 10; i++ {
-        term = term * x2 * (2 * n - 1) / (2 * n);
-        sum = sum + term / (2 * n + 1);
-        n = n + 1;
+
+    for mut val n = 0; n < 15; n++ {
+        term = term * ((2.0*n + 1.0)*(2.0*n + 1.0))/((2.0*n + 2.0)*(2.0*n + 3.0)) * x2;
+        sum = sum + term;
     }
+
     return sum;
 }
 
