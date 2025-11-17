@@ -1,0 +1,11 @@
+use stdlib/string (
+    string
+);
+
+def greet(name: string): void {
+    println "Hello, ", name.data, ".";
+}
+
+main {
+    greet(string.create("Axe"));
+}

@@ -62,12 +62,16 @@ This will create the `axe` executable.
 ### Hello World
 
 ```
+use stdlib/string (
+    string
+);
+
 def greet(name: string): void {
-    println "Hello, ", name, ".";
+    println "Hello, ", name.data, ".";
 }
 
 main {
-    greet("Axe");
+    greet(string.create("Axe"));
 }
 ```
 
