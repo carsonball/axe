@@ -24,7 +24,7 @@ void main(string[] args)
         writeln("  -ast          print the parsed AST and exit");
         writeln("  -dll          build shared instead of standalone executable");
         writeln("  --release     build in release mode");
-        writeln("  -I<path>      pass an include directory to the C compiler");
+        writeln("  -I<path>      pass a C include directory");
         writeln("  --version, -v show axe version and exit");
         writeln("");
         return;
