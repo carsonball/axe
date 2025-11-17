@@ -317,7 +317,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             }
             else if (child.nodeType == "Function" && currentModulePrefix.length > 0)
             {
-                // For regular functions in .axec files, use local models map
                 string[string] localTypeMap = importedModels.dup;
                 foreach (modelName, prefixedName; localModels)
                 {
@@ -335,7 +334,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             }
             else if (child.nodeType == "Test" && currentModulePrefix.length > 0)
             {
-                // For test blocks in .axec files, use local models map
                 string[string] localTypeMap = importedModels.dup;
                 foreach (modelName, prefixedName; localModels)
                 {
@@ -412,7 +410,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
     else if (node.nodeType == "Print")
     {
         auto printNode = cast(PrintNode) node;
-        // Update all expression messages
         for (size_t i = 0; i < printNode.messages.length; i++)
         {
             if (printNode.isExpressions[i])
@@ -421,7 +418,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 {
                     printNode.messages[i] = printNode.messages[i].replace(oldName ~ "(", newName ~ "(");
 
-                    // Also replace dot notation
                     string oldCallDot = oldName.replace("_", ".") ~ "(";
                     printNode.messages[i] = printNode.messages[i].replace(oldCallDot, newName ~ "(");
                 }
@@ -431,7 +427,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
     else if (node.nodeType == "Println")
     {
         auto printlnNode = cast(PrintlnNode) node;
-        // Update all expression messages
         for (size_t i = 0; i < printlnNode.messages.length; i++)
         {
             if (printlnNode.isExpressions[i])
@@ -528,7 +523,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 assignNode.expression = assignNode.expression.replace(oldCall, newName ~ "(");
             }
 
-            // Also replace dot notation
             string oldCallDot = oldName.replace("_", ".") ~ "(";
             if (assignNode.expression.canFind(oldCallDot))
             {
