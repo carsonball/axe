@@ -3752,25 +3752,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     funcNode.children ~= loopNode;
                     break;
 
-                case TokenType.RETURN:
-                    pos++;
-                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
-                        pos++;
-
-                    string returnExpr;
-                    while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
-                    {
-                        returnExpr ~= tokens[pos].value;
-                        pos++;
-                    }
-
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                        "Expected ';' after return statement");
-                    pos++;
-
-                    funcNode.children ~= new ReturnNode(returnExpr);
-                    break;
-
                 case TokenType.RAW:
                     enforce(isAxec, "Raw C blocks are only allowed in .axec files");
                     pos++; // Skip 'raw'
@@ -3797,6 +3778,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                     funcNode.children ~= new RawCNode(rawCode);
                     break;
 
+                case TokenType.RETURN:
+                    auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
+                    if (stmt !is null)
+                        funcNode.children ~= stmt;
+                    break;
+
                 default:
                     import std.stdio;
 
@@ -3814,7 +3801,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             tokens[pos].type.to!string,
                             [
                                 TokenType.IDENTIFIER, TokenType.IF, TokenType.LOOP,
-                                TokenType.PRINTLN, TokenType.BREAK, TokenType.FOR
+                                TokenType.PRINTLN, TokenType.BREAK, TokenType.FOR, TokenType.RETURN
                             ].map!(
                             t => t.to!string).join(", ")));
                 }
@@ -3875,7 +3862,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 // Collect initializer until semicolon
                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                 {
-                    initializer ~= tokens[pos].value;
+                    if (tokens[pos].type == TokenType.STR)
+                        initializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                    else
+                        initializer ~= tokens[pos].value;
                     if (tokens[pos].type != TokenType.WHITESPACE)
                         initializer ~= " ";
                     pos++;
@@ -4520,9 +4510,15 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                             pos++;
 
                             string fieldValue = "";
-                            while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType
-                                .RPAREN)
+                            int parenDepth = 0;
+                            while (pos < tokens.length && 
+                                  ((tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RPAREN) || parenDepth > 0))
                             {
+                                if (tokens[pos].type == TokenType.LPAREN)
+                                    parenDepth++;
+                                else if (tokens[pos].type == TokenType.RPAREN)
+                                    parenDepth--;
+                                
                                 if (tokens[pos].type == TokenType.STR)
                                     fieldValue ~= "\"" ~ tokens[pos].value ~ "\"";
                                 else if (tokens[pos].type != TokenType.WHITESPACE)
@@ -4870,7 +4866,10 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 {
                     value ~= " ";
                 }
-                value ~= tokens[pos].value;
+                if (tokens[pos].type == TokenType.STR)
+                    value ~= "\"" ~ tokens[pos].value ~ "\"";
+                else
+                    value ~= tokens[pos].value;
                 pos++;
             }
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -4959,16 +4958,105 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++;
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
-        string returnExpr;
-        while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+
+        // Check for model instantiation: new ModelName(...)
+        if (pos < tokens.length && tokens[pos].type == TokenType.NEW)
         {
-            returnExpr ~= tokens[pos].value;
+            pos++; // Skip 'new'
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected model name after 'new'");
+            string modelName = tokens[pos].value;
             pos++;
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                "Expected '(' after model name");
+            pos++;
+
+            string[string] fieldValues;
+            while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+            {
+                if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE)
+                {
+                    pos++;
+                }
+                else if (tokens[pos].type == TokenType.IDENTIFIER)
+                {
+                    string fieldName = tokens[pos].value;
+                    pos++;
+
+                    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                        pos++;
+
+                    enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                        "Expected ':' after field name");
+                    pos++;
+
+                    string fieldValue = "";
+                    int parenDepth = 0;
+                    while (pos < tokens.length && 
+                          ((tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RPAREN) || parenDepth > 0))
+                    {
+                        if (tokens[pos].type == TokenType.LPAREN)
+                            parenDepth++;
+                        else if (tokens[pos].type == TokenType.RPAREN)
+                            parenDepth--;
+                        
+                        if (tokens[pos].type == TokenType.STR)
+                            fieldValue ~= "\"" ~ tokens[pos].value ~ "\"";
+                        else if (tokens[pos].type != TokenType.WHITESPACE)
+                            fieldValue ~= tokens[pos].value;
+                        pos++;
+                    }
+
+                    fieldValues[fieldName] = fieldValue.strip();
+
+                    if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+                        pos++;
+                }
+                else
+                {
+                    pos++;
+                }
+            }
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after model fields");
+            pos++;
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after return statement");
+            pos++;
+
+            // Create a ModelInstantiationNode and wrap it in the return
+            auto modelInst = new ModelInstantiationNode(modelName, "", fieldValues, false);
+            return new ReturnNode(modelInst);
         }
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-            "Expected ';' after return statement");
-        pos++;
-        return new ReturnNode(returnExpr);
+        else
+        {
+            string returnExpr;
+            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+            {
+                if (tokens[pos].type == TokenType.STR)
+                    returnExpr ~= "\"" ~ tokens[pos].value ~ "\"";
+                else
+                    returnExpr ~= tokens[pos].value;
+                pos++;
+            }
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after return statement");
+            pos++;
+            return new ReturnNode(returnExpr);
+        }
 
     case TokenType.RAW:
         enforce(isAxec, "Raw C blocks are only allowed in .axec files");

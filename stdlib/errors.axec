@@ -1,0 +1,14 @@
+use stdlib/string (string);
+use stdlib/io     (println_str);
+
+model error {
+    msg: string;
+}
+
+def __test_error(): error {
+    return new error(msg: string.create("Some bad thing happened"));
+}
+
+test {
+    println_str(__test_error().msg);
+}

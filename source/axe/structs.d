@@ -397,11 +397,18 @@ class ForInNode : ASTNode
 class ReturnNode : ASTNode
 {
     string expression;
+    ASTNode expressionNode; // For complex expressions like model instantiation
 
     this(string expression)
     {
         super("Return");
         this.expression = expression;
+    }
+
+    this(ASTNode expressionNode)
+    {
+        super("Return");
+        this.expressionNode = expressionNode;
     }
 }
 

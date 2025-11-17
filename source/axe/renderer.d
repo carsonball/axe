@@ -341,6 +341,8 @@ string generateC(ASTNode ast)
                     if (importName.length > 0 && !(importName[0] >= 'A' && importName[0] <= 'Z'))
                     {
                         g_functionPrefixes[importName] = modulePrefix ~ "_" ~ importName;
+                        // Also add as model name for type mapping
+                        g_modelNames[importName] = modulePrefix ~ "_" ~ importName;
                     }
                 }
             }
@@ -368,7 +370,11 @@ string generateC(ASTNode ast)
                 else
                 {
                     // Not prefixed, so base name is the same as the model name
-                    g_modelNames[modelNode.name] = modelNode.name;
+                    // For stdlib files, prefix with module name
+                    if (modelNode.name == "error") // temporary hack for stdlib/errors.axec
+                        g_modelNames[modelNode.name] = "stdlib_errors_" ~ modelNode.name;
+                    else
+                        g_modelNames[modelNode.name] = modelNode.name;
                 }
                 
                 foreach (field; modelNode.fields)
@@ -1116,7 +1122,16 @@ string generateC(ASTNode ast)
 
     case "Return":
         auto returnNode = cast(ReturnNode) ast;
-        if (returnNode.expression.length > 0)
+        if (returnNode.expressionNode !is null)
+        {
+            // Handle complex expressions like model instantiation
+            string processedExpr = generateC(returnNode.expressionNode);
+            // Remove trailing newline if present
+            if (processedExpr.endsWith("\n"))
+                processedExpr = processedExpr[0 .. $ - 1];
+            cCode ~= "return " ~ processedExpr ~ ";\n";
+        }
+        else if (returnNode.expression.length > 0)
         {
             string processedExpr = processExpression(returnNode.expression);
             cCode ~= "return " ~ processedExpr ~ ";\n";
@@ -1206,8 +1221,10 @@ string generateC(ASTNode ast)
 
     case "Model":
         auto modelNode = cast(ModelNode) ast;
-        cCode ~= "struct " ~ modelNode.name ~ ";\n";
-        cCode ~= "typedef struct " ~ modelNode.name ~ " {\n";
+        string modelName = canonicalModelCName(modelNode.name);
+        if (modelName.length == 0)
+            modelName = modelNode.name;
+        cCode ~= "typedef struct " ~ modelName ~ " {\n";
         foreach (field; modelNode.fields)
         {
             string fieldType;
@@ -1253,9 +1270,21 @@ string generateC(ASTNode ast)
         auto instNode = cast(ModelInstantiationNode) ast;
         string indent = loopLevel > 0 ? "    ".replicate(loopLevel) : "";
 
-        // Generate struct initialization using compound literal (const for val, mutable for mut val)
-        string constQualifier = instNode.isMutable ? "" : "const ";
-        cCode ~= indent ~ constQualifier ~ instNode.modelName ~ " " ~ instNode.variableName ~ " = {";
+        string cModelName = canonicalModelCName(instNode.modelName);
+        if (cModelName.length == 0)
+            cModelName = instNode.modelName;
+
+        // If variableName is empty, generate just the struct literal (for return statements)
+        if (instNode.variableName.length == 0)
+        {
+            cCode ~= "(struct " ~ cModelName ~ "){";
+        }
+        else
+        {
+            // Generate struct initialization using compound literal (const for val, mutable for mut val)
+            string constQualifier = instNode.isMutable ? "" : "const ";
+            cCode ~= indent ~ constQualifier ~ cModelName ~ " " ~ instNode.variableName ~ " = {";
+        }
 
         // Add field initializers
         bool first = true;
@@ -1263,11 +1292,18 @@ string generateC(ASTNode ast)
         {
             if (!first)
                 cCode ~= ", ";
-            cCode ~= "." ~ fieldName ~ " = " ~ fieldValue;
+            cCode ~= "." ~ fieldName ~ " = " ~ processExpression(fieldValue);
             first = false;
         }
 
-        cCode ~= "};\n";
+        if (instNode.variableName.length == 0)
+        {
+            cCode ~= "}";
+        }
+        else
+        {
+            cCode ~= "};\n";
+        }
         break;
 
     case "MemberAccess":
