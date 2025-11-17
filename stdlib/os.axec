@@ -10,6 +10,16 @@ def exec(cmd: string): i32 {
     return result;
 }
 
+/// Execute a shell command with raw C string.
+/// Returns exit status.
+def exec_raw(cmd: char*): i32 {
+    mut val result: i32 = 0;
+    raw {
+        result = system(cmd);
+    }
+    return result;
+}
+
 /// Check if a file exists.
 def file_exists(path: string): bool {
     mut val out: bool = false;

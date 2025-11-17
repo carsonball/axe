@@ -1,0 +1,17 @@
+use stdlib/os (
+    exec_raw
+);
+
+def clear_screen() {
+    platform windows {
+        exec_raw("cls");
+    } 
+    platform posix {
+        exec_raw("clear");
+    }
+}
+
+test {
+    clear_screen();
+    print "it worked";
+}
