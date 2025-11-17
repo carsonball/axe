@@ -1,0 +1,12 @@
+use stdlib/string (string);
+use stdlib/io     (println_str);
+
+def exec(cmd: string) {
+    raw {
+        system(cmd.data);
+    }
+}
+
+test {
+    exec(string.create("dir"));
+}
