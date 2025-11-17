@@ -3,14 +3,15 @@ use stdlib/arena (
 );
 
 use stdlib/io (
-    print_i32
+    print_i32,
+    print_str
 );
 
 use stdlib/string (
     string
 );
 
-macro make_list(name: string, type: string, nullval: untyped, cep: untyped) {
+macro make_list(name: string, type: string, nullval: untyped, cep: untyped, printer: untyped) {
     model name {
         data: ref type;
         length: i32;
@@ -54,7 +55,7 @@ macro make_list(name: string, type: string, nullval: untyped, cep: untyped) {
 
         def print_all(lst: ref name) {
             for mut val i = 0; i < lst.length; i++ {
-                print_i32(lst.data[i]);
+                printer(lst.data[i]);
                 print " ";
             }
             println "";
@@ -62,11 +63,12 @@ macro make_list(name: string, type: string, nullval: untyped, cep: untyped) {
     }
 }
 
-make_list(IntList, i32, 0, int);
-make_list(FloatList, f32, 0.0, float);
-make_list(CharList, char, "", char);
-make_list(LongList, i64, 0, long);
-make_list(DoubleList, f64, 0.0, double);
+make_list(IntList, i32, 0, int, print_i32);
+make_list(FloatList, f32, 0.0, float, print_i32);
+make_list(CharList, char, "", char, print_i32);
+make_list(LongList, i64, 0, long, print_i32);
+make_list(DoubleList, f64, 0.0, double, print_i32);
+make_list(StringList, string, string.create(""), string, print_str);
 
 test {
     mut val arena: Arena = Arena.create(65536);

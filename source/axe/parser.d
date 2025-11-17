@@ -2811,7 +2811,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 writeln("DEBUG macro expansion: Substituting parameters for macro '", identName, "'");
                 writeln("  Macro params: ", macroDef.params);
                 writeln("  Macro args: ", macroArgs);
-                writeln("  Number of expanded tokens: ", expandedTokens.length);
+                macroArgs[2] = balanceParentheses(macroArgs[2]);
                 foreach (ref token; expandedTokens)
                 {
                     for (size_t i = 0; i < macroDef.params.length && i < macroArgs.length;
@@ -5754,4 +5754,17 @@ private void enforceNoCKeys(Token[] tokens)
         if (lowerIdent in C_KEYWORD_SET)
             enforce(false, ident ~ " is undefined.");
     }
+}
+
+string balanceParentheses(string s) {
+    int depth = 0;
+    foreach (char c; s) {
+        if (c == '(') depth++;
+        else if (c == ')') depth--;
+    }
+    while (depth > 0) {
+        s ~= ')';
+        depth--;
+    }
+    return s;
 }
