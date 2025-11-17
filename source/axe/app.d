@@ -29,9 +29,9 @@ void main(string[] args)
         writeln("");
         return;
     }
-    if (handleMachineArgs(args)) {
+    if (handleMachineArgs(args) && !args.canFind("-r")) {
         writeln("Compiled.");
-    } else {
+    } else if (!args.canFind("-r")){
         writeln("Compilation failed.");
     }
 }
