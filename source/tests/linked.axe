@@ -1,36 +1,33 @@
 use stdlib/arena (
-    Arena,
-    arena_create,
-    arena_destroy,
-    arena_alloc
+    Arena
 );
 
-use stdlib/memory (
-    size_of
+use stdlib/io (
+    print_i32
 );
 
 model Node {
-    value: int;
+    value: i32;
     next: ref Node;
 }
 
 /// Allocate a new Node from the arena and initialize it
-def new_node(arena: ref Arena, value: int): ref Node {
-    mut val n: ref Node = arena_alloc(arena, size_of(Node));
+def new_node(arena: ref Arena, value: i32): ref Node {
+    mut val n: ref Node = Arena.alloc(arena, sizeof(Node));
     n.value = value;
     n.next = nil;
     return n;
 }
 
 /// Push a new value to the front of the list
-def list_push_front(head: ref Node, arena: ref Arena, value: int): ref Node {
+def list_push_front(head: ref Node, arena: ref Arena, value: i32): ref Node {
     mut val new_head: ref Node = new_node(arena, value);
     new_head.next = head;
     return new_head;
 }
 
 /// Push a new value to the back of the list
-def list_push_back(head: ref Node, arena: ref Arena, value: int): ref Node {
+def list_push_back(head: ref Node, arena: ref Arena, value: i32): ref Node {
     if head == nil {
         return new_node(arena, value);
     }
@@ -55,7 +52,7 @@ def list_print(head: ref Node) {
         if cur == nil {
             break;
         }
-        print cur.value;
+        print_i32(cur.value);
         print " ";
         cur = cur.next;
     }
@@ -64,7 +61,7 @@ def list_print(head: ref Node) {
 }
 
 main {
-    mut val arena: Arena = arena_create(65536);
+    mut val arena: Arena = Arena.create(65536);
     mut val head: ref Node = nil;
 
     head = list_push_front(head, ref_of(arena), 10);
@@ -75,6 +72,6 @@ main {
     println "List contents:";
     list_print(head);
 
-    arena_destroy(ref_of(arena));
+    Arena.destroy(ref_of(arena));
     println "Arena destroyed.";
 }

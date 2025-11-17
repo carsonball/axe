@@ -45,6 +45,66 @@ private string[string] g_isPointerVar;
 private string[string] g_functionPrefixes;
 private string[string] g_modelNames;
 
+string canonicalModelCName(string name)
+{
+    if (name in g_modelNames)
+        return g_modelNames[name];
+
+    foreach (baseName, cName; g_modelNames)
+    {
+        if (cName == name)
+            return cName;
+    }
+
+    return "";
+}
+
+string formatModelFieldType(string fieldType)
+{
+    import std.string : strip, startsWith;
+
+    string trimmed = fieldType.strip();
+    string qualifiers;
+
+    while (trimmed.startsWith("const "))
+    {
+        qualifiers ~= "const ";
+        trimmed = trimmed[6 .. $].strip();
+    }
+
+    while (trimmed.startsWith("volatile "))
+    {
+        qualifiers ~= "volatile ";
+        trimmed = trimmed[8 .. $].strip();
+    }
+
+    bool hadStructPrefix = false;
+    if (trimmed.startsWith("struct "))
+    {
+        hadStructPrefix = true;
+        trimmed = trimmed[7 .. $].strip();
+    }
+
+    string pointerSuffix;
+    while (trimmed.length > 0 && trimmed[$ - 1] == '*')
+    {
+        pointerSuffix ~= "*";
+        trimmed = trimmed[0 .. $ - 1].strip();
+    }
+
+    auto modelName = canonicalModelCName(trimmed);
+    if (modelName.length > 0)
+    {
+        trimmed = "struct " ~ modelName;
+    }
+    else if (hadStructPrefix)
+    {
+        trimmed = "struct " ~ trimmed;
+    }
+
+    return qualifiers ~ trimmed ~ pointerSuffix;
+}
+
 struct ParamInfo
 {
     string type;
@@ -1164,6 +1224,8 @@ string generateC(ASTNode ast)
             {
                 fieldType = fieldType[4 .. $].strip() ~ "*";
             }
+
+            fieldType = formatModelFieldType(fieldType);
 
             // If field type is the same as the model name, make it a pointer
             // This logic is now handled by the 'ref' type conversion above
