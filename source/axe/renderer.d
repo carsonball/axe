@@ -3185,4 +3185,20 @@ unittest
 
         assert(cCode.canFind("int32_t data[10][20];"), "2D array should be rendered as int32_t data[10][20];");
     }
+
+    {
+        auto tokens = lex(
+            "model Node { value: i32; next: ref Node; } " ~
+            "main { mut val head: ref Node = nil; }");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Self-referential model hoist test:");
+        writeln(cCode);
+
+        assert(cCode.canFind("struct Node;"), "Model should emit forward declaration before typedef");
+        assert(cCode.canFind("typedef struct Node {"), "Model should emit typedef for struct Node");
+        assert(cCode.canFind("struct Node* next;"),
+            "Self-referential fields should use 'struct Node*' to avoid undeclared identifier errors");
+    }
 }
