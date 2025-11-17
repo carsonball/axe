@@ -147,6 +147,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 }
             }
 
+            bool[string] resolvedImports;
+
             foreach (importChild; importProgram.children)
             {
                 if (importChild.nodeType == "Function")
@@ -154,6 +156,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto funcNode = cast(FunctionNode) importChild;
                     if (useNode.imports.canFind(funcNode.name))
                     {
+                        resolvedImports[funcNode.name] = true;
                         string prefixedName = moduleFunctionMap[funcNode.name];
                         importedFunctions[funcNode.name] = prefixedName;
                         auto newFunc = new FunctionNode(prefixedName, funcNode.params);
@@ -171,6 +174,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto modelNode = cast(ModelNode) importChild;
                     if (useNode.imports.canFind(modelNode.name))
                     {
+                        resolvedImports[modelNode.name] = true;
                         string prefixedName = moduleModelMap[modelNode.name];
                         importedModels[modelNode.name] = prefixedName;
                         auto newModel = new ModelNode(prefixedName, null);
@@ -204,8 +208,18 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto macroNode = cast(MacroNode) importChild;
                     if (useNode.imports.canFind(macroNode.name))
                     {
+                        resolvedImports[macroNode.name] = true;
                         newChildren ~= macroNode;
                     }
+                }
+            }
+
+            foreach (importName; useNode.imports)
+            {
+                if (importName !in resolvedImports)
+                {
+                    throw new Exception("Import '" ~ importName ~ "' not found in module '" ~
+                            useNode.moduleName ~ "'");
                 }
             }
         }

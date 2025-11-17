@@ -2,6 +2,10 @@ use stdlib/arena (
     Arena
 );
 
+use stdlib/io (
+    print_i32
+);
+
 use stdlib/string (
     string
 );
@@ -50,7 +54,7 @@ macro make_list(name: string, type: string, nullval: untyped, cep: untyped) {
 
         def print_all(lst: ref name) {
             for mut val i = 0; i < lst.length; i++ {
-                print lst.data[i];
+                print_i32(lst.data[i]);
                 print " ";
             }
             println "";
