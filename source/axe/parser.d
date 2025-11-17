@@ -31,15 +31,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
     g_typeAliases.clear();
 
     writeln("Starting parse with tokens:");
+
     foreach (i, token; tokens)
-    {
         writeln(i, ": ", token.type, " ('", token.value, "')");
-    }
 
     if (!isAxec)
-    {
         enforceNoCKeys(tokens);
-    }
 
     size_t pos = 0;
     auto ast = new ProgramNode();
