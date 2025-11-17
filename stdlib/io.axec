@@ -5,14 +5,14 @@ use std/string(
 /// Print out some string
 def print_str(value: string) {
     raw {
-        printf("%s", value);
+        printf("%s", value.data);
     }
 }
 
 /// Print out some string with a newline
-def println_str(value: String) {
+def println_str(value: string) {
     raw {
-        printf("%s\n", value);
+        printf("%s\n", value.data);
     }
 }
 

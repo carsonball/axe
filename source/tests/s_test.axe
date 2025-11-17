@@ -1,0 +1,12 @@
+use stdlib/string(
+    string
+);
+
+use stdlib/io(
+    println_str
+);
+
+main {
+    val x: string = string.create("Hello, world!");
+    println_str(x);
+}
