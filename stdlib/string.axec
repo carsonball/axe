@@ -2,6 +2,11 @@ use stdlib/lists (
     StringList
 );
 
+use stdlib/typecons (
+    Any,
+    AnyKind
+);
+
 /// string model representing a dynamic string with length tracking.
 model string {
     data: char*;
@@ -205,10 +210,46 @@ def double_to_str(value: f64, buffer: char*): char* {
 }
 
 /// Formats a string using a format string and arguments.
-def fmt(format: string, args: StringList): string {
-    mut val result: string = string.create("");
-    raw {
+def fmt(fmt_string: string, args: Any[]): string {
+    mut val result: string = "";
+    mut val arg_index: i32 = 0;
+    mut val i: i32 = 0;
 
+    loop {
+        if i >= fmt_string.len {
+            break;
+        }
+        if fmt_string.data[i] == "{" and fmt_string.data[i+1] == "}" {
+            mut val a: Any = args[arg_index];
+            arg_index = arg_index + 1;
+            switch a.kind {
+                case AnyKind.INT_T {
+                    result = result + string.from_i32(a.value.i);
+                }
+                case AnyKind.FLOAT_T {
+                    result = result + string.from_f32(a.value.f);
+                }
+                case AnyKind.STRING_T {
+                    result = result + a.value.s;
+                }
+                case AnyKind.BOOL_T {
+                    mut val s: string = "";
+                    if a.value.b {
+                        s = "true";
+                    } else {
+                        s = "false";
+                    }
+                    result = result + s;
+                }
+                case AnyKind.PTR_T {
+                    result = result + string.from_ptr(a.value.ptr);
+                }
+            }
+            i = i + 2;
+        } else {
+            result = result + string.from_char(fmt_string[i]);
+            i = i + 1;
+        }
     }
     return result;
 }
