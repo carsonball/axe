@@ -4128,6 +4128,101 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++;
         return new ContinueNode();
 
+    case TokenType.USE:
+        pos++; // Skip 'use'
+
+        // Support external imports in statement contexts: use external("header.h");
+        if (pos < tokens.length && tokens[pos].type == TokenType.EXTERNAL)
+        {
+            pos++; // Skip 'external'
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                "Expected '(' after 'external'");
+            pos++; // Skip '('
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.STR,
+                "Expected string literal for header file");
+            string headerFile = tokens[pos].value;
+            pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after header file");
+            pos++; // Skip ')'
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after external import");
+            pos++; // Skip ';'
+
+            return new ExternalImportNode(headerFile);
+        }
+
+        // Regular module use in statement context: use some/module (A, B);
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+            "Expected module name after 'use'");
+        string moduleName = tokens[pos].value;
+        pos++;
+
+        // Handle module paths like "stdlib/arena" (tokenized as stdlib, /, arena)
+        while (pos < tokens.length && tokens[pos].type == TokenType.SLASH)
+        {
+            moduleName ~= "/";
+            pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected identifier after '/' in module path");
+            moduleName ~= tokens[pos].value;
+            pos++;
+        }
+
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE ||
+                tokens[pos].type == TokenType.NEWLINE))
+            pos++;
+
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+            "Expected '(' after module name");
+        pos++; // Skip '('
+
+        string[] imports;
+        while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
+        {
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE ||
+                    tokens[pos].type == TokenType.NEWLINE))
+                pos++;
+
+            if (pos >= tokens.length || tokens[pos].type == TokenType.RPAREN)
+                break;
+
+            if (tokens[pos].type == TokenType.IDENTIFIER)
+            {
+                imports ~= tokens[pos].value;
+                pos++;
+            }
+            else if (tokens[pos].type == TokenType.COMMA)
+            {
+                pos++;
+            }
+            else
+            {
+                enforce(false, "Unexpected token in use statement");
+            }
+        }
+
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+            "Expected ')' after use statement");
+        pos++; // Skip ')'
+
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+
+        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+            "Expected ';' after use statement");
+        pos++; // Skip ';'
+
+        return new UseNode(moduleName, imports);
+
     case TokenType.PLATFORM:
         pos++; // Skip 'platform'
 
