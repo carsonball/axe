@@ -4947,8 +4947,22 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 return new FunctionCallNode(namespacedFunction, args.join(", "));
             }
 
-            // Otherwise, check for array access on the field: obj.field[index]
+            // Allow chained member access: obj.field, obj.field.sub, obj.field.sub.more, etc.
             string fullLeftSide = identName ~ "." ~ memberName;
+
+            // Consume additional ".identifier" segments, updating memberName to the last segment
+            while (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+            {
+                pos++; // Skip '.'
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                    "Expected field name after '.'");
+                string nextMember = tokens[pos].value;
+                pos++;
+                fullLeftSide ~= "." ~ nextMember;
+                memberName = nextMember;
+            }
+
+            // Otherwise, check for array access on the (possibly chained) field: obj.field[index]
             while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
                 pos++; // Skip '['

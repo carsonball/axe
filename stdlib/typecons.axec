@@ -2,16 +2,16 @@ use stdlib/string(
     string
 );
 
-enum any_kind {
-    INT;
-    FLOAT;
-    STRING;
-    BOOL;
-    PTR;
+enum AnyKind {
+    INT_T;
+    FLOAT_T;
+    STRING_T;
+    BOOL_T;
+    PTR_T;
 }
 
 model Any {
-    kind: any_kind;
+    kind: AnyKind;
 
     value: union {
         i: i32;
@@ -23,36 +23,40 @@ model Any {
 
     def from_i32(v: i32): Any {
         mut val result: Any;
-        result.kind = INT;
+        result.kind = AnyKind.INT_T;
         result.value.i = v;
         return result;
     }
 
     def from_f32(v: f32): Any {
         mut val result: Any;
-        result.kind = FLOAT;
+        result.kind = AnyKind.FLOAT_T;
         result.value.f = v;
         return result;
     }
 
     def from_string(v: string): Any {
         mut val result: Any;
-        result.kind = STRING;
+        result.kind = AnyKind.STRING_T;
         result.value.s = v;
         return result;
     }
 
     def from_bool(v: bool): Any {
         mut val result: Any;
-        result.kind = BOOL;
+        result.kind = AnyKind.BOOL_T;
         result.value.b = v;
         return result;
     }
 
     def from_ptr(v: ref void): Any {
         mut val result: Any;
-        result.kind = PTR;
+        result.kind = AnyKind.PTR_T;
         result.value.ptr = v;
         return result;
     }
+}
+
+test {
+
 }
