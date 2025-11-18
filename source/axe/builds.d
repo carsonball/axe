@@ -221,7 +221,7 @@ bool handleMachineArgs(string[] args)
             auto e = execute(clangCmd);
             if (e[0] != 0)
             {
-                writeln("CLANGCMD: ", clangCmd);
+                debug writeln("CLANGCMD: ", clangCmd);
 
                 stderr.writeln(
                     "Fallthrough error, report the bug at https://github.com/axelang/axe/issues\nTrace:\n",
