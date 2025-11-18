@@ -1,3 +1,11 @@
+/** 
+ * Axe Programming Language Compiler.
+ * Author: Navid M (C) 2025
+ * License: GPL-3.0
+ * 
+ * Contains struct and model definitions.
+ */
+
 module axe.structs;
 
 import std.array;

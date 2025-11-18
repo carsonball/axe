@@ -1,3 +1,11 @@
+/** 
+ * Axe Programming Language Compiler.
+ * Author: Navid M (C) 2025
+ * License: GPL-3.0
+ * 
+ * Handles the actual compilation process.
+ */
+
 module axe.builds;
 
 import axe.lexer;
