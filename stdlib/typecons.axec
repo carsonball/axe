@@ -1,0 +1,58 @@
+use stdlib/string(
+    string
+);
+
+enum any_kind {
+    INT;
+    FLOAT;
+    STRING;
+    BOOL;
+    PTR;
+}
+
+model Any {
+    kind: any_kind;
+
+    value: union {
+        i: i32;
+        f: f32;
+        s: string;
+        b: bool;
+        ptr: ref void;
+    }
+
+    def from_i32(v: i32): Any {
+        mut val result: Any;
+        result.kind = INT;
+        result.value.i = v;
+        return result;
+    }
+
+    def from_f32(v: f32): Any {
+        mut val result: Any;
+        result.kind = FLOAT;
+        result.value.f = v;
+        return result;
+    }
+
+    def from_string(v: string): Any {
+        mut val result: Any;
+        result.kind = STRING;
+        result.value.s = v;
+        return result;
+    }
+
+    def from_bool(v: bool): Any {
+        mut val result: Any;
+        result.kind = BOOL;
+        result.value.b = v;
+        return result;
+    }
+
+    def from_ptr(v: ref void): Any {
+        mut val result: Any;
+        result.kind = PTR;
+        result.value.ptr = v;
+        return result;
+    }
+}
