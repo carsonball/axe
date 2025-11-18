@@ -1,0 +1,17 @@
+def wait(ms: i32) {
+    platform posix {
+        raw {
+            sleep(ms / 1000);
+        }
+    }
+    platform windows {
+        raw {
+            Sleep(ms);
+        }
+    }
+}
+
+test {
+    wait(1000);
+    println "Done waiting";
+}
