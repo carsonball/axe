@@ -1291,6 +1291,51 @@ string generateC(ASTNode ast)
 
         foreach (field; modelNode.fields)
         {
+            // Union fields are rendered as a nested union block inside the struct
+            if (field.isUnion)
+            {
+                cCode ~= "    union {\n";
+
+                foreach (inner; field.nestedFields)
+                {
+                    string innerType;
+                    string innerArrayPart = "";
+
+                    import std.string : indexOf;
+
+                    auto innerBracketPos = inner.type.indexOf('[');
+                    if (innerBracketPos >= 0)
+                    {
+                        innerArrayPart = inner.type[innerBracketPos .. $];
+                        string innerRawBaseType = inner.type[0 .. innerBracketPos].strip();
+                        innerType = mapAxeTypeToC(innerRawBaseType);
+                    }
+                    else
+                    {
+                        innerType = mapAxeTypeToC(inner.type);
+                    }
+
+                    // Handle ref types - convert "ref T" to "T*"
+                    if (innerType.startsWith("ref "))
+                    {
+                        innerType = innerType[4 .. $].strip() ~ "*";
+                    }
+
+                    innerType = formatModelFieldType(innerType);
+
+                    // Self-referential inner fields use the forward-declared struct as well
+                    if (inner.type == modelNode.name)
+                    {
+                        innerType = "struct " ~ inner.type ~ "*";
+                    }
+
+                    cCode ~= "        " ~ innerType ~ " " ~ inner.name ~ innerArrayPart ~ ";\n";
+                }
+
+                cCode ~= "    } " ~ field.name ~ ";\n";
+                continue;
+            }
+
             string fieldType;
             string arrayPart = "";
 

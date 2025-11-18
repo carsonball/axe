@@ -453,6 +453,16 @@ class ModelNode : ASTNode
     struct Field {
         string name;
         string type;
+        bool isUnion; // Flag to indicate if the field is a union
+        Field[] nestedFields; // List of nested fields for union types
+
+        this(string name, string type)
+        {
+            this.name = name;
+            this.type = type;
+            this.isUnion = false;
+            this.nestedFields = null;
+        }
     }
 
     Field[] fields;

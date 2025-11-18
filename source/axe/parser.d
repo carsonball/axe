@@ -768,36 +768,115 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         "Expected ':' after field name");
                     pos++; // Skip ':'
 
-                    // Check if this is an array type
+                    // Check if this is a union field: `name: union { ... }`
                     size_t savedPos = pos;
                     string baseType = parseType();
-                    string fieldType;
 
-                    if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                    // If the base type is "union" and the next token is '{', parse a union block
+                    if (baseType == "union" && pos < tokens.length && tokens[pos].type == TokenType.LBRACE)
                     {
-                        // It's an array type, parse it properly
-                        pos = savedPos;
-                        auto arrayInfo = parseArrayType();
-                        fieldType = arrayInfo.elementType;
-                        if (arrayInfo.size.length > 0)
-                            fieldType ~= "[" ~ arrayInfo.size ~ "]";
-                        else
-                            fieldType ~= "[]";
+                        ModelNode.Field unionField;
+                        unionField.name = fieldName;
+                        unionField.type = "union";
+                        unionField.isUnion = true;
 
-                        if (arrayInfo.hasSecondDimension)
+                        // Parse the union body
+                        pos++; // Skip '{'
+                        while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
                         {
-                            if (arrayInfo.size2.length > 0)
-                                fieldType ~= "[" ~ arrayInfo.size2 ~ "]";
+                            // Skip whitespace/newlines/semicolons
+                            if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE
+                                || tokens[pos].type == TokenType.SEMICOLON)
+                            {
+                                pos++;
+                                continue;
+                            }
+
+                            enforce(tokens[pos].type == TokenType.IDENTIFIER,
+                                "Expected field name inside union block");
+                            string innerName = tokens[pos].value;
+                            pos++;
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
+                                "Expected ':' after union field name");
+                            pos++; // Skip ':'
+
+                            // Parse the inner field type (no nested unions for now)
+                            size_t innerSavedPos = pos;
+                            string innerBaseType = parseType();
+                            string innerFieldType;
+
+                            if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                            {
+                                // It's an array type, parse it properly
+                                pos = innerSavedPos;
+                                auto innerArrayInfo = parseArrayType();
+                                innerFieldType = innerArrayInfo.elementType;
+                                if (innerArrayInfo.size.length > 0)
+                                    innerFieldType ~= "[" ~ innerArrayInfo.size ~ "]";
+                                else
+                                    innerFieldType ~= "[]";
+
+                                if (innerArrayInfo.hasSecondDimension)
+                                {
+                                    if (innerArrayInfo.size2.length > 0)
+                                        innerFieldType ~= "[" ~ innerArrayInfo.size2 ~ "]";
+                                    else
+                                        innerFieldType ~= "[]";
+                                }
+                            }
                             else
-                                fieldType ~= "[]";
+                            {
+                                innerFieldType = innerBaseType;
+                            }
+
+                            ModelNode.Field innerField;
+                            innerField.name = innerName;
+                            innerField.type = innerFieldType;
+                            unionField.nestedFields ~= innerField;
+
+                            // Optional semicolon after each union field
+                            if (pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON)
+                                pos++;
                         }
+
+                        enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
+                            "Expected '}' after union field body");
+                        pos++; // Skip '}'
+
+                        orderedFields ~= unionField;
                     }
                     else
                     {
-                        fieldType = baseType;
-                    }
+                        // Not a union field, restore any lookahead side effects
+                        string fieldType;
 
-                    orderedFields ~= ModelNode.Field(fieldName, fieldType);
+                        if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                        {
+                            // It's an array type, parse it properly
+                            pos = savedPos;
+                            auto arrayInfo = parseArrayType();
+                            fieldType = arrayInfo.elementType;
+                            if (arrayInfo.size.length > 0)
+                                fieldType ~= "[" ~ arrayInfo.size ~ "]";
+                            else
+                                fieldType ~= "[]";
+
+                            if (arrayInfo.hasSecondDimension)
+                            {
+                                if (arrayInfo.size2.length > 0)
+                                    fieldType ~= "[" ~ arrayInfo.size2 ~ "]";
+                                else
+                                    fieldType ~= "[]";
+                            }
+                        }
+                        else
+                        {
+                            fieldType = baseType;
+                        }
+
+                        orderedFields ~= ModelNode.Field(fieldName, fieldType);
+                    }
                 }
                 else
                 {
