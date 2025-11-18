@@ -211,7 +211,7 @@ def double_to_str(value: f64, buffer: char*): char* {
 
 /// Formats a string using a format string and arguments.
 def fmt(fmt_string: string, args: Any[]): string {
-    mut val result: string = "";
+    mut val result: string = string.create("");
     mut val arg_index: i32 = 0;
     mut val i: i32 = 0;
 

@@ -282,6 +282,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         }
                     }
                 }
+                else if (importChild.nodeType == "Enum")
+                {
+                    auto enumNode = cast(EnumNode) importChild;
+                    if (useNode.imports.canFind(enumNode.name))
+                    {
+                        moduleModelMap[enumNode.name] = enumNode.name;
+                    }
+                }
                 else if (importChild.nodeType == "Macro")
                 {
                     auto macroNode = cast(MacroNode) importChild;
@@ -423,6 +431,33 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
                             newChildren ~= modelNode;
                         }
+                    }
+                }
+                else if (importChild.nodeType == "Enum")
+                {
+                    auto enumNode = cast(EnumNode) importChild;
+                    if (useNode.imports.canFind(enumNode.name))
+                    {
+                        resolvedImports[enumNode.name] = true;
+                    }
+
+                    bool alreadyAdded = false;
+                    foreach (existingChild; newChildren)
+                    {
+                        if (existingChild.nodeType == "Enum")
+                        {
+                            auto existingEnum = cast(EnumNode) existingChild;
+                            if (existingEnum.name == enumNode.name)
+                            {
+                                alreadyAdded = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!alreadyAdded)
+                    {
+                        newChildren ~= enumNode;
                     }
                 }
                 else if (importChild.nodeType == "Macro")
