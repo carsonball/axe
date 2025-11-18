@@ -419,7 +419,7 @@ string generateC(ASTNode ast)
                       #define WIN32_LEAN_AND_MEAN`;
             cCode ~= "\n#include <windows.h>\n";
         }
-        
+
         cCode ~= "\n";
 
         foreach (child; ast.children)
@@ -3485,5 +3485,17 @@ unittest
         assert(cCode.canFind("void error_print_self(stdlib_errors_error err)"),
             "Should generate method function with correct signature");
 
+    }
+
+    {
+        auto tokens = lex("use hi (hello); test {}");
+        auto ast = parse(tokens);
+        auto cCode = generateC(ast);
+
+        writeln("Use statement at end of program test:");
+        writeln(cCode);
+
+        assert(!cCode.canFind("void use("), "Should not treat Use as a function");
+        assert(!cCode.canFind("struct use"), "Should not treat Use as a model");
     }
 }
