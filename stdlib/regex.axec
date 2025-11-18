@@ -1,7 +1,6 @@
 use stdlib/string (
     string
 );
-
 use external("pcre.h");
 
 /// Simple regex-like support built on substring search.
@@ -27,14 +26,12 @@ def match(pattern: string, text: string): bool {
     raw {
         const char *error = NULL;
         int erroffset = 0;
-
         // Compile the pattern using PCRE (treats pattern as a regular expression).
         pcre *re = pcre_compile((const char*)pattern.data,
                                 0,
                                 &error,
                                 &erroffset,
                                 NULL);
-
         if (re != NULL) {
             int ovector[30];
             int rc = pcre_exec(re,
@@ -45,20 +42,17 @@ def match(pattern: string, text: string): bool {
                                0,
                                ovector,
                                30);
-
             if (rc >= 0) {
                 result = true;
             } else {
                 result = false;
             }
-
             pcre_free(re);
         } else {
             // Compilation failed; consider this a non-match.
             result = false;
         }
     }
-
     return result;
 }
 
@@ -71,11 +65,82 @@ def full_match(pattern: string, text: string): bool {
 }
 
 test {
+    // Basic literal matching
     val text: string = string.create("hello world");
     assert(match(string.create("hello"), text), "pattern 'hello' should match");
     assert(match(string.create("world"), text), "pattern 'world' should match");
     assert(!match(string.create("axe"), text), "pattern 'axe' should not match");
-
+    
     val re: regex = compile(string.create("lo wo"));
     assert(is_match(re, text), "compiled regex should match substring");
+
+    // Character classes
+    val digits: string = string.create("abc123def");
+    assert(match(string.create("[0-9]+"), digits), "should match digit sequence");
+    assert(match(string.create("[a-z]+"), digits), "should match letter sequence");
+    assert(!match(string.create("^[0-9]+$"), digits), "should not match digits only");
+
+    // Anchors
+    val sentence: string = string.create("The quick brown fox");
+    assert(match(string.create("^The"), sentence), "should match start anchor");
+    assert(match(string.create("fox$"), sentence), "should match end anchor");
+    assert(!match(string.create("^fox"), sentence), "should not match 'fox' at start");
+    assert(!match(string.create("The$"), sentence), "should not match 'The' at end");
+
+    // Quantifiers
+    val repeated: string = string.create("aaaaabbbcc");
+    assert(match(string.create("a+"), repeated), "should match one or more 'a'");
+    assert(match(string.create("a{5}"), repeated), "should match exactly 5 'a's");
+    assert(match(string.create("b{3}"), repeated), "should match exactly 3 'b's");
+    assert(!match(string.create("a{6}"), repeated), "should not match 6 consecutive 'a's");
+
+    // Alternation
+    val choice: string = string.create("I like cats");
+    assert(match(string.create("cat|dog"), choice), "should match 'cat' alternative");
+    assert(match(string.create("dog|cat"), choice), "should match 'cat' alternative (reversed)");
+    val choice2: string = string.create("I like dogs");
+    assert(match(string.create("cat|dog"), choice2), "should match 'dog' alternative");
+
+    // Wildcards
+    val wildcard: string = string.create("a1b2c3");
+    assert(match(string.create("a.b"), wildcard), "should match with wildcard dot");
+    assert(match(string.create(".*"), wildcard), "should match entire string with .*");
+
+    // Word boundaries
+    val boundary: string = string.create("hello world");
+    assert(match(string.create("\\bhello\\b"), boundary), "should match word 'hello' with boundaries");
+    assert(match(string.create("\\bworld\\b"), boundary), "should match word 'world' with boundaries");
+    assert(!match(string.create("\\bell\\b"), boundary), "should not match 'ell' as word");
+
+    // Email-like pattern (simple)
+    val email: string = string.create("user@example.com");
+    assert(match(string.create("[a-z]+@[a-z]+\\.[a-z]+"), email), "should match email pattern");
+    val not_email: string = string.create("not an email");
+    assert(!match(string.create("[a-z]+@[a-z]+\\.[a-z]+"), not_email), "should not match non-email");
+
+    // Case sensitivity
+    val mixed: string = string.create("Hello World");
+    assert(match(string.create("Hello"), mixed), "should match exact case");
+    assert(!match(string.create("hello"), mixed), "should not match different case");
+    assert(match(string.create("[Hh]ello"), mixed), "should match with character class");
+
+    // Greedy vs non-greedy (testing greedy behavior)
+    val greedy_test: string = string.create("<tag>content</tag>");
+    assert(match(string.create("<.*>"), greedy_test), "should match greedily");
+    assert(match(string.create("<.*?>"), greedy_test), "should match non-greedily");
+
+    // Special characters escaped
+    val special: string = string.create("price: $100");
+    assert(match(string.create("\\$100"), special), "should match escaped dollar sign");
+    assert(match(string.create("\\$[0-9]+"), special), "should match price pattern");
+
+    // Empty pattern edge case
+    val empty_text: string = string.create("");
+    assert(match(string.create(".*"), empty_text), "empty string should match .*");
+    assert(!match(string.create(".+"), empty_text), "empty string should not match .+");
+
+    // Unicode/UTF-8 (if PCRE built with UTF-8 support)
+    val unicode: string = string.create("café");
+    assert(match(string.create("café"), unicode), "should match UTF-8 string");
+    assert(match(string.create("caf."), unicode), "should match UTF-8 with wildcard");
 }

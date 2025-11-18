@@ -1683,28 +1683,54 @@ string processExpression(string expr, string context = "")
     // Handle array access
     if (expr.canFind("["))
     {
-        size_t bracketPos = expr.indexOf("[");
-        string base = expr[0 .. bracketPos].strip();
-        size_t endPos = bracketPos + 1;
-        int depth = 1;
-        while (endPos < expr.length && depth > 0)
+        bool inString = false;
+        size_t bracketPos = expr.length;
+        for (size_t i = 0; i < expr.length; i++)
         {
-            if (expr[endPos] == '[')
-                depth++;
-            else if (expr[endPos] == ']')
-                depth--;
-            endPos++;
+            if (expr[i] == '"' && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inString = !inString;
+            }
+            else if (!inString && expr[i] == '[')
+            {
+                bracketPos = i;
+                break;
+            }
         }
 
-        if (depth > 0)
-            return expr;
+        if (bracketPos < expr.length)
+        {
+            string base = expr[0 .. bracketPos].strip();
+            size_t endPos = bracketPos + 1;
+            int depth = 1;
+            bool inIndexString = false;
+            while (endPos < expr.length && depth > 0)
+            {
+                if (expr[endPos] == '"' && (endPos == 0 || expr[endPos - 1] != '\\'))
+                {
+                    inIndexString = !inIndexString;
+                }
+                else if (!inIndexString && expr[endPos] == '[')
+                {
+                    depth++;
+                }
+                else if (!inIndexString && expr[endPos] == ']')
+                {
+                    depth--;
+                }
+                endPos++;
+            }
 
-        string index = expr[bracketPos + 1 .. endPos - 1].strip();
-        string rest = expr[endPos .. $].strip();
-        string processedBase = processExpression(base);
-        string processedIndex = processExpression(index);
-        string processedRest = rest.length > 0 ? processExpression(rest) : "";
-        return processedBase ~ "[" ~ processedIndex ~ "]" ~ processedRest;
+            if (depth > 0)
+                return expr;
+
+            string index = expr[bracketPos + 1 .. endPos - 1].strip();
+            string rest = expr[endPos .. $].strip();
+            string processedBase = processExpression(base);
+            string processedIndex = processExpression(index);
+            string processedRest = rest.length > 0 ? processExpression(rest) : "";
+            return processedBase ~ "[" ~ processedIndex ~ "]" ~ processedRest;
+        }
     }
 
     // Handle member access with auto-detection of pointer types.
