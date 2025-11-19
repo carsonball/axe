@@ -198,6 +198,19 @@ class ArrayAssignmentNode : ASTNode
     }
 }
 
+class ArrayLiteralNode : ASTNode
+{
+    string elementType;
+    string[] elements;
+
+    this(string elementType, string[] elements)
+    {
+        super("ArrayLiteral");
+        this.elementType = elementType;
+        this.elements = elements;
+    }
+}
+
 class FunctionNode : ASTNode
 {
     string name;
@@ -357,7 +370,57 @@ class FunctionCallNode : ASTNode
     {
         super("FunctionCall");
         this.functionName = functionName;
-        this.args = argsStr.split(", ");
+        
+        // Smart split that respects nested structures
+        this.args = splitArgs(argsStr);
+    }
+    
+    private static string[] splitArgs(string argsStr)
+    {
+        import std.string;
+        
+        string[] result;
+        string current = "";
+        int parenDepth = 0;
+        int bracketDepth = 0;
+        int braceDepth = 0;
+        
+        for (size_t i = 0; i < argsStr.length; i++)
+        {
+            char c = argsStr[i];
+            
+            if (c == '(')
+                parenDepth++;
+            else if (c == ')')
+                parenDepth--;
+            else if (c == '[')
+                bracketDepth++;
+            else if (c == ']')
+                bracketDepth--;
+            else if (c == '{')
+                braceDepth++;
+            else if (c == '}')
+                braceDepth--;
+            else if (c == ',' && parenDepth == 0 && bracketDepth == 0 && 
+                braceDepth == 0)
+            {
+                // This is an argument separator
+                result ~= current.strip();
+                current = "";
+                
+                // Skip the space after comma if present
+                if (i + 1 < argsStr.length && argsStr[i + 1] == ' ')
+                    i++;
+                continue;
+            }
+            
+            current ~= c;
+        }
+        
+        if (current.length > 0)
+            result ~= current.strip();
+        
+        return result;
     }
 }
 

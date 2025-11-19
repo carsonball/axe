@@ -2578,6 +2578,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             pos++;
 
                             int parenDepth = 0;
+                            int bracketDepth = 0;
+                            int braceDepth = 0;
                             while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
                             {
                                 if (tokens[pos].type == TokenType.LPAREN)
@@ -2592,13 +2594,44 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                     args ~= tokens[pos].value;
                                     pos++;
                                 }
+                                else if (tokens[pos].type == TokenType.LBRACKET)
+                                {
+                                    bracketDepth++;
+                                    args ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                else if (tokens[pos].type == TokenType.RBRACKET)
+                                {
+                                    bracketDepth--;
+                                    args ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                else if (tokens[pos].type == TokenType.LBRACE)
+                                {
+                                    braceDepth++;
+                                    args ~= tokens[pos].value;
+                                    pos++;
+                                }
+                                else if (tokens[pos].type == TokenType.RBRACE)
+                                {
+                                    braceDepth--;
+                                    args ~= tokens[pos].value;
+                                    pos++;
+                                }
                                 else if (tokens[pos].type == TokenType.WHITESPACE)
                                 {
                                     pos++;
                                 }
-                                else if (tokens[pos].type == TokenType.COMMA)
+                                else if (tokens[pos].type == TokenType.COMMA &&
+                                    bracketDepth == 0 && braceDepth == 0 && parenDepth == 0)
                                 {
                                     args ~= ", ";
+                                    pos++;
+                                }
+                                else if (tokens[pos].type == TokenType.COMMA)
+                                {
+                                    // Comma inside brackets/braces/parens
+                                    args ~= tokens[pos].value;
                                     pos++;
                                 }
                                 else if (tokens[pos].type == TokenType.STR)
@@ -5687,7 +5720,6 @@ private LoopNode parseLoopHelper(ref size_t pos, Token[] tokens, ref Scope curre
     auto previousScope = currentScopeNode;
     currentScopeNode = loopNode;
 
-    // Parse loop body using recursive parseStatementHelper
     while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
     {
         auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
@@ -5713,21 +5745,17 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
     string[] messages;
     bool[] isExpressions;
 
-    // Skip whitespace
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
 
-    // Parse comma-separated arguments until semicolon
     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
     {
-        // Skip whitespace before argument
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
         if (pos >= tokens.length || tokens[pos].type == TokenType.SEMICOLON)
             break;
 
-        // Check if it's a string literal
         if (tokens[pos].type == TokenType.STR)
         {
             string msg = tokens[pos].value;
@@ -5737,7 +5765,6 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
         }
         else
         {
-            // Parse as expression until comma or semicolon
             string expr = "";
             while (pos < tokens.length &&
                 tokens[pos].type != TokenType.SEMICOLON &&
@@ -5758,15 +5785,12 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
             }
         }
 
-        // Skip whitespace after argument
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
-        // If comma, skip it and continue to next argument
         if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
         {
             pos++;
-            // Skip whitespace after comma
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
         }
@@ -5776,7 +5800,6 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
         "Expected ';' after println");
     pos++;
 
-    // If no arguments were parsed, return empty
     if (messages.length == 0)
     {
         return new PrintlnNode("", false);
@@ -5795,21 +5818,17 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
     string[] messages;
     bool[] isExpressions;
 
-    // Skip whitespace
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
 
-    // Parse comma-separated arguments until semicolon
     while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
     {
-        // Skip whitespace before argument
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
         if (pos >= tokens.length || tokens[pos].type == TokenType.SEMICOLON)
             break;
 
-        // Check if it's a string literal
         if (tokens[pos].type == TokenType.STR)
         {
             string msg = tokens[pos].value;
@@ -5819,7 +5838,6 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
         }
         else
         {
-            // Parse as expression until comma or semicolon
             string expr = "";
             while (pos < tokens.length &&
                 tokens[pos].type != TokenType.SEMICOLON &&
@@ -5840,15 +5858,12 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
             }
         }
 
-        // Skip whitespace after argument
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
 
-        // If comma, skip it and continue to next argument
         if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
         {
             pos++;
-            // Skip whitespace after comma
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
         }
@@ -5858,13 +5873,114 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
         "Expected ';' after print");
     pos++;
 
-    // If no arguments were parsed, return empty
     if (messages.length == 0)
     {
         return new PrintNode("", false);
     }
 
     return new PrintNode(messages, isExpressions);
+}
+
+/**
+ * Parse array literals in the form <type>[elem1, elem2, ...]
+ *
+ * Returns the ArrayLiteralNode, or null if not an array literal
+ */
+private ArrayLiteralNode tryParseArrayLiteral(ref size_t pos, Token[] tokens)
+{
+    size_t savedPos = pos;
+    
+    if (pos >= tokens.length || tokens[pos].type != TokenType.OPERATOR || tokens[pos].value != "<")
+        return null;
+    
+    pos++; // Skip '<'
+    
+    string elementType = "";
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    if (pos >= tokens.length || tokens[pos].type != TokenType.IDENTIFIER)
+    {
+        pos = savedPos;
+        return null;
+    }
+    
+    elementType = tokens[pos].value;
+    pos++;
+    
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    if (pos >= tokens.length || tokens[pos].type != TokenType.OPERATOR || tokens[pos].value != ">")
+    {
+        pos = savedPos;
+        return null;
+    }
+    
+    pos++; // Skip '>'
+    
+    while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+        pos++;
+    
+    if (pos >= tokens.length || tokens[pos].type != TokenType.LBRACKET)
+    {
+        pos = savedPos;
+        return null;
+    }
+    
+    pos++; // Skip '['
+    
+    string[] elements;
+    
+    while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
+    {
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        if (pos >= tokens.length || tokens[pos].type == TokenType.RBRACKET)
+            break;
+        
+        string element = "";
+        
+        while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RBRACKET)
+        {
+            if (tokens[pos].type == TokenType.WHITESPACE)
+            {
+                pos++;
+                continue;
+            }
+            
+            if (tokens[pos].type == TokenType.STR)
+                element ~= "\"" ~ tokens[pos].value ~ "\"";
+            else
+                element ~= tokens[pos].value;
+            
+            pos++;
+        }
+        
+        if (element.strip().length > 0)
+            elements ~= element.strip();
+        
+        while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+            pos++;
+        
+        if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
+        {
+            pos++;
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+        }
+    }
+    
+    if (pos >= tokens.length || tokens[pos].type != TokenType.RBRACKET)
+    {
+        pos = savedPos;
+        return null;
+    }
+    
+    pos++; // Skip ']'
+    
+    return new ArrayLiteralNode(elementType, elements);
 }
 
 /**

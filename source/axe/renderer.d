@@ -1511,6 +1511,73 @@ string processExpression(string expr, string context = "")
     expr = expr.replace(" or ", " || ");
     expr = expr.replace(" xor ", " ^ ");
 
+    // Handle array literals: [type]{elem1, elem2, ...}
+    if (expr.canFind("[") && expr.canFind("{"))
+    {
+        size_t bracketStart = expr.indexOf("[");
+        if (bracketStart == 0 || (bracketStart > 0 && expr[bracketStart - 1] != '.'))
+        {
+            size_t bracketEnd = expr.indexOf("]", bracketStart);
+            if (bracketEnd != -1 && bracketEnd + 1 < expr.length &&
+                expr[bracketEnd + 1] == '{')
+            {
+                string elementType = expr[bracketStart + 1 .. bracketEnd].strip();
+                
+                // Check if this looks like a type (identifier, possibly with * for pointers)
+                bool isType = true;
+                foreach (c; elementType)
+                {
+                    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                        (c >= '0' && c <= '9') || c == '_' || c == '*'))
+                    {
+                        isType = false;
+                        break;
+                    }
+                }
+                
+                if (isType && elementType.length > 0)
+                {
+                    size_t braceStart = bracketEnd + 1;
+                    size_t braceEnd = expr.indexOf("}", braceStart);
+                    if (braceEnd != -1)
+                    {
+                        string arrayContent = expr[braceStart + 1 .. braceEnd];
+                        
+                        // Map Axe types to C types
+                        static immutable string[string] typeMap = [
+                            "i8": "int8_t",
+                            "u8": "uint8_t",
+                            "i16": "int16_t",
+                            "u16": "uint16_t",
+                            "i32": "int32_t",
+                            "u32": "uint32_t",
+                            "i64": "int64_t",
+                            "u64": "uint64_t",
+                            "isize": "intptr_t",
+                            "usize": "uintptr_t",
+                            "f32": "float",
+                            "f64": "double",
+                            "bool": "bool",
+                            "char": "char",
+                            "byte": "uint8_t"
+                        ];
+                        
+                        string cType = (elementType in typeMap) ?
+                            typeMap[elementType] : elementType;
+                        string result = expr[0 .. bracketStart] ~ "(" ~ cType ~
+                            "[]){" ~ arrayContent ~ "}";
+                        
+                        // Include any content after the array literal
+                        if (braceEnd + 1 < expr.length)
+                            result ~= expr[braceEnd + 1 .. $];
+                        
+                        return result;
+                    }
+                }
+            }
+        }
+    }
+
     // Check for macro calls in expressions
     debug writeln("DEBUG processExpression: Checking for macros in expr: '", expr, "'");
     debug writeln("DEBUG processExpression: Available macros: ", g_macros.keys);

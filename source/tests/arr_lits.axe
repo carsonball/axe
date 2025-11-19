@@ -1,3 +1,7 @@
+use stdlib/io (
+    print_i32
+);
+
 def arr_length(a: i32[]): usize {
     return 4;
 }
@@ -11,5 +15,5 @@ def func_that_takes_arr_literal(a: i32[]) {
 }
 
 main {
-    func_that_takes_arr_literal(<i32>[10, 20, 30, 40]); //should become (int32_t[]){10, 20, 30, 40}
+    func_that_takes_arr_literal([i32]{10, 20, 30, 40}); //should become (int32_t[]){10, 20, 30, 40}
 }
