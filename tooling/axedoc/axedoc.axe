@@ -1,7 +1,7 @@
 use stdlib/string (string, concat, find_char_from, substr, trim_prefix, trim_suffix);
 use stdlib/os (read_file, write_file, is_file, get_cmdline_args);
 use stdlib/regex (match);
-use stdlib/io (println_str, print_str);
+use stdlib/io (println_str, print_str, println_i32);
 
 def trim_leading_whitespace(s: string): string {
     mut i: usize = 0;
@@ -141,6 +141,22 @@ def generate_docs_for_file(path: string): bool {
                 signature_text = substr(trimmed, 6, trimmed.len - 6);
             } elif is_def_sig and trimmed.len > 4 {
                 signature_text = substr(trimmed, 4, trimmed.len - 4);
+            }
+
+            mut end: usize = signature_text.len;
+            loop {
+                if end == 0 {
+                    break;
+                }
+                val ch: char = signature_text.data[end - 1];
+                if ch == ' ' or ch == '\t' or ch == '\r' or ch == '\n' {
+                    end = end - 1;
+                } else {
+                    break;
+                }
+            }
+            if end != signature_text.len {
+                signature_text = substr(signature_text, 0, end);
             }
 
             signature_text = trim_suffix(signature_text, string.create(" {"));
