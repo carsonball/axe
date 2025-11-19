@@ -782,10 +782,19 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             foreach (oldName, newName; nameMap)
             {
                 arg = replaceStandaloneCall(arg, oldName, newName);
-                string oldCallDot = oldName.replace("_", ".") ~ "(";
-                if (arg.canFind(oldCallDot))
+
+                // For model methods like Model_method, also support dot notation
+                // conversion (Model.method(...)). Restrict this to names that
+                // actually contain an underscore so we don't accidentally
+                // rewrite substrings in plain function names (e.g., 'strip'
+                // inside 'lstrip').
+                if (oldName.canFind("_"))
                 {
-                    arg = arg.replace(oldCallDot, newName ~ "(");
+                    string oldCallDot = oldName.replace("_", ".") ~ "(";
+                    if (arg.canFind(oldCallDot))
+                    {
+                        arg = arg.replace(oldCallDot, newName ~ "(");
+                    }
                 }
             }
         }
@@ -801,8 +810,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 {
                     printNode.messages[i] = replaceStandaloneCall(printNode.messages[i], oldName, newName);
 
-                    string oldCallDot = oldName.replace("_", ".") ~ "(";
-                    printNode.messages[i] = printNode.messages[i].replace(oldCallDot, newName ~ "(");
+                    if (oldName.canFind("_"))
+                    {
+                        string oldCallDot = oldName.replace("_", ".") ~ "(";
+                        printNode.messages[i] = printNode.messages[i].replace(oldCallDot, newName ~ "(");
+                    }
                 }
                 // FIX DOUBLE-PREFIXING in Print
                 printNode.messages[i] = fixDoublePrefix(printNode.messages[i]);
@@ -819,8 +831,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 foreach (oldName, newName; nameMap)
                 {
                     printlnNode.messages[i] = replaceStandaloneCall(printlnNode.messages[i], oldName, newName);
-                    string oldCallDot = oldName.replace("_", ".") ~ "(";
-                    printlnNode.messages[i] = printlnNode.messages[i].replace(oldCallDot, newName ~ "(");
+                    if (oldName.canFind("_"))
+                    {
+                        string oldCallDot = oldName.replace("_", ".") ~ "(";
+                        printlnNode.messages[i] = printlnNode.messages[i].replace(oldCallDot, newName ~ "(");
+                    }
                 }
                 // FIX DOUBLE-PREFIXING in Println
                 printlnNode.messages[i] = fixDoublePrefix(printlnNode.messages[i]);
@@ -839,12 +854,15 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             if (before != returnNode.expression)
                 debugWriteln("      DEBUG Return replaced '", oldName, "' -> '", newName, "': '", returnNode.expression, "'");
 
-            string oldCallDot = oldName.replace("_", ".") ~ "(";
-            if (returnNode.expression.canFind(oldCallDot))
+            if (oldName.canFind("_"))
             {
-                before = returnNode.expression;
-                returnNode.expression = returnNode.expression.replace(oldCallDot, newName ~ "(");
-                debugWriteln("      DEBUG Return replaced dot call '", oldCallDot, "' -> '", newName, "(': '", returnNode.expression, "'");
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                if (returnNode.expression.canFind(oldCallDot))
+                {
+                    before = returnNode.expression;
+                    returnNode.expression = returnNode.expression.replace(oldCallDot, newName ~ "(");
+                    debugWriteln("      DEBUG Return replaced dot call '", oldCallDot, "' -> '", newName, "(': '", returnNode.expression, "'");
+                }
             }
 
             import std.regex : regex, replaceAll;
@@ -881,12 +899,15 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 declNode.initializer = newInit;
             }
 
-            string oldCallDot = oldName.replace("_", ".") ~ "(";
-            if (declNode.initializer.canFind(oldCallDot))
+            if (oldName.canFind("_"))
             {
-                debugWriteln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
-                    oldCallDot, "' -> '", newName, "(");
-                declNode.initializer = declNode.initializer.replace(oldCallDot, newName ~ "(");
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                if (declNode.initializer.canFind(oldCallDot))
+                {
+                    debugWriteln("    DEBUG renameFunctionCalls: Renamed dot call in declaration: '",
+                        oldCallDot, "' -> '", newName, "(");
+                    declNode.initializer = declNode.initializer.replace(oldCallDot, newName ~ "(");
+                }
             }
 
             // Also check for dot notation with regex: Model.method( or Model . method(
@@ -908,7 +929,6 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
         }
-        // FIX DOUBLE-PREFIXING in Declaration
         declNode.initializer = fixDoublePrefix(declNode.initializer);
     }
     else if (node.nodeType == "Assignment")
@@ -918,10 +938,13 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         {
             assignNode.expression = replaceStandaloneCall(assignNode.expression, oldName, newName);
 
-            string oldCallDot = oldName.replace("_", ".") ~ "(";
-            if (assignNode.expression.canFind(oldCallDot))
+            if (oldName.canFind("_"))
             {
-                assignNode.expression = assignNode.expression.replace(oldCallDot, newName ~ "(");
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                if (assignNode.expression.canFind(oldCallDot))
+                {
+                    assignNode.expression = assignNode.expression.replace(oldCallDot, newName ~ "(");
+                }
             }
 
             import std.regex : regex, replaceAll;
@@ -937,8 +960,51 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
         }
-        // FIX DOUBLE-PREFIXING in Assignment
         assignNode.expression = fixDoublePrefix(assignNode.expression);
+    }
+    else if (node.nodeType == "If")
+    {
+        auto ifNode = cast(IfNode) node;
+
+        debugWriteln("    DEBUG renameFunctionCalls If: condition='", ifNode.condition, "'");
+        foreach (oldName, newName; nameMap)
+        {
+            auto newCond = replaceStandaloneCall(ifNode.condition, oldName, newName);
+            if (newCond != ifNode.condition)
+            {
+                debugWriteln("    DEBUG renameFunctionCalls: Renamed call in if condition: '", oldName,
+                    "' -> '", newName, "'");
+                ifNode.condition = newCond;
+            }
+
+            // For model methods with dot notation in conditions, reuse the
+            // underscore-based mapping. Guard on '_' to avoid substring
+            // issues for plain functions like 'strip' vs 'lstrip'.
+            if (oldName.canFind("_"))
+            {
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                if (ifNode.condition.canFind(oldCallDot))
+                {
+                    debugWriteln("    DEBUG renameFunctionCalls: Renamed dot call in if condition: '",
+                        oldCallDot, "' -> '", newName, "(");
+                    ifNode.condition = ifNode.condition.replace(oldCallDot, newName ~ "(");
+                }
+            }
+        }
+
+        // Also propagate renaming into elif and else branches, which are
+        // stored separately from the main children array.
+        foreach (elifBranch; ifNode.elifBranches)
+        {
+            renameFunctionCalls(elifBranch, nameMap);
+        }
+
+        foreach (elseChild; ifNode.elseBody)
+        {
+            renameFunctionCalls(elseChild, nameMap);
+        }
+
+        ifNode.condition = fixDoublePrefix(ifNode.condition);
     }
     else if (node.nodeType == "Assert")
     {
@@ -947,10 +1013,13 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         {
             assertNode.condition = replaceStandaloneCall(assertNode.condition, oldName, newName);
 
-            string oldCallDot = oldName.replace("_", ".") ~ "(";
-            if (assertNode.condition.canFind(oldCallDot))
+            if (oldName.canFind("_"))
             {
-                assertNode.condition = assertNode.condition.replace(oldCallDot, newName ~ "(");
+                string oldCallDot = oldName.replace("_", ".") ~ "(";
+                if (assertNode.condition.canFind(oldCallDot))
+                {
+                    assertNode.condition = assertNode.condition.replace(oldCallDot, newName ~ "(");
+                }
             }
 
             import std.regex : regex, replaceAll;

@@ -1,22 +1,7 @@
-use stdlib/string (string, concat, find_char_from, substr, trim_prefix, trim_suffix, strip);
+use stdlib/string (string, concat, find_char_from, substr, trim_prefix, trim_suffix, strip, lstrip);
 use stdlib/os (read_file, write_file, is_file, get_cmdline_args);
 use stdlib/regex (match);
 use stdlib/io (println_str, print_str, println_i32);
-
-def trim_leading_whitespace(s: string): string {
-    mut i: usize = 0;
-    loop {
-        if i >= s.len {
-            break;
-        }
-        if s.data[i] == ' ' or s.data[i] == '\t' {
-            i++;
-        } else {
-            break;
-        }
-    }
-    return substr(s, i, s.len - i);
-}
 
 def make_markdown_path(path: string): string {
     mut dot_index: i32 = -1;
@@ -83,7 +68,7 @@ def generate_docs_for_file(path: string): bool {
             pos = (usize)nl_index + 1;
         }
 
-        val trimmed: string = trim_leading_whitespace(line);
+        val trimmed: string = lstrip(line);
 
         mut is_doc: bool = false;
         if trimmed.len >= 3 {

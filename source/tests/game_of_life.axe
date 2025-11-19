@@ -1,3 +1,6 @@
+use stdlib/term(clear_screen);
+use stdlib/time(wait);
+
 /// Convert 2D coordinate (x, y) into 1D index
 def idx(x: i32, y: i32, width: i32): i32 {
     return y * width + x;
@@ -95,6 +98,8 @@ main {
     println "Conway's Game of Life\n";
 
     for mut gen = 0; gen < 20; gen++ {
+        clear_screen();
+        wait(100);
         print "Generation ";
         println gen;
         println "";
