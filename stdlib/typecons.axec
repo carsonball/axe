@@ -2,6 +2,7 @@ use stdlib/string(
     string
 );
 
+/// An enumeration for any type.
 enum AnyKind {
     INT_T;
     FLOAT_T;
@@ -10,6 +11,7 @@ enum AnyKind {
     PTR_T;
 }
 
+/// A type constructor for any type.
 model Any {
     kind: AnyKind;
 
@@ -21,6 +23,7 @@ model Any {
         ptr: ref void;
     }
 
+    /// Creates an Any from an i32.
     def from_i32(v: i32): Any {
         mut result: Any;
         result.kind = AnyKind.INT_T;
@@ -28,6 +31,7 @@ model Any {
         return result;
     }
 
+    /// Creates an Any from an f32.
     def from_f32(v: f32): Any {
         mut result: Any;
         result.kind = AnyKind.FLOAT_T;
@@ -35,6 +39,7 @@ model Any {
         return result;
     }
 
+    /// Creates an Any from a string.
     def from_string(v: string): Any {
         mut result: Any;
         result.kind = AnyKind.STRING_T;
@@ -42,6 +47,7 @@ model Any {
         return result;
     }
 
+    /// Creates an Any from a bool.
     def from_bool(v: bool): Any {
         mut result: Any;
         result.kind = AnyKind.BOOL_T;
@@ -49,6 +55,7 @@ model Any {
         return result;
     }
 
+    /// Creates an Any from a pointer.
     def from_ptr(v: ref void): Any {
         mut result: Any;
         result.kind = AnyKind.PTR_T;
