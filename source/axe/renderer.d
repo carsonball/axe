@@ -821,7 +821,19 @@ string generateC(ASTNode ast)
         string[] processedArgs;
 
         foreach (arg; callNode.args)
+        {
+            string trimmedArg = arg.strip();
+
+            if (trimmedArg.startsWith("ref "))
+            {
+                string inner = trimmedArg[4 .. $].strip();
+                string processedInner = processExpression(inner, "function_call");
+                processedArgs ~= "&" ~ processedInner;
+                continue;
+            }
+
             processedArgs ~= processExpression(arg, "function_call");
+        }
 
         if (callName in g_functionParamReordering)
         {
@@ -1984,6 +1996,14 @@ string processExpression(string expr, string context = "")
 
         string varName = expr[parenStart .. parenEnd].strip();
         expr = expr[0 .. startIdx] ~ "*" ~ varName ~ expr[parenEnd + 1 .. $];
+    }
+
+    {
+        import std.regex : regex, replaceAll;
+
+        expr = expr.replaceAll(
+            regex(r"\bref\s+([A-Za-z_][A-Za-z0-9_]*)"),
+            `&$1`);
     }
 
     // Handle array access
