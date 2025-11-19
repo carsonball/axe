@@ -1,6 +1,6 @@
 use stdlib/io (
     print_i32,
-    print_long
+    print_i64
 );
 
 /// Represents the current date and time
@@ -110,5 +110,5 @@ test {
     print "Done waiting at:\t";
     print_time(now(), true);
     println "Difference: ";
-    print_long(difference(start, now()));
+    print_i64(difference(start, now()));
 }

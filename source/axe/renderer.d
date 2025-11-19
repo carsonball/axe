@@ -422,10 +422,121 @@ string generateC(ASTNode ast)
                 cCode ~= generateC(child) ~ "\n";
         }
 
-        foreach (child; ast.children)
         {
-            if (child.nodeType == "Model")
-                cCode ~= generateC(child) ~ "\n";
+            import std.string : indexOf, startsWith, strip;
+
+            ModelNode[string] modelMap;
+            string[] modelNames;
+
+            foreach (child; ast.children)
+            {
+                if (child.nodeType == "Model")
+                {
+                    auto modelNode = cast(ModelNode) child;
+                    string cName = canonicalModelCName(modelNode.name);
+                    if (cName.length == 0)
+                        cName = modelNode.name;
+
+                    modelMap[cName] = modelNode;
+                    modelNames ~= cName;
+                }
+            }
+
+            string getBaseAxeType(string typeName)
+            {
+                string t = typeName.strip();
+                while (t.startsWith("mut "))
+                    t = t[4 .. $].strip();
+                while (t.startsWith("ref "))
+                    t = t[4 .. $].strip();
+                while (t.startsWith("&mut "))
+                    t = t[5 .. $].strip();
+                while (t.startsWith("& "))
+                    t = t[2 .. $].strip();
+
+                auto bracketPos = t.indexOf('[');
+                if (bracketPos >= 0)
+                    t = t[0 .. bracketPos].strip();
+                while (t.length > 0 && t[$ - 1] == '*')
+                    t = t[0 .. $ - 1].strip();
+
+                return t;
+            }
+
+            string[][string] deps;
+            foreach (cName, modelNode; modelMap)
+            {
+                foreach (field; modelNode.fields)
+                {
+                    string baseAxeType = getBaseAxeType(field.type);
+                    if (baseAxeType.length == 0)
+                        continue;
+
+                    string mapped = mapAxeTypeToC(baseAxeType);
+
+                    if (mapped in modelMap && mapped != cName)
+                    {
+                        auto ref depList = deps.require(cName, cast(string[])[]);
+
+                        bool exists = false;
+                        foreach (depName; depList)
+                        {
+                            if (depName == mapped)
+                            {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists)
+                            depList ~= mapped;
+                    }
+                }
+            }
+
+            enum VisitState { unvisited, visiting, visited }
+            VisitState[string] state;
+            string[] orderedModels;
+
+            void visit(string name)
+            {
+                VisitState currentState = VisitState.unvisited;
+                if (auto ps = name in state)
+                    currentState = *ps;
+
+                if (currentState == VisitState.visited)
+                    return;
+                if (currentState == VisitState.visiting)
+                {
+                    // Cycle detected; emit in current order to avoid infinite recursion
+                    return;
+                }
+
+                state[name] = VisitState.visiting;
+
+                string[] directDeps;
+                if (auto pd = name in deps)
+                    directDeps = *pd;
+
+                foreach (dep; directDeps)
+                {
+                    if (dep in modelMap)
+                        visit(dep);
+                }
+
+                state[name] = VisitState.visited;
+                orderedModels ~= name;
+            }
+
+            foreach (name; modelNames)
+            {
+                visit(name);
+            }
+
+            foreach (name; orderedModels)
+            {
+                auto modelNode = modelMap[name];
+                cCode ~= generateC(modelNode) ~ "\n";
+            }
         }
 
         foreach (child; ast.children)
@@ -588,7 +699,15 @@ string generateC(ASTNode ast)
 
             if (modelName in g_modelNames)
             {
-                callName = modelName ~ "_" ~ methodName;
+                // Use the canonical C model name so that calls match the
+                // generated C prototypes for model methods. For example,
+                // `error.print_self` in stdlib/errors.axec should become
+                // `stdlib_errors_error_print_self`, not `error_print_self`.
+                string modelCName = canonicalModelCName(modelName);
+                if (modelCName.length == 0)
+                    modelCName = modelName;
+
+                callName = modelCName ~ "_" ~ methodName;
             }
             else
             {
