@@ -1649,8 +1649,6 @@ string processExpression(string expr, string context = "")
     expr = expr.replace(" or ", " || ");
     expr = expr.replace(" xor ", " ^ ");
 
-    // Handle typecasts: translate Axe types to C types
-    // E.g., (i32), (usize), (i64) -> (int32_t), (uintptr_t), (int64_t)
     static immutable string[string] typeCastMap = [
         "i8": "int8_t",
         "u8": "uint8_t",
@@ -1671,15 +1669,12 @@ string processExpression(string expr, string context = "")
         "ptrdiff": "intptr_t"
     ];
 
-    // Replace typecasts like (i32) with (int32_t)
     foreach (axeType, cType; typeCastMap)
     {
-        // Match (type) with optional spaces inside
         string pattern = r"\(\s*" ~ axeType ~ r"\s*\)";
         expr = expr.replaceAll(regex(pattern), "(" ~ cType ~ ")");
     }
 
-    // Handle array literals: [type]{elem1, elem2, ...}
     if (expr.canFind("[") && expr.canFind("{"))
     {
         size_t bracketStart = expr.indexOf("[");
@@ -1690,8 +1685,6 @@ string processExpression(string expr, string context = "")
                 expr[bracketEnd + 1] == '{')
             {
                 string elementType = expr[bracketStart + 1 .. bracketEnd].strip();
-
-                // Check if this looks like a type (identifier, possibly with * for pointers)
                 bool isType = true;
                 foreach (c; elementType)
                 {
@@ -1711,8 +1704,7 @@ string processExpression(string expr, string context = "")
                     {
                         string arrayContent = expr[braceStart + 1 .. braceEnd];
 
-                        // Map Axe types to C types
-                        static immutable string[string] typeMap = [
+                        static immutable string[string] baseTypeMap = [
                             "i8": "int8_t",
                             "u8": "uint8_t",
                             "i16": "int16_t",
@@ -1730,12 +1722,11 @@ string processExpression(string expr, string context = "")
                             "byte": "uint8_t"
                         ];
 
-                        string cType = (elementType in typeMap) ?
-                            typeMap[elementType] : elementType;
+                        string cType = (elementType in baseTypeMap) ?
+                            baseTypeMap[elementType] : elementType;
                         string result = expr[0 .. bracketStart] ~ "(" ~ cType ~
                             "[]){" ~ arrayContent ~ "}";
 
-                        // Include any content after the array literal
                         if (braceEnd + 1 < expr.length)
                             result ~= expr[braceEnd + 1 .. $];
 
