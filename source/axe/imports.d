@@ -619,7 +619,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 string[string] localTypeMap = importedModels.dup;
 
                 // This is terrible. 
-                // We need to remove this when we have a better solution.
+                // TODO: We need to remove this when we have a better solution.
                 string[string] localNameMap = importedFunctions.dup;
                 if (currentFilePath.canFind("stdlib/string.axec"))
                 {
