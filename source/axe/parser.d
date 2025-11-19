@@ -3459,7 +3459,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                         string expr = "";
                         while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                         {
-                            expr ~= tokens[pos].value;
+                            if (tokens[pos].type == TokenType.STR)
+                                expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                            else if (tokens[pos].type == TokenType.CHAR)
+                                expr ~= "'" ~ tokens[pos].value ~ "'";
+                            else
+                                expr ~= tokens[pos].value;
                             pos++;
                         }
 
@@ -3504,6 +3509,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                             else if (tokens[pos].type == TokenType.STR)
                             {
                                 functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                                pos++;
+                            }
+                            else if (tokens[pos].type == TokenType.CHAR)
+                            {
+                                functionArgs ~= "'" ~ tokens[pos].value ~ "'";
                                 pos++;
                             }
                             else
@@ -3717,7 +3727,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                         while (pos < tokens.length && tokens[pos].type != TokenType
                                             .SEMICOLON)
                                         {
-                                            expr ~= tokens[pos].value;
+                                            if (tokens[pos].type == TokenType.STR)
+                                                expr ~= "\"" ~ tokens[pos].value ~ "\"";
+                                            else if (tokens[pos].type == TokenType.CHAR)
+                                                expr ~= "'" ~ tokens[pos].value ~ "'";
+                                            else
+                                                expr ~= tokens[pos].value;
                                             pos++;
                                         }
 
@@ -3837,6 +3852,12 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                             pos++;
                                             continue;
                                         }
+                                        else if (tokens[pos].type == TokenType.CHAR)
+                                        {
+                                            args ~= "'" ~ tokens[pos].value ~ "'";
+                                            pos++;
+                                            continue;
+                                        }
                                         args ~= tokens[pos].value;
                                         pos++;
                                     }
@@ -3887,6 +3908,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                                 {
                                     if (tokens[pos].type == TokenType.STR)
                                         loopInitializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                                    else if (tokens[pos].type == TokenType.CHAR)
+                                        loopInitializer ~= "'" ~ tokens[pos].value ~ "'";
                                     else
                                         loopInitializer ~= tokens[pos].value;
                                     pos++;
@@ -4044,6 +4067,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
                 {
                     if (tokens[pos].type == TokenType.STR)
                         initializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                    else if (tokens[pos].type == TokenType.CHAR)
+                        initializer ~= "'" ~ tokens[pos].value ~ "'";
                     else
                         initializer ~= tokens[pos].value;
                     if (tokens[pos].type != TokenType.WHITESPACE)
@@ -4799,6 +4824,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
                                 if (tokens[pos].type == TokenType.STR)
                                     fieldValue ~= "\"" ~ tokens[pos].value ~ "\"";
+                                else if (tokens[pos].type == TokenType.CHAR)
+                                    fieldValue ~= "'" ~ tokens[pos].value ~ "'";
                                 else if (tokens[pos].type != TokenType.WHITESPACE)
                                     fieldValue ~= tokens[pos].value;
                                 pos++;
@@ -4843,6 +4870,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         }
                         if (tokens[pos].type == TokenType.STR)
                             initializer ~= "\"" ~ tokens[pos].value ~ "\"";
+                        else if (tokens[pos].type == TokenType.CHAR)
+                            initializer ~= "'" ~ tokens[pos].value ~ "'";
                         else
                             initializer ~= tokens[pos].value;
                         pos++;
