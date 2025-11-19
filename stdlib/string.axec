@@ -27,42 +27,42 @@ model string {
         }
         return result;
     }
-
-    /// Convert some string to titlecase.
-    def to_title_case(s: string): string {
-        mut val result: string = string.create("");
-        for mut val i = 0; i < s.len; i++ {
-            if i == 0 or is_alpha(s.data[i - 1]) == 0 {
-                result.data[i] = to_upper_chr(s.data[i]);
-            } else {
-                result.data[i] = to_lower_chr(s.data[i]);
-            }
-        }
-        return result;
-    }
-
-    /// Converts string to uppercase.
-    def to_upper(s: string): string {
-        mut val result: string = string.create("");
-        for mut val i = 0; i < s.len; i++ {
-            result.data[i] = to_upper_chr(s.data[i]);
-        }
-        return result;
-    }
-
-    /// Converts string to lowercase.
-    def to_lower(s: string): string {
-        mut val result: string = string.create("");
-        for mut val i = 0; i < s.len; i++ {
-            result.data[i] = to_lower_chr(s.data[i]);
-        }
-        return result;
-    }
 }
 
 /// Returns the length of a string.
 def str_len(s: string): usize {
     return s.len;
+}
+
+/// Convert some string to titlecase.
+def to_title_case(s: string): string {
+    mut val result: string = string.create("");
+    for mut val i = 0; i < s.len; i++ {
+        if i == 0 or is_alpha(s.data[i - 1]) == 0 {
+            result.data[i] = to_upper_chr(s.data[i]);
+        } else {
+            result.data[i] = to_lower_chr(s.data[i]);
+        }
+    }
+    return result;
+}
+
+/// Converts string to uppercase.
+def to_upper(s: string): string {
+    mut val result: string = string.create("");
+    for mut val i = 0; i < s.len; i++ {
+        result.data[i] = to_upper_chr(s.data[i]);
+    }
+    return result;
+}
+
+/// Converts string to lowercase.
+def to_lower(s: string): string {
+    mut val result: string = string.create("");
+    for mut val i = 0; i < s.len; i++ {
+        result.data[i] = to_lower_chr(s.data[i]);
+    }
+    return result;
 }
 
 /// Copies source string to destination. Modifies dest in place.
@@ -325,4 +325,8 @@ test {
     
     long_to_str(-9999, buffer);
     assert(str_ncmp(buffer, "-9999", 5) == 0, "long_to_str(-9999) should produce -9999");
+
+    val lower_case_string: string = string.create("hello, world");
+    val upper_case_string: string = to_upper(lower_case_string);
+    assert(compare(upper_case_string, string.create("HELLO, WORLD")) == 0, "to_upper should convert to uppercase");
 }

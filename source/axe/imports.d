@@ -562,15 +562,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         renameTypeReferences(methodFunc, localTypeMap);
                     }
                 }
-
-                // foreach (ref field; modelNode.fields) // Removed
-                // {
-                //     if (field.type in modelTypeMap)
-                //         field.type = modelTypeMap[field.type];
-                // }
-
-                // renameFunctionCalls(child, importedFunctions); // Removed
-                // renameTypeReferences(child, modelTypeMap); // Removed
             }
             else if (child.nodeType == "Model")
             {
@@ -626,14 +617,17 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             else if (child.nodeType == "Test" && currentModulePrefix.length > 0)
             {
                 string[string] localTypeMap = importedModels.dup;
-                // foreach (modelName, prefixedName; localModels) // Removed to keep base names in test
-                // {
-                //     localTypeMap[modelName] = prefixedName;
-                // }
 
-                // Don't apply localFunctions renaming - they're in the same compilation unit
-                // and should not be prefixed when called from test
-                renameFunctionCalls(child, importedFunctions);
+                // For stdlib tests, we still want model methods (like string.create)
+                // to be rewritten to their prefixed C names so that the generated
+                // tests call the correct C symbols (e.g. stdlib_string_string_create).
+                string[string] localNameMap = importedFunctions.dup;
+                foreach (modelMethod, prefixedName; localFunctions)
+                {
+                    localNameMap[modelMethod] = prefixedName;
+                }
+
+                renameFunctionCalls(child, localNameMap);
                 renameTypeReferences(child, localTypeMap);
             }
             else
