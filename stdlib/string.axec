@@ -416,6 +416,47 @@ def substr(s: string, start: usize, length: usize): string {
     return result;
 }
 
+/// Removes prefix from string.
+def trim_prefix(s: string, prefix: string): string {
+    if prefix.len == 0 or prefix.len > s.len {
+        return s;
+    }
+
+    mut i: usize = 0;
+    loop {
+        if i >= prefix.len {
+            break;
+        }
+        if s.data[i] != prefix.data[i] {
+            return s;
+        }
+        i = i + 1;
+    }
+
+    return substr(s, prefix.len, s.len - prefix.len);
+}
+
+/// Removes suffix from string.
+def trim_suffix(s: string, suffix: string): string {
+    if suffix.len == 0 or suffix.len > s.len {
+        return s;
+    }
+
+    mut i: usize = 0;
+    mut start: usize = s.len - suffix.len;
+    loop {
+        if i >= suffix.len {
+            break;
+        }
+        if s.data[start + i] != suffix.data[i] {
+            return s;
+        }
+        i = i + 1;
+    }
+
+    return substr(s, 0, s.len - suffix.len);
+}
+
 test {    
     assert(is_alpha(65) != 0, "65 (A) should be alphabetic");
     assert(is_digit(48) != 0, "48 (0) should be a digit");
@@ -456,5 +497,13 @@ test {
     val str2: string = string.create(" world");
     val str3: string = concat(str1, str2);
     assert(compare(str3, string.create("hello world")) == 0, "concat should concatenate strings");
+
+    val str4: string = string.create("hello world");
+    val str5: string = trim_prefix(str4, string.create("hello "));
+    assert(compare(str5, string.create("world")) == 0, "trim_prefix should remove prefix");
+
+    val str6: string = string.create("hello world");
+    val str7: string = trim_suffix(str6, string.create(" world"));
+    assert(compare(str7, string.create("hello")) == 0, "trim_suffix should remove suffix");
 
 }

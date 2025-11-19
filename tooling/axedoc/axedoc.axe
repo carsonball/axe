@@ -2,7 +2,9 @@ use stdlib/string (
     string,
     concat,
     find_char_from,
-    substr
+    substr,
+    trim_prefix,
+    trim_suffix
 );
 
 use stdlib/os (
@@ -160,6 +162,9 @@ def generate_docs_for_file(path: string): bool {
             } elif is_def_sig and trimmed.len > 4 {
                 signature_text = substr(trimmed, 4, trimmed.len - 4);
             }
+
+            signature_text = trim_suffix(signature_text, string.create(" {"));
+            signature_text = trim_suffix(signature_text, string.create("{"));
 
             mut heading: string = heading_prefix;
             heading = concat(heading, signature_text);
