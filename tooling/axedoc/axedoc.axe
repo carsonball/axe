@@ -22,7 +22,7 @@ use stdlib/io (
 );
 
 def trim_leading_whitespace(s: string): string {
-    mut val i: usize = 0;
+    mut i: usize = 0;
     loop {
         if i >= s.len {
             break;
@@ -37,8 +37,8 @@ def trim_leading_whitespace(s: string): string {
 }
 
 def make_markdown_path(path: string): string {
-    mut val dot_index: i32 = -1;
-    mut val i: usize = 0;
+    mut dot_index: i32 = -1;
+    mut i: usize = 0;
     loop {
         if i >= path.len {
             break;
@@ -49,7 +49,7 @@ def make_markdown_path(path: string): string {
         i = i + 1;
     }
 
-    mut val base: string;
+    mut base: string;
     if dot_index == -1 {
         base = path;
     } else {
@@ -60,7 +60,7 @@ def make_markdown_path(path: string): string {
 }
 
 def append_line(target: string, line: string): string {
-    mut val result: string = target;
+    mut result: string = target;
     result = concat(result, line);
     result = concat(result, string.create("\n"));
     return result;
@@ -78,20 +78,20 @@ def generate_docs_for_file(path: string): bool {
     val model_pattern: string = string.create("^\\s*model ");
     val doc_pattern: string = string.create("^\\s*///");
 
-    mut val markdown: string = string.create("");
+    mut markdown: string = string.create("");
 
     markdown = append_line(markdown, concat(string.create("# "), path));
 
-    mut val current_doc: string = string.create("");
-    mut val pos: usize = 0;
+    mut current_doc: string = string.create("");
+    mut pos: usize = 0;
 
     loop {
         if pos >= source.len {
             break;
         }
 
-        mut val nl_index: i32 = find_char_from(source, '\n', pos);
-        mut val line: string;
+        mut nl_index: i32 = find_char_from(source, '\n', pos);
+        mut line: string;
 
         if nl_index == -1 {
             line = substr(source, pos, source.len - pos);
@@ -103,7 +103,7 @@ def generate_docs_for_file(path: string): bool {
 
         val trimmed: string = trim_leading_whitespace(line);
 
-        mut val is_doc: bool = false;
+        mut is_doc: bool = false;
         if trimmed.len >= 3 {
             if trimmed.data[0] == '/' and trimmed.data[1] == '/' and trimmed.data[2] == '/' {
                 is_doc = true;
@@ -111,7 +111,7 @@ def generate_docs_for_file(path: string): bool {
         }
 
         if is_doc {
-            mut val content_start: usize = 3;
+            mut content_start: usize = 3;
             loop {
                 if content_start >= trimmed.len {
                     break;
@@ -134,8 +134,8 @@ def generate_docs_for_file(path: string): bool {
             continue;
         }
 
-        mut val is_def_sig: bool = false;
-        mut val is_model_sig: bool = false;
+        mut is_def_sig: bool = false;
+        mut is_model_sig: bool = false;
 
         if match(def_pattern, trimmed) {
             is_def_sig = true;
@@ -146,14 +146,14 @@ def generate_docs_for_file(path: string): bool {
         if is_def_sig or is_model_sig {
             markdown = append_line(markdown, string.create(""));
 
-            mut val heading_prefix: string;
+            mut heading_prefix: string;
             if is_model_sig {
                 heading_prefix = string.create("## model ");
             } else {
                 heading_prefix = string.create("## def ");
             }
 
-            mut val signature_text: string = trimmed;
+            mut signature_text: string = trimmed;
 
             if is_model_sig and trimmed.len > 6 {
                 signature_text = substr(trimmed, 6, trimmed.len - 6);
@@ -161,7 +161,7 @@ def generate_docs_for_file(path: string): bool {
                 signature_text = substr(trimmed, 4, trimmed.len - 4);
             }
 
-            mut val heading: string = heading_prefix;
+            mut heading: string = heading_prefix;
             heading = concat(heading, signature_text);
             markdown = append_line(markdown, heading);
 

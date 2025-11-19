@@ -1336,9 +1336,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                             if (loopIsMutable)
                             {
-                                enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
-                                    "Expected 'val' after 'mut'");
-                                pos++;
+                                if (pos < tokens.length && tokens[pos].type == TokenType.VAL)
+                                {
+                                    pos++;
+                                }
                             }
 
                             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
@@ -2183,13 +2184,25 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
 
                 case TokenType.MUT:
                     pos++;
-                    enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
-                        "Expected 'val' after 'mut'");
+                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                        pos++;
                     goto case TokenType.VAL;
 
                 case TokenType.VAL:
-                    bool isMutable = tokens[pos - 1].type == TokenType.MUT;
-                    pos++;
+                    bool hasValKeyword = (pos < tokens.length && tokens[pos].type == TokenType.VAL);
+                    bool isMutable = false;
+                    if (hasValKeyword)
+                    {
+                        size_t checkPos = pos - 1;
+                        while (checkPos > 0 && (tokens[checkPos].type == TokenType.WHITESPACE || tokens[checkPos].type == TokenType.NEWLINE))
+                            checkPos--;
+                        isMutable = tokens[checkPos].type == TokenType.MUT;
+                        pos++;
+                    }
+                    else
+                    {
+                        isMutable = true;
+                    }
 
                     if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
                     {
@@ -4024,14 +4037,20 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true)
             pos++; // Skip 'mut'
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-
-            enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
-                "Expected 'val' after 'mut'");
             goto case TokenType.VAL;
 
         case TokenType.VAL:
-            bool isMutable = (pos > 0 && tokens[pos - 1].type == TokenType.MUT);
-            pos++; // Skip 'val'
+            bool hasValKeyword = (pos < tokens.length && tokens[pos].type == TokenType.VAL);
+            bool isMutable = false;
+            if (hasValKeyword)
+            {
+                isMutable = (pos > 0 && tokens[pos - 1].type == TokenType.MUT);
+                pos++; // Skip 'val'
+            }
+            else
+            {
+                isMutable = true;
+            }
 
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
@@ -4713,14 +4732,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 .NEWLINE))
             pos++;
         debugWriteln("[MUT case] After whitespace skip, pos=", pos, " token=", tokens[pos].type);
-        enforce(pos < tokens.length && tokens[pos].type == TokenType.VAL,
-            "Expected 'val' after 'mut'");
         debugWriteln("[MUT case] About to goto VAL case");
         goto case TokenType.VAL;
 
     case TokenType.VAL:
         {
             debugWriteln("[VAL case] Starting at pos=", pos);
+            bool hasValKeyword = (pos < tokens.length && tokens[pos].type == TokenType.VAL);
             // Check if previous non-whitespace token was MUT
             size_t checkPos = pos - 1;
             while (checkPos > 0 && (tokens[checkPos].type == TokenType.WHITESPACE || tokens[checkPos].type == TokenType
@@ -4728,15 +4746,17 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 checkPos--;
             bool isMutable = tokens[checkPos].type == TokenType.MUT;
             debugWriteln("[VAL case] isMutable=", isMutable);
-
-            pos++;
-            debugWriteln("[VAL case] After pos++, pos=", pos);
+            if (hasValKeyword)
+            {
+                pos++;
+                debugWriteln("[VAL case] After pos++, pos=", pos);
+            }
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
             debugWriteln("[VAL case] After whitespace skip, pos=", pos, " token=", tokens[pos]
                     .type);
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
-                "Expected identifier after 'val'");
+                hasValKeyword ? "Expected identifier after 'val'" : "Expected identifier after 'mut'");
             string varName = tokens[pos].value;
             debugWriteln("[VAL case] varName=", varName);
             pos++;
