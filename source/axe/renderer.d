@@ -465,7 +465,6 @@ string generateC(ASTNode ast)
         cCode ~= "#ifndef _WIN32\n";
         cCode ~= "#include <sys/stat.h>\n";
         cCode ~= "#include <sys/types.h>\n";
-        cCode ~= "#include <dirent.h>\n";
         cCode ~= "#include <sys/time.h>\n";
         cCode ~= "#else\n";
         cCode ~= "#include <sys/stat.h>\n";
@@ -1276,8 +1275,6 @@ string generateC(ASTNode ast)
 
         foreach (child; ast.children)
         {
-            if (child.nodeType == "ExternalImport")
-                continue;
             cCode ~= generateC(child);
         }
 

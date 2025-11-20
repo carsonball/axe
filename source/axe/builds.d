@@ -40,22 +40,27 @@ bool hasParallelBlocks(ASTNode node)
     return false;
 }
 
-void collectExternalHeaders(ASTNode node, ref string[] headers)
+void collectExternalHeaders(ASTNode node, ref string[] headers, string currentPlatform = null)
 {
     import std.algorithm : canFind;
 
     if (node.nodeType == "ExternalImport")
     {
         auto ext = cast(ExternalImportNode) node;
-        if (ext !is null && !headers.canFind(ext.headerFile))
+        if (ext !is null && currentPlatform is null && !headers.canFind(ext.headerFile))
         {
             headers ~= ext.headerFile;
         }
     }
 
+    if (node.nodeType == "Platform")
+    {
+        return;
+    }
+
     foreach (child; node.children)
     {
-        collectExternalHeaders(child, headers);
+        collectExternalHeaders(child, headers, currentPlatform);
     }
 }
 
