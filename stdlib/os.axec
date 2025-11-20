@@ -419,8 +419,8 @@ test {
     assert(args.len >= 1, "there should be at least one commandline argument");
 
     print "(And that commandline argument is: ";
-    for mut val i = 0; i < args.len; i = i + 1 {
-        val arg: string = StringList.get(args, i);
+    
+    for arg in args {
         print_str(arg);
     }
 
