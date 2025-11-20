@@ -1,3 +1,11 @@
+/** 
+ * Axe Programming Language Compiler.
+ * Author: Navid M (C) 2025
+ * License: GPL-3.0
+ * 
+ * Handles the global state for logging and debug output.
+ */
+
 module axe.gstate;
 
 static class Logger
