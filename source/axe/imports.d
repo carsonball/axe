@@ -870,7 +870,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 string newExpr = replaceAll(returnNode.expression, dotPattern, newName ~ "(");
                 if (newExpr != returnNode.expression)
                 {
-                    debugWriteln("      DEBUG Return regex replaced pattern: '", returnNode.expression, "' -> '", newExpr, "'");
+                    debugWriteln("      DEBUG Return regex replaced pattern: '", returnNode.expression, "' -> '",
+                        newExpr, "'");
                     returnNode.expression = newExpr;
                 }
             }
