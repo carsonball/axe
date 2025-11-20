@@ -1417,7 +1417,7 @@ string generateC(ASTNode ast)
 
         if (!RendererConfiguration.releaseBuild)
         {
-            writeln("Not a release build, adding stack trace handlers.");
+            writeln("Test block: Not a release build, adding stack trace handlers.");
             cCode ~= generateStackTraceHandlers();
         }
         cCode ~= "int main(int argc, char** argv) {\n";
