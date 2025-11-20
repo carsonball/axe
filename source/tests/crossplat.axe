@@ -1,12 +1,12 @@
 
 def cross_platform_func() {
     platform windows {
-        parallel for mut val i = 0; i < 10; i++ {
+        parallel for mut i = 0; i < 10; i++ {
             println i;
         }
     }
     platform posix {
-        parallel for mut val i = 0; i < 10; i++ {
+        parallel for mut i = 0; i < 10; i++ {
             println i;
         }
     }
