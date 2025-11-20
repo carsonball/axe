@@ -13,10 +13,9 @@ model Person {
 }
 
 main {
-    parallel for mut i = 0; i < 10; i++ {
-        mut person = new Person(name: "Alice", age: 30);
-        println person.name;
-        do_some_other_stuff();
+    parallel for mut i = 0 to 10 {
+        mut person = new Person(name: "Alice", age: i);
+        println person.age;
     }
 }
 ```
