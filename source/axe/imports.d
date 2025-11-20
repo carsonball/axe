@@ -70,7 +70,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         return s.length > 0 && s[0] >= 'a' && s[0] <= 'z';
     };
 
-    if (currentFilePath.length > 0 && !currentFilePath.canFind("stdlib"))
+    if (currentFilePath.length > 0 && !currentFilePath.canFind("std"))
     {
         foreach (child; programNode.children)
         {
@@ -97,10 +97,10 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         import std.path : baseName, stripExtension;
         import std.algorithm : canFind;
 
-        if (currentFilePath.canFind("stdlib"))
+        if (currentFilePath.canFind("std"))
         {
             auto fileName = baseName(currentFilePath).stripExtension();
-            currentModulePrefix = "stdlib_" ~ fileName;
+            currentModulePrefix = "std_" ~ fileName;
         }
     }
 
@@ -145,17 +145,17 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             auto useNode = cast(UseNode) child;
             string modulePath;
 
-            if (useNode.moduleName.startsWith("stdlib/"))
+            if (useNode.moduleName.startsWith("std/"))
             {
-                string moduleName = useNode.moduleName[7 .. $];
+                string moduleName = useNode.moduleName[4 .. $];
 
-                if (baseDir.endsWith("stdlib") || baseDir.endsWith("stdlib/"))
+                if (baseDir.endsWith("std") || baseDir.endsWith("std/"))
                 {
                     modulePath = buildPath(baseDir, moduleName ~ ".axec");
                 }
                 else
                 {
-                    modulePath = buildPath(baseDir, "stdlib", moduleName ~ ".axec");
+                    modulePath = buildPath(baseDir, "std", moduleName ~ ".axec");
                 }
 
                 if (!exists(modulePath))
@@ -166,14 +166,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         throw new Exception("Could not determine user home directory");
                     }
 
-                    modulePath = buildPath(homeDir, ".axe", "stdlib", moduleName ~ ".axec");
+                    modulePath = buildPath(homeDir, ".axe", "std", moduleName ~ ".axec");
 
                     if (!exists(modulePath))
                     {
                         throw new Exception(
-                            "Stdlib module not found: " ~ modulePath ~
-                                "\nMake sure the module is installed in ~/.axe/stdlib/ " ~
-                                "or in a local stdlib/ directory");
+                            "Standard library module not found: " ~ modulePath ~
+                                "\nMake sure the module is installed in ~/.axe/std/ " ~
+                                "or in a local std/ directory");
                     }
                 }
             }
@@ -196,7 +196,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
             auto importProgram = cast(ProgramNode) importAst;
 
-            if (!modulePath.canFind("stdlib") && importProgram !is null)
+            if (!modulePath.canFind("std") && importProgram !is null)
             {
                 foreach (importChild; importProgram.children)
                 {
@@ -270,9 +270,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 if (importChild.nodeType == "Use")
                 {
                     // Propagate use-statements from imported modules so that later
-                    // compilation stages (like C codegen) can still see stdlib
-                    // imports such as `use stdlib/io(print_str)` and generate
-                    // correct function prefixes (e.g. stdlib_io_print_str).
+                    // compilation stages (like C codegen) can still see std
+                    // imports such as `use std/io(print_str)` and generate
+                    // correct function prefixes (e.g. std_io_print_str).
                     newChildren ~= importChild;
                 }
                 else if (importChild.nodeType == "Function")
@@ -280,7 +280,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto funcNode = cast(FunctionNode) importChild;
                     if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                     {
-                        string prefixedName = funcNode.name.startsWith("stdlib_") ? funcNode.name : (sanitizedModuleName ~ "_" ~ funcNode.name);
+                        string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name : (sanitizedModuleName ~ "_" ~ funcNode.name);
                         moduleFunctionMap[funcNode.name] = prefixedName;
                     }
                 }
@@ -289,7 +289,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     auto modelNode = cast(ModelNode) importChild;
                     if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
-                        string prefixedName = modelNode.name.startsWith("stdlib_") ? modelNode.name : (sanitizedModuleName ~ "_" ~ modelNode.name);
+                        string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name : (sanitizedModuleName ~ "_" ~ modelNode.name);
                         moduleModelMap[modelNode.name] = prefixedName;
 
                         foreach (method; modelNode.methods)
@@ -297,7 +297,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                             auto methodFunc = cast(FunctionNode) method;
                             if (methodFunc !is null)
                             {
-                                string prefixedMethodName = methodFunc.name.startsWith("stdlib_") ? methodFunc.name : (sanitizedModuleName ~ "_" ~ methodFunc.name);
+                                string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc.name : (sanitizedModuleName ~ "_" ~ methodFunc.name);
                                 moduleFunctionMap[methodFunc.name] = prefixedMethodName;
                             }
                         }
@@ -632,7 +632,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 string[string] localTypeMap = importedModels.dup;
                 string[string] localNameMap = importedFunctions.dup;
                 string normalizedFilePath = currentFilePath.replace("\\", "/");
-                if (normalizedFilePath.canFind("stdlib/") && currentModulePrefix.length > 0)
+                if (normalizedFilePath.canFind("std/") && currentModulePrefix.length > 0)
                 {
                     foreach (modelMethod, prefixedName; localFunctions)
                     {

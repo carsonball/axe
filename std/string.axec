@@ -1,8 +1,8 @@
-use stdlib/lists (
+use std/lists (
     StringList
 );
 
-use stdlib/typecons (
+use std/typecons (
     Any,
     AnyKind
 );
@@ -431,7 +431,7 @@ def substr(s: string, start: usize, length: usize): string {
         }
         memcpy(buf, s.data + start, copy_len);
         buf[copy_len] = '\0';
-        result = stdlib_string_string_create(buf);
+        result = std_string_string_create(buf);
         free(buf);
     }
     return result;

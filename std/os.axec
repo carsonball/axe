@@ -1,16 +1,16 @@
-use stdlib/string (
+use std/string (
     string
 );
-use stdlib/io (
+use std/io (
     print_str
 );
-use stdlib/errors (
+use std/errors (
     error, panic
 );
-use stdlib/lists (
+use std/lists (
     StringList
 );
-use stdlib/arena (
+use std/arena (
     Arena
 );
 
@@ -53,7 +53,7 @@ def read_file(path: string): string {
     raw {
         FILE *f = fopen(path.data, "rb");
         if (!f) {
-            stdlib_errors_panic(stdlib_errors_error_create("Failed to open file"));
+            std_errors_panic(std_errors_error_create("Failed to open file"));
         }
 
         fseek(f, 0, SEEK_END);
@@ -65,7 +65,7 @@ def read_file(path: string): string {
         buf[size] = 0;
         fclose(f);
 
-        out = stdlib_string_string_create(buf);
+        out = std_string_string_create(buf);
     }
 
     return out;
@@ -224,7 +224,7 @@ def rm_dir_recursive(path: string): bool {
                     struct stat statbuf;
                     if (!stat(buf, &statbuf)) {
                         if (S_ISDIR(statbuf.st_mode)) {
-                            if (!rm_dir_recursive(stdlib_string_string_create(buf))) {
+                            if (!rm_dir_recursive(std_string_string_create(buf))) {
                                 r = -1;
                             }
                         } else {
@@ -272,7 +272,7 @@ def rm_dir_recursive(path: string): bool {
                     snprintf(sub_path, MAX_PATH, "%s\\%s", path.data, fileinfo.name);
                     
                     if (fileinfo.attrib & _A_SUBDIR) {
-                        if (!rm_dir_recursive(stdlib_string_string_create(sub_path))) {
+                        if (!rm_dir_recursive(std_string_string_create(sub_path))) {
                              r = -1;
                         }
                     } else {
@@ -326,11 +326,11 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
                 struct stat statbuf;
                 if (!stat(buf, &statbuf)) {
                     if (S_ISDIR(statbuf.st_mode)) {
-                        struct stdlib_string_string sub_path = stdlib_string_string_create(buf);
+                        struct std_string_string sub_path = std_string_string_create(buf);
                         collect_files_recursive(sub_path, result, arena);
                     } else if (S_ISREG(statbuf.st_mode)) {
-                        struct stdlib_string_string file_path = stdlib_string_string_create(buf);
-                        stdlib_lists_StringList_push((struct stdlib_lists_StringList*)result, arena, file_path);
+                        struct std_string_string file_path = std_string_string_create(buf);
+                        std_lists_StringList_push((struct std_lists_StringList*)result, arena, file_path);
                     }
                 }
 
@@ -363,11 +363,11 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
                 snprintf(sub_path, MAX_PATH, "%s\\%s", path.data, fileinfo.name);
 
                 if (fileinfo.attrib & _A_SUBDIR) {
-                    struct stdlib_string_string sub_path_str = stdlib_string_string_create(sub_path);
+                    struct std_string_string sub_path_str = std_string_string_create(sub_path);
                     collect_files_recursive(sub_path_str, result, arena);
                 } else {
-                    struct stdlib_string_string file_path = stdlib_string_string_create(sub_path);
-                    stdlib_lists_StringList_push((struct stdlib_lists_StringList*)result, arena, file_path);
+                    struct std_string_string file_path = std_string_string_create(sub_path);
+                    std_lists_StringList_push((struct std_lists_StringList*)result, arena, file_path);
                 }
             } while (_findnext(handle, &fileinfo) == 0);
 
@@ -396,8 +396,8 @@ def get_cmdline_args(arena: ref Arena): ref StringList {
             argc++;
         }
         for (int i = 0; i < argc; i++) {
-            struct stdlib_string_string str = stdlib_string_string_create(argv[i]);
-            stdlib_lists_StringList_push((struct stdlib_lists_StringList*)result, arena, str);
+            struct std_string_string str = std_string_string_create(argv[i]);
+            std_lists_StringList_push((struct std_lists_StringList*)result, arena, str);
         }
     }
     

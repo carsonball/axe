@@ -232,7 +232,7 @@ bool handleMachineArgs(string[] args)
                 }
             }
 
-            if (hasImportedModule("stdlib/net") || hasImportedModule("net.axec"))
+            if (hasImportedModule("std/net") || hasImportedModule("net.axec"))
             {
                 import std.file : thisExePath;
 

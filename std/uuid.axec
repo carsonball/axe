@@ -1,8 +1,8 @@
-use stdlib/string (
+use std/string (
     string
 );
 
-use stdlib/io(println_str);
+use std/io(println_str);
 
 /// Generates a random UUID v4 string.
 /// Returns a string in the format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx

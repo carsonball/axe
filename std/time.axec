@@ -1,4 +1,4 @@
-use stdlib/io (
+use std/io (
     print_i32,
     print_i64
 );
@@ -38,7 +38,7 @@ def now(): DateTime {
             long long epoch_ms = (long long)tv.tv_sec * 1000 + (long long)tv.tv_usec / 1000;
             time_t t = tv.tv_sec;
             struct tm *tm = localtime(&t);
-            stdlib_time_DateTime dt;
+            std_time_DateTime dt;
             dt.year = tm->tm_year + 1900;
             dt.month = tm->tm_mon + 1;
             dt.day = tm->tm_mday;
@@ -63,7 +63,7 @@ def now(): DateTime {
             long long unix_time_100ns = win_time_100ns - 116444736000000000LL;
             long long epoch_ms = unix_time_100ns / 10000;
 
-            stdlib_time_DateTime dt;
+            std_time_DateTime dt;
             dt.year = st.wYear;
             dt.month = st.wMonth;
             dt.day = st.wDay;

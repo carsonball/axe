@@ -416,9 +416,9 @@ string generateC(ASTNode ast)
             {
                 auto modelNode = cast(ModelNode) child;
                 // Store the model name mapping
-                // Extract base name from prefixed name (e.g., "stdlib_arena_Arena" -> "Arena")
+                // Extract base name from prefixed name (e.g., "std_arena_Arena" -> "Arena")
                 string baseName = modelNode.name;
-                if (modelNode.name.canFind("_") && modelNode.name.startsWith("stdlib_"))
+                if (modelNode.name.canFind("_") && modelNode.name.startsWith("std_"))
                 {
                     auto lastUnderscore = modelNode.name.lastIndexOf('_');
                     if (lastUnderscore >= 0)
@@ -430,10 +430,10 @@ string generateC(ASTNode ast)
                 else
                 {
                     // Not prefixed, so base name is the same as the model name
-                    // For stdlib files, prefix with module name
+                    // For std files, prefix with module name
                     // TODO: Remove this.
                     if (modelNode.name == "error")
-                        g_modelNames[modelNode.name] = "stdlib_errors_" ~ modelNode.name;
+                        g_modelNames[modelNode.name] = "std_errors_" ~ modelNode.name;
                     else
                         g_modelNames[modelNode.name] = modelNode.name;
                 }
@@ -480,7 +480,7 @@ string generateC(ASTNode ast)
             cCode ~= "#include <" ~ header ~ ">\n";
         }
 
-        if (hasImportedModule("stdlib/net") || hasImportedModule("net.axec"))
+        if (hasImportedModule("std/net") || hasImportedModule("net.axec"))
         {
             cCode ~= "#include <curl/curl.h>\n";
         }
@@ -637,7 +637,7 @@ string generateC(ASTNode ast)
             auto dtCName = canonicalModelCName("DateTime");
             if (dtCName == "DateTime")
             {
-                cCode ~= "typedef struct DateTime stdlib_time_DateTime;\n";
+                cCode ~= "typedef struct DateTime std_time_DateTime;\n";
             }
         }
 
@@ -818,8 +818,8 @@ string generateC(ASTNode ast)
             {
                 // Use the canonical C model name so that calls match the
                 // generated C prototypes for model methods. For example,
-                // `error.print_self` in stdlib/errors.axec should become
-                // `stdlib_errors_error_print_self`, not `error_print_self`.
+                // `error.print_self` in std/errors.axec should become
+                // `std_errors_error_print_self`, not `error_print_self`.
                 string modelCName = canonicalModelCName(modelName);
                 if (modelCName.length == 0)
                     modelCName = modelName;

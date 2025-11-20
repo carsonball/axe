@@ -1,18 +1,18 @@
-use stdlib/arena (
+use std/arena (
     Arena
 );
 
-use stdlib/io (
+use std/io (
     print_i32,
     print_str,
     print_char
 );
 
-use stdlib/string (
+use std/string (
     string
 );
 
-use stdlib/errors (
+use std/errors (
     panic,
     error
 );
@@ -32,8 +32,8 @@ macro make_list(
         def create(arena: ref Arena, capacity: i32): ref name {
             mut lst: ref name;
             raw {
-                lst = stdlib_arena_Arena_alloc(arena, sizeof(*lst));
-                lst->data = ({{cep}}*)stdlib_arena_Arena_alloc_array(arena, sizeof({{cep}}), capacity);
+                lst = std_arena_Arena_alloc(arena, sizeof(*lst));
+                lst->data = ({{cep}}*)std_arena_Arena_alloc_array(arena, sizeof({{cep}}), capacity);
             }
             lst.len = 0;
             lst.cap = capacity;
@@ -45,7 +45,7 @@ macro make_list(
                 val new_cap: i32 = lst.cap * 2;
                 mut new_data: ref type;
                 raw {
-                    new_data = ({{cep}}*)stdlib_arena_Arena_alloc_array(arena, sizeof({{cep}}), new_cap);
+                    new_data = ({{cep}}*)std_arena_Arena_alloc_array(arena, sizeof({{cep}}), new_cap);
                     for (int i = 0; i < lst->len; i++) {
                         memcpy(&new_data[i], &lst->data[i], sizeof({{cep}}));
                     }
@@ -80,7 +80,7 @@ make_list(FloatList, f32, 0.0, float, print_i32);
 make_list(CharList, char, "", char, print_char);
 make_list(LongList, i64, 0, long, print_i32);
 make_list(DoubleList, f64, 0.0, double, print_i32);
-make_list(StringList, stdlib_string_string, string.create(""), stdlib_string_string, print_str);
+make_list(StringList, std_string_string, string.create(""), std_string_string, print_str);
 
 test {
     mut arena: Arena = Arena.create(65536);

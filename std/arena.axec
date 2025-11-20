@@ -1,4 +1,4 @@
-use stdlib/errors (
+use std/errors (
     error,
     panic
 );
@@ -38,7 +38,7 @@ model Arena {
 
         raw {
             if (arena->offset + size > arena->capacity) {
-                stdlib_errors_panic(stdlib_errors_error_create("Arena out of memory!\n"));
+                std_errors_panic(std_errors_error_create("Arena out of memory!\n"));
                 return nil;
             }
             result = (void *)(arena->buffer + arena->offset);
