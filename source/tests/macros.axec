@@ -1,6 +1,6 @@
 macro copy_of(thing: untyped, dest: untyped, type: untyped) {
     raw {
-        memcpy(&dest, &thing, sizeof(type));
+        memcpy(&{{dest}}, &{{thing}}, sizeof({{type}}));
     }
 }
 
@@ -9,7 +9,7 @@ macro copy_of(thing: untyped, dest: untyped, type: untyped) {
 // But wrap memcpy in some "safeness" code.
 
 model Cell {
-    temperature: int;
+    temperature: i32;
 }
 
 main {
