@@ -2221,11 +2221,9 @@ string processExpression(string expr, string context = "")
             // Enum access: only when the left side is a simple identifier (no operators/parentheses)
             if (!firstHasOps && first.length > 0 && first[0] >= 'A' && first[0] <= 'Z')
             {
-                // Enum access: State.RUNNING -> RUNNING
                 return parts[1].strip();
             }
 
-            // Handle member access chain
             string result = first;
             string currentType = g_varType.get(first, "");
             bool isPointer = g_isPointerVar.get(first, "false") == "true";
@@ -2238,7 +2236,6 @@ string processExpression(string expr, string context = "")
                 string op = isPointer ? "->" : ".";
                 result ~= op ~ field;
 
-                // Update pointer status for next field
                 if (currentType ~ "." ~ field in g_pointerFields)
                     isPointer = true;
                 else
@@ -2248,29 +2245,20 @@ string processExpression(string expr, string context = "")
         }
     }
 
-    // Handle .len property for arrays
-    // import std.regex : regex, matchFirst;
-    // auto lenMatch = matchFirst(expr, regex(r"^(.+)\.len$"));
-    // if (lenMatch)
-    // {
-    //     string arrayName = lenMatch[1].strip();
-    //     return "(sizeof(" ~ arrayName ~ ")/sizeof(" ~ arrayName ~ "[0]))";
-    // }
-
     // Don't process if it's already parenthesized
     if (expr.canFind("(") && expr.endsWith(")"))
     {
         return expr;
     }
 
-    // Check for operators, but be careful not to split on dots (member access) or operators inside strings
+    // Check for operators, but try very hard not to split on dots (member access) or operators inside strings
+    // Note: Longer operators must come first to avoid incorrect matching (e.g., >> before >)
     foreach (op; [
-            "+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||"
+            "<<", ">>", "==", "!=", "<=", ">=", "&&", "||", "+", "-", "*", "/", "%", "<", ">"
         ])
     {
         if (expr.canFind(op) && op != "")
         {
-            // Smart split that respects string literals and parentheses
             string[] parts;
             string current = "";
             bool inString = false;
