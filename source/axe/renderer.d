@@ -2058,7 +2058,7 @@ string processExpression(string expr, string context = "")
         }
 
         string varName = expr[parenStart .. parenEnd].strip();
-        expr = expr[0 .. startIdx] ~ "*" ~ varName ~ expr[parenEnd + 1 .. $];
+        expr = expr[0 .. startIdx] ~ "(*" ~ varName ~ ")" ~ expr[parenEnd + 1 .. $];
     }
 
     {
