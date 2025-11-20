@@ -1373,19 +1373,26 @@ string generateC(ASTNode ast)
     case "ForIn":
         auto forInNode = cast(ForInNode) ast;
 
-        // Generate: for (size_t i = 0; i < sizeof(array)/sizeof(array[0]); i++) {
-        //              type varName = array[i];
+        // Generate: for (int32_t i = 0; i < xs->len; i++) {
+        //              {{type}} varName = xs->data[i];
         //              ... body ...
         //          }
+        // This supports lists with .len field and .data array
         string indexVar = "_i_" ~ forInNode.varName;
-        string arraySize = "sizeof(" ~ forInNode.arrayName ~ ")/sizeof(" ~ forInNode.arrayName ~ "[0])";
-
-        cCode ~= "for (size_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~ arraySize ~ "; " ~ indexVar ~ "++) {\n";
+        string processedArrayName = processExpression(forInNode.arrayName);
+        bool isPointer = (forInNode.arrayName in g_isPointerVar && 
+                          g_isPointerVar[forInNode.arrayName] == "true");
+        string accessor = isPointer ? "->" : ".";
+        
+        string loopHeader = "for (int32_t " ~ indexVar ~ " = 0; " ~ indexVar ~ " < " ~ 
+                            processedArrayName ~ accessor ~ "len; " ~ indexVar ~ "++) {\n";
+        cCode ~= loopHeader;
         loopLevel++;
 
-        // Declare the loop variable and assign it from the array
         string indent = "    ".replicate(loopLevel);
-        cCode ~= indent ~ "int " ~ forInNode.varName ~ " = " ~ forInNode.arrayName ~ "[" ~ indexVar ~ "];\n";
+        string varDecl = indent ~ "const auto " ~ forInNode.varName ~ " = " ~ 
+                         processedArrayName ~ accessor ~ "data[" ~ indexVar ~ "];\n";
+        cCode ~= varDecl;
 
         foreach (child; ast.children)
         {

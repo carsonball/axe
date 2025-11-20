@@ -32,7 +32,7 @@ macro make_list(
         def create(arena: ref Arena, capacity: i32): ref name {
             mut lst: ref name;
             raw {
-                lst = ({{name}}*)stdlib_arena_Arena_alloc(arena, sizeof({{name}}));
+                lst = stdlib_arena_Arena_alloc(arena, sizeof(*lst));
                 lst->data = ({{cep}}*)stdlib_arena_Arena_alloc_array(arena, sizeof({{cep}}), capacity);
             }
             lst.len = 0;
