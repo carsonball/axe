@@ -6,6 +6,18 @@ Axe is a compiled programming language with a focus on type safety, ease of conc
 
 It began as a re-engineering of Scar, though evolved into its own entity later on. Axe provides a clean syntax for systems programming with modern language features.
 
+```axe
+model Person {
+    name: string;
+    age: i32;
+}
+
+parallel for mut i = 0; i < 10; i++ {
+    mut person = new Person(name: "Alice", age: 30);
+    println person.name;
+    do_some_other_stuff();
+}
+```
 ## Features
 
 - **Type Safety**: Safe by default
@@ -203,12 +215,13 @@ main {
 }
 ```
 
-## Standard Library
+## Roadmap
 
-Axe includes a standard library with common utilities:
-
-- **arena**: Memory arena allocation
-- **string**: String manipulation functions
-- **lists**: Dynamic arrays and lists
-
-(WIP)
+- [x] Control flow constructs, functions, variables, fundamentals...
+- [x] Immutability by default
+- [x] Parallel for
+- [x] Union types
+- [ ] Pure parallel { } blocks
+- [ ] Map and reduce clauses
+- [ ] Smart type inference based on RHS of exprs.
+- [ ] Further memory models beyond arena allocation.
