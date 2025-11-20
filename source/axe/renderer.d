@@ -1357,6 +1357,27 @@ string generateC(ASTNode ast)
 
         string forCond = processCondition(forNode.condition);
         string forIncr = forNode.increment;
+        
+        // Add OpenMP pragma if this is a parallel for loop
+        if (forNode.isParallel)
+        {
+            string ompPragma = "#pragma omp parallel for";
+            
+            // Add reduction clauses if present
+            if (forNode.reductionClauses.length > 0)
+            {
+                ompPragma ~= " reduction(";
+                foreach (i, clause; forNode.reductionClauses)
+                {
+                    if (i > 0)
+                        ompPragma ~= ", ";
+                    ompPragma ~= clause;
+                }
+                ompPragma ~= ")";
+            }
+            
+            cCode ~= ompPragma ~ "\n";
+        }
 
         cCode ~= "for (" ~ forInit ~ "; " ~ forCond ~ "; " ~ forIncr ~ ") {\n";
         loopLevel++;
@@ -1366,6 +1387,20 @@ string generateC(ASTNode ast)
             cCode ~= generateC(child);
         }
 
+        loopLevel--;
+        cCode ~= "}\n";
+        break;
+
+    case "Parallel":
+        // Generate OpenMP parallel region
+        cCode ~= "#pragma omp parallel\n{\n";
+        loopLevel++;
+        
+        foreach (child; ast.children)
+        {
+            cCode ~= generateC(child);
+        }
+        
         loopLevel--;
         cCode ~= "}\n";
         break;

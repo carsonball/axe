@@ -279,6 +279,12 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.TEST, "test");
                 pos += 4;
             }
+            else if (pos + 1 < source.length && source[pos .. pos + 2] == "to" &&
+                (pos + 2 >= source.length || !(source[pos + 2].isAlphaNum || source[pos + 2] == '_')))
+            {
+                tokens ~= Token(TokenType.TO, "to");
+                pos += 2;
+            }
             else
             {
                 size_t start = pos;
@@ -438,6 +444,12 @@ Token[] lex(string source)
             {
                 tokens ~= Token(TokenType.ELSE, "else");
                 pos += 4;
+            }
+            else if (pos + 6 <= source.length && source[pos .. pos + 6] == "reduce" &&
+                (pos + 6 >= source.length || !(source[pos + 6].isAlphaNum || source[pos + 6] == '_')))
+            {
+                tokens ~= Token(TokenType.REDUCE, "reduce");
+                pos += 6;
             }
             else if (pos + 2 <= source.length && source[pos .. pos + 2] == "in" &&
                 (pos + 2 >= source.length || !(source[pos + 2].isAlphaNum || source[pos + 2] == '_')))

@@ -82,6 +82,8 @@ enum TokenType
     PARALLEL,
     WINDOWS,
     POSIX,
+    TO,
+    REDUCE,
 }
 
 /** 
@@ -441,6 +443,8 @@ class ForNode : ASTNode
     string varName; // loop variable name
     string varType; // loop variable type
     string initValue; // initial value
+    bool isParallel; // whether this is a parallel for loop
+    string[] reductionClauses; // reduction clauses like "+:sum"
 
     this(string initialization, string condition, string increment)
     {
@@ -448,6 +452,8 @@ class ForNode : ASTNode
         this.initialization = initialization;
         this.condition = condition;
         this.increment = increment;
+        this.isParallel = false;
+        this.reductionClauses = [];
     }
 }
 
@@ -463,6 +469,14 @@ class ForInNode : ASTNode
         this.varName = varName;
         this.arrayName = arrayName;
         this.arraySize = arraySize;
+    }
+}
+
+class ParallelNode : ASTNode
+{
+    this()
+    {
+        super("Parallel");
     }
 }
 
