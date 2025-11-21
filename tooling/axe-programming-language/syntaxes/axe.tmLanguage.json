@@ -58,7 +58,7 @@
       "patterns": [
         {
           "name": "keyword.control.axe",
-          "match": "\\b(if|elif|else|for|main|in|parallel|map|loop|break|continue|return|while|test|assert|use|platform|windows|posix|and|or|not|bor|xor|shr|shl|mod|enum|union)\\b"
+          "match": "\\b(if|elif|else|for|main|in|parallel|single|map|loop|break|continue|return|while|test|assert|use|platform|windows|posix|and|or|not|mod|enum|union)\\b"
         },
         {
           "name": "keyword.other.axe",
