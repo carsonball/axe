@@ -754,11 +754,13 @@ class Scope
 {
     string[string] variables;
     bool[string] mutability;
+    Scope parent;
 
-    this()
+    this(Scope parent = null)
     {
         variables = null;
         mutability = null;
+        this.parent = parent;
     }
 
     void addVariable(string name, bool isMutable)
@@ -769,12 +771,20 @@ class Scope
 
     bool isDeclared(string name)
     {
-        return (name in variables) !is null;
+        if ((name in variables) !is null)
+            return true;
+        if (parent !is null)
+            return parent.isDeclared(name);
+        return false;
     }
 
     bool isMutable(string name)
     {
-        return mutability.get(name, false);
+        if ((name in mutability) !is null)
+            return mutability[name];
+        if (parent !is null)
+            return parent.isMutable(name);
+        return false;
     }
 }
 

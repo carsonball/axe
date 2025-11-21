@@ -256,17 +256,17 @@ def rm_dir_recursive(path: string): bool {
                     break;
                 }
                 
-                snprintf(buf as char*, len, "%s/%s", path.data, name);
+                snprintf(buf, len, "%s/%s", path.data, name);
 
                 val statbuf: usize = malloc(256);
-                if stat(buf as char*, statbuf) == 0 {
+                if stat(buf, statbuf) == 0 {
                     if stat_is_dir(statbuf) != 0 {
-                        val sub_path: string = string.create(buf as char*);
+                        val sub_path: string = string.create(buf);
                         if !rm_dir_recursive(sub_path) {
                             r = -1;
                         }
                     } else {
-                        if remove(buf as char*) != 0 {
+                        if remove(buf) != 0 {
                             r = -1;
                         }
                     }
@@ -299,10 +299,10 @@ def rm_dir_recursive(path: string): bool {
         // Windows implementation - similar pattern but with _findfirst/_findnext
         mut val r: i32 = 0;
         val search_buf: usize = malloc(260);
-        snprintf(search_buf as char*, 260, "%s\\*", path.data);
+        snprintf(search_buf, 260, "%s\\*", path.data);
         
         val fileinfo: usize = malloc(320);
-        val handle: isize = _findfirst(search_buf as char*, fileinfo);
+        val handle: isize = _findfirst(search_buf, fileinfo);
         free(search_buf);
         
         if handle != -1 {
@@ -311,15 +311,15 @@ def rm_dir_recursive(path: string): bool {
                 if strcmp(name, ".") != 0 {
                     if strcmp(name, "..") != 0 {
                         val sub_buf: usize = malloc(260);
-                        snprintf(sub_buf as char*, 260, "%s\\%s", path.data, name);
+                        snprintf(sub_buf, 260, "%s\\%s", path.data, name);
                         
                         if finddata_is_dir(fileinfo) != 0 {
-                            val sub_path: string = string.create(sub_buf as char*);
+                            val sub_path: string = string.create(sub_buf);
                             if !rm_dir_recursive(sub_path) {
                                 r = -1;
                             }
                         } else {
-                            if remove(sub_buf as char*) != 0 {
+                            if remove(sub_buf) != 0 {
                                 r = -1;
                             }
                         }
@@ -389,15 +389,15 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
                 continue;
             }
 
-            snprintf(buf as char*, len, "%s/%s", path.data, name);
+            snprintf(buf, len, "%s/%s", path.data, name);
 
             val statbuf: usize = malloc(256);
-            if stat(buf as char*, statbuf) == 0 {
+            if stat(buf, statbuf) == 0 {
                 if stat_is_dir(statbuf) != 0 {
-                    val sub_path: string = string.create(buf as char*);
+                    val sub_path: string = string.create((char*)buf);
                     collect_files_recursive(sub_path, result, arena);
-                } else if stat_is_reg(statbuf) != 0 {
-                    val file_path: string = string.create(buf as char*);
+                } elif stat_is_reg(statbuf) != 0 {
+                    val file_path: string = string.create((char*)buf);
                     result.push(arena, file_path);
                 }
             }
@@ -411,10 +411,10 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
 
     platform windows {
         val search_buf: usize = malloc(260);
-        snprintf(search_buf as char*, 260, "%s\\*", path.data);
+        snprintf(search_buf, 260, "%s\\*", path.data);
 
         val fileinfo: usize = malloc(320);
-        val handle: isize = _findfirst(search_buf as char*, fileinfo);
+        val handle: isize = _findfirst(search_buf, fileinfo);
         free(search_buf);
 
         if handle == -1 {
@@ -427,13 +427,13 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
             if strcmp(name, ".") != 0 {
                 if strcmp(name, "..") != 0 {
                     val sub_buf: usize = malloc(260);
-                    snprintf(sub_buf as char*, 260, "%s\\%s", path.data, name);
+                    snprintf(sub_buf, 260, "%s\\%s", path.data, name);
 
                     if finddata_is_dir(fileinfo) != 0 {
-                        val sub_path: string = string.create(sub_buf as char*);
+                        val sub_path: string = string.create(sub_buf);
                         collect_files_recursive(sub_path, result, arena);
                     } else {
-                        val file_path: string = string.create(sub_buf as char*);
+                        val file_path: string = string.create(sub_buf);
                         result.push(arena, file_path);
                     }
 
