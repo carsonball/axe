@@ -615,6 +615,7 @@ def strip(s: string): string {
     return substr(s, start, end - start);
 }
 
+/// Convenience function to convert a char* to a string.
 def str(data: char*): string {
     return string.create(data);
 }
