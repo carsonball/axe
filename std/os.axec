@@ -398,7 +398,7 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
                     collect_files_recursive(sub_path, result, arena);
                 } elif stat_is_reg(statbuf) != 0 {
                     val file_path: string = string.create((char*)buf);
-                    result.push(arena, file_path);
+                    StringList.push(result, arena, file_path);
                 }
             }
 
@@ -434,7 +434,7 @@ def collect_files_recursive(path: string, result: ref StringList, arena: ref Are
                         collect_files_recursive(sub_path, result, arena);
                     } else {
                         val file_path: string = string.create(sub_buf);
-                        result.push(arena, file_path);
+                        StringList.push(result, arena, file_path);
                     }
 
                     free(sub_buf);
