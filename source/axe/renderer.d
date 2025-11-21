@@ -2116,6 +2116,9 @@ string processInterpolatedString(string interpContent, bool returnStruct = false
     {
         if (interpContent[pos] == '{' && (pos == 0 || interpContent[pos - 1] != '\\'))
         {
+            if (pos > 0 && currentPart.length > 0 && interpContent[pos - 1] == '$')
+                currentPart = currentPart[0 .. $ - 1];
+
             parts ~= currentPart;
             currentPart = "";
 

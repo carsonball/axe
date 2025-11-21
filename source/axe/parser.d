@@ -4002,8 +4002,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         "String interpolation requires 'use std.string;'");
 
                     string rawContent = tokens[pos].value;
-                    enforce(rawContent.canFind("${"),
-                        "Interpolated string must contain at least one ${} expression. " ~
+                    enforce(rawContent.canFind("{"),
+                        "Interpolated string must contain at least one {} expression. " ~
                             "Use a regular string if no interpolation is needed.");
 
                     currentArg ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
@@ -4811,8 +4811,8 @@ private PrintlnNode parsePrintlnHelper(ref size_t pos, Token[] tokens)
 
             string rawContent = tokens[pos].value;
             writeln("DEBUG parsePrintlnHelper: rawContent = '", rawContent, "'");
-            enforce(rawContent.canFind("${"),
-                "Interpolated string must contain at least one ${} expression. " ~
+            enforce(rawContent.canFind("{"),
+                "Interpolated string must contain at least one {} expression. " ~
                     "Use a regular string if no interpolation is needed.");
 
             string interpContent = "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
@@ -4911,8 +4911,8 @@ private PrintNode parsePrintHelper(ref size_t pos, Token[] tokens)
                 "String interpolation requires 'use std.string;'");
 
             string rawContent = tokens[pos].value;
-            enforce(rawContent.canFind("${"),
-                "Interpolated string must contain at least one ${} expression. " ~
+            enforce(rawContent.canFind("{"),
+                "Interpolated string must contain at least one {} expression. " ~
                     "Use a regular string if no interpolation is needed.");
 
             string interpContent = "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
