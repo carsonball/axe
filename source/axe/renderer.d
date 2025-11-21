@@ -3251,17 +3251,17 @@ unittest
     import std.string;
 
     {
-        auto tokens = lex("main { println \"hello\"; }");
+        auto tokens = lex("main { put \"hello\"; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln(cCode);
         assert(cCode.canFind("int main(int argc, char** argv)"));
-        assert(cCode.canFind("printf(\"hello\\n\")"));
+        assert(cCode.canFind("printf(\"hello\")"));
     }
 
     {
-        auto tokens = lex("def foo { println \"hello\"; } main { foo(); }");
+        auto tokens = lex("def foo { put \"hello\"; } main { foo(); }");
         auto ast = parse(tokens);
 
         auto cCode = generateC(ast);
@@ -3287,7 +3287,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { if (x > 5) { println \"greater\"; } }");
+        auto tokens = lex("main { if (x > 5) { put \"greater\"; } }");
         auto ast = parse(tokens);
 
         auto cCode = generateC(ast);
@@ -3295,7 +3295,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("(x>5)"));
-        assert(cCode.canFind(`printf("greater\n");`));
+        assert(cCode.canFind(`printf("greater");`));
     }
 
     {
@@ -3310,11 +3310,11 @@ unittest
 
     {
         auto tokens = lex(
-            "def foo { println \"in foo\"; } main { foo(); }");
+            "def foo { put \"in foo\"; } main { foo(); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
         assert(cCode.canFind("void foo()"));
-        assert(cCode.canFind(`printf("in foo\n");`));
+        assert(cCode.canFind(`printf("in foo");`));
         assert(cCode.canFind("foo();"));
     }
 
@@ -3352,7 +3352,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { println \"start\"; loop { println \"in loop\"; break; } }");
+        auto tokens = lex("main { put \"start\"; loop { put \"in loop\"; break; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -3360,7 +3360,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("while (1) {"), "Loop should start with while (1) {");
-        assert(cCode.canFind("printf(\"in loop\\n\");"), "Loop should contain println");
+        assert(cCode.canFind("printf(\"in loop\");"), "Loop should contain println");
         assert(cCode.canFind("break;"), "Loop should contain break");
 
         import std.algorithm : count;
@@ -3389,7 +3389,7 @@ unittest
 
     {
         auto tokens = lex(
-            "def testfunc() { mut val x = 0; loop { println \"test\"; x = x + 1; if x == 5 { break; } } } main { testfunc(); }"
+            "def testfunc() { mut val x = 0; loop { put \"test\"; x = x + 1; if x == 5 { break; } } } main { testfunc(); }"
         );
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
@@ -3398,7 +3398,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("while (1) {"), "Should have loop");
-        assert(cCode.canFind("printf(\"test\\n\");"), "Should have println in loop");
+        assert(cCode.canFind("printf(\"test\");"), "Should have put in loop");
         assert(cCode.canFind("x = (x+1);"), "Should have assignment in loop");
         assert(cCode.canFind("if ((x==5))"), "Should have if statement");
 
@@ -3411,7 +3411,7 @@ unittest
 
     {
         auto tokens = lex(
-            "def greet(name: char*, t: i32) { println \"hello\"; } main { greet(\"world\", 1); }");
+            "def greet(name: char*, t: i32) { put \"hello\"; } main { greet(\"world\", 1); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -3424,14 +3424,14 @@ unittest
     }
 
     {
-        auto tokens = lex("// This is a comment\nmain { println \"test\"; }");
+        auto tokens = lex("// This is a comment\nmain { put \"test\"; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("Comment filtering test:");
         writeln(cCode);
 
-        assert(cCode.canFind("printf(\"test\\n\");"), "Should have println statement");
+        assert(cCode.canFind("printf(\"test\");"), "Should have put statement");
         assert(!cCode.canFind("//"), "Comments should be filtered out");
         assert(!cCode.canFind("This is a comment"), "Comment text should not appear in output");
     }
@@ -3449,16 +3449,16 @@ unittest
     }
 
     {
-        auto tokens = lex("main { println \"before\"; raw { int x = 5; } println \"after\"; }");
+        auto tokens = lex("main { put \"before\"; raw { int x = 5; } put \"after\"; }");
         auto ast = parse(tokens, true);
         auto cCode = generateC(ast);
 
         writeln("Mixed raw C and Axe code test:");
         writeln(cCode);
 
-        assert(cCode.canFind("printf(\"before\\n\");"), "Should have first println");
+        assert(cCode.canFind("printf(\"before\");"), "Should have first put");
         assert(cCode.canFind("int x = 5;"), "Should have raw C code");
-        assert(cCode.canFind("printf(\"after\\n\");"), "Should have second println");
+        assert(cCode.canFind("printf(\"after\");"), "Should have second put");
     }
 
     {
@@ -3592,17 +3592,17 @@ unittest
     }
 
     {
-        auto tokens = lex("main { println \"hello\"; }");
+        auto tokens = lex("main { put \"hello\"; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln(cCode);
         assert(cCode.canFind("int main(int argc, char** argv)"));
-        assert(cCode.canFind("printf(\"hello\\n\")"));
+        assert(cCode.canFind("printf(\"hello\")"));
     }
 
     {
-        auto tokens = lex("def foo { println \"hello\"; } main { foo(); }");
+        auto tokens = lex("def foo { put \"hello\"; } main { foo(); }");
         auto ast = parse(tokens);
 
         auto cCode = generateC(ast);
@@ -3628,7 +3628,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { if (x > 5) { println \"greater\"; } }");
+        auto tokens = lex("main { if (x > 5) { put \"greater\"; } }");
         auto ast = parse(tokens);
 
         auto cCode = generateC(ast);
@@ -3636,7 +3636,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("(x>5)"));
-        assert(cCode.canFind(`printf("greater\n");`));
+        assert(cCode.canFind(`printf("greater");`));
     }
 
     {
@@ -3651,11 +3651,11 @@ unittest
 
     {
         auto tokens = lex(
-            "def foo { println \"in foo\"; } main { foo(); }");
+            "def foo { put \"in foo\"; } main { foo(); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
         assert(cCode.canFind("void foo()"));
-        assert(cCode.canFind(`printf("in foo\n");`));
+        assert(cCode.canFind(`printf("in foo");`));
         assert(cCode.canFind("foo();"));
     }
 
@@ -3693,7 +3693,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { println \"start\"; loop { println \"in loop\"; break; } }");
+        auto tokens = lex("main { put \"start\"; loop { put \"in loop\"; break; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -3701,7 +3701,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("while (1) {"), "Loop should start with while (1) {");
-        assert(cCode.canFind("printf(\"in loop\\n\");"), "Loop should contain println");
+        assert(cCode.canFind("printf(\"in loop\");"), "Loop should contain println");
         assert(cCode.canFind("break;"), "Loop should contain break");
 
         import std.algorithm : count;
@@ -3730,7 +3730,7 @@ unittest
 
     {
         auto tokens = lex(
-            "def testfunc() { mut val x = 0; loop { println \"test\"; x = x + 1; if x == 5 { break; } } } main { testfunc(); }"
+            "def testfunc() { mut val x = 0; loop { put \"test\"; x = x + 1; if x == 5 { break; } } } main { testfunc(); }"
         );
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
@@ -3739,7 +3739,7 @@ unittest
         writeln(cCode);
 
         assert(cCode.canFind("while (1) {"), "Should have loop");
-        assert(cCode.canFind("printf(\"test\\n\");"), "Should have println in loop");
+        assert(cCode.canFind("printf(\"test\");"), "Should have put in loop");
         assert(cCode.canFind("x = (x+1);"), "Should have assignment in loop");
         assert(cCode.canFind("if ((x==5))"), "Should have if statement");
 
@@ -3752,7 +3752,7 @@ unittest
 
     {
         auto tokens = lex(
-            "def greet(name: char*, t: i32) { println \"hello\"; } main { greet(\"world\", 1); }");
+            "def greet(name: char*, t: i32) { put \"hello\"; } main { greet(\"world\", 1); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -3765,14 +3765,14 @@ unittest
     }
 
     {
-        auto tokens = lex("// This is a comment\nmain { println \"test\"; }");
+        auto tokens = lex("// This is a comment\nmain { put \"test\"; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("Comment filtering test:");
         writeln(cCode);
 
-        assert(cCode.canFind("printf(\"test\\n\");"), "Should have println statement");
+        assert(cCode.canFind("printf(\"test\");"), "Should have put statement");
         assert(!cCode.canFind("//"), "Comments should be filtered out");
         assert(!cCode.canFind("This is a comment"), "Comment text should not appear in output");
     }
@@ -3790,16 +3790,16 @@ unittest
     }
 
     {
-        auto tokens = lex("main { println \"before\"; raw { int x = 5; } println \"after\"; }");
+        auto tokens = lex("main { put \"before\"; raw { int x = 5; } put \"after\"; }");
         auto ast = parse(tokens, true);
         auto cCode = generateC(ast);
 
         writeln("Mixed raw C and Axe code test:");
         writeln(cCode);
 
-        assert(cCode.canFind("printf(\"before\\n\");"), "Should have first println");
+        assert(cCode.canFind("printf(\"before\");"), "Should have first put");
         assert(cCode.canFind("int x = 5;"), "Should have raw C code");
-        assert(cCode.canFind("printf(\"after\\n\");"), "Should have second println");
+        assert(cCode.canFind("printf(\"after\");"), "Should have second put");
     }
 
     {
@@ -3858,15 +3858,15 @@ unittest
 
     {
         auto tokens = lex(
-            "model Cat { health: i32 } main { mut val cat = new Cat(health: 100); println cat.health; }");
+            "model Cat { health: i32 } main { mut val cat = new Cat(health: 100); put cat.health; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
-        writeln("Member access in println test:");
+        writeln("Member access in put test:");
         writeln(cCode);
 
         assert(cCode.canFind("Cat cat = {"), "Should have struct initialization");
-        assert(cCode.canFind("printf(\"%d\\n\", cat.health);"), "Should print member access");
+        assert(cCode.canFind("printf(\"%d\", cat.health);"), "Should print member access");
     }
 
     {
@@ -3924,8 +3924,8 @@ unittest
     }
 
     {
-        auto tokens = lex("main { val x: i32 = 1; switch x { case 1 { println \"one\"; } " ~
-                "case 2 { println \"two\"; } default { println \"other\"; } } }");
+        auto tokens = lex("main { val x: i32 = 1; switch x { case 1 { put \"one\"; } " ~
+                "case 2 { put \"two\"; } default { put \"other\"; } } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -3935,11 +3935,11 @@ unittest
         assert(cCode.canFind("const int32_t x = 1;"), "Should declare x with type annotation");
         assert(cCode.canFind("switch (x) {"), "Should have switch statement");
         assert(cCode.canFind("case 1:"), "Should have case 1");
-        assert(cCode.canFind("printf(\"one\\n\");"), "Should have println in case 1");
+        assert(cCode.canFind("printf(\"one\");"), "Should have println in case 1");
         assert(cCode.canFind("case 2:"), "Should have case 2");
-        assert(cCode.canFind("printf(\"two\\n\");"), "Should have println in case 2");
+        assert(cCode.canFind("printf(\"two\");"), "Should have println in case 2");
         assert(cCode.canFind("default:"), "Should have default case");
-        assert(cCode.canFind("printf(\"other\\n\");"), "Should have println in default");
+        assert(cCode.canFind("printf(\"other\");"), "Should have println in default");
         assert(cCode.canFind("break;"), "Should have break statements");
     }
 
@@ -4024,7 +4024,7 @@ unittest
 
     {
         auto tokens = lex(
-            "enum State { RUNNING, STOPPED } main { val s: State = State.RUNNING; println s; }");
+            "enum State { RUNNING, STOPPED } main { val s: State = State.RUNNING; put s; }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -4039,7 +4039,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { if 5 mod 3 == 2 { println \"yes\"; } }");
+        auto tokens = lex("main { if 5 mod 3 == 2 { put \"yes\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -4051,7 +4051,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { if 1 == 1 and 2 == 2 { println \"yes\"; } }");
+        auto tokens = lex("main { if 1 == 1 and 2 == 2 { put \"yes\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -4062,7 +4062,7 @@ unittest
     }
 
     {
-        auto tokens = lex("main { if 1 mod 3 == 0 and 2 mod 5 == 0 { println \"yes\"; } }");
+        auto tokens = lex("main { if 1 mod 3 == 0 and 2 mod 5 == 0 { put \"yes\"; } }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
@@ -4579,16 +4579,16 @@ unittest
     }
 
     {
-        auto tokens = lex("main { println (\"Hello, world\"); }");
+        auto tokens = lex("main { put (\"Hello, world\"); }");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
 
         writeln("String literal in parentheses format specifier test:");
         writeln(cCode);
 
-        assert(cCode.canFind("printf(\"%s\\n\", (\"Hello, world\"));"),
+        assert(cCode.canFind("printf(\"%s\", (\"Hello, world\"));"),
             "Should use %s format specifier for string literals even in parentheses, not %d");
-        assert(!cCode.canFind("printf(\"%d\\n\", (\"Hello, world\"));"),
+        assert(!cCode.canFind("printf(\"%d\", (\"Hello, world\"));"),
             "Should NOT use %d format specifier for string literals in parentheses");
     }
 

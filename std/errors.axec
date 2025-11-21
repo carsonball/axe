@@ -4,7 +4,8 @@ use std.string (
 
 use std.io(
     println_str,
-    print_str
+    print_str,
+    print
 );
 
 /// Represents some kind of error in the program.

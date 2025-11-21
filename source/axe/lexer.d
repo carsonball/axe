@@ -234,7 +234,7 @@ Token[] lex(string source)
                     "Unterminated interpolated string at position " ~ pos.to!string);
 
                 string interpContent = source[strStart .. ending];
-                
+
                 tokens ~= Token(TokenType.INTERPOLATED_STR, interpContent);
 
                 pos = ending + 1;
@@ -242,6 +242,7 @@ Token[] lex(string source)
             else
             {
                 import std.conv;
+
                 enforce(false, "Unexpected '$' at position " ~ pos.to!string);
             }
             break;
@@ -462,17 +463,11 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.MAIN, "main");
                 pos += 4;
             }
-            else if (pos + 7 <= source.length && source[pos .. pos + 7] == "println" &&
-                (pos + 7 >= source.length || !(source[pos + 7].isAlphaNum || source[pos + 7] == '_')))
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "put" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {
-                tokens ~= Token(TokenType.PRINTLN, "println");
-                pos += 7;
-            }
-            else if (pos + 5 <= source.length && source[pos .. pos + 5] == "print" &&
-                (pos + 5 >= source.length || !(source[pos + 5].isAlphaNum || source[pos + 5] == '_')))
-            {
-                tokens ~= Token(TokenType.PRINT, "print");
-                pos += 5;
+                tokens ~= Token(TokenType.PRINT, "put");
+                pos += 3;
             }
             else if (pos + 8 <= source.length && source[pos .. pos + 8] == "platform" &&
                 (pos + 8 >= source.length || !(source[pos + 8].isAlphaNum || source[pos + 8] == '_')))
@@ -754,9 +749,9 @@ unittest
         assert(filtered[4].type == TokenType.LBRACE);
     }
     {
-        auto tokens = lex("println \"hello\";");
+        auto tokens = lex("put \"hello\";");
         assert(tokens.length == 3);
-        assert(tokens[0].type == TokenType.PRINTLN);
+        assert(tokens[0].type == TokenType.PRINT);
         assert(tokens[1].type == TokenType.STR);
         assert(tokens[1].value == "hello");
         assert(tokens[2].type == TokenType.SEMICOLON);
@@ -764,13 +759,13 @@ unittest
     {
         import axe.parser;
 
-        auto tokens = lex("main { println \"test\"; }");
+        auto tokens = lex("main { put \"test\"; }");
         auto ast = parse(tokens);
         assert(ast.nodeType == "Program");
         assert(ast.children.length == 1);
         assert(ast.children[0].nodeType == "Function");
-        assert(ast.children[0].children[0].nodeType == "Println");
-        assert((cast(PrintlnNode) ast.children[0].children[0]).messages.length == 1);
-        assert((cast(PrintlnNode) ast.children[0].children[0]).messages[0] == "test");
+        assert(ast.children[0].children[0].nodeType == "Print");
+        assert((cast(PrintNode) ast.children[0].children[0]).messages.length == 1);
+        assert((cast(PrintNode) ast.children[0].children[0]).messages[0] == "test");
     }
 }

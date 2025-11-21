@@ -1,6 +1,7 @@
 use std.term(clear_screen);
 use std.time(wait);
 use std.random(randomize, random);
+use std.io;
 
 /// Convert 2D coordinate (x, y) into 1D index
 def idx(x: i32, y: i32, width: i32): i32 {
