@@ -1,0 +1,6 @@
+use std.string;
+
+main {
+    val x = 42;
+    print_str(str($"x = ${x}"));
+}
