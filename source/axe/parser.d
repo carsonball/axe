@@ -2157,6 +2157,60 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
+                    if (pos < tokens.length && tokens[pos].type != TokenType.LPAREN &&
+                        tokens[pos].type != TokenType.LBRACKET &&
+                        tokens[pos].type != TokenType.DOT &&
+                        tokens[pos].type != TokenType.STAR_DOT &&
+                        !(tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") &&
+                        tokens[pos].type != TokenType.INCREMENT &&
+                        tokens[pos].type != TokenType.DECREMENT)
+                    {
+                        size_t look = pos;
+                        bool hasSemicolon = false;
+                        while (look < tokens.length)
+                        {
+                            if (tokens[look].type == TokenType.SEMICOLON)
+                            {
+                                hasSemicolon = true;
+                                break;
+                            }
+                            if (tokens[look].type == TokenType.LBRACE || tokens[look].type == TokenType.RBRACE)
+                                break;
+                            look++;
+                        }
+
+                        if (hasSemicolon)
+                        {
+                            string functionArgs;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                if (tokens[pos].type == TokenType.STR)
+                                {
+                                    if (functionArgs.length > 0)
+                                        functionArgs ~= " ";
+                                    functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                                }
+                                else
+                                {
+                                    if (functionArgs.length > 0)
+                                        functionArgs ~= " ";
+                                    functionArgs ~= tokens[pos].value;
+                                }
+                                pos++;
+                            }
+
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after function call");
+                            pos++;
+
+                            funcNode.children ~= new FunctionCallNode(identName, functionArgs);
+                            break;
+                        }
+                    }
+
                     string leftSide = identName;
 
                     // Handle array access on base identifier
@@ -3588,6 +3642,60 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++;
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
+
+        if (pos < tokens.length && tokens[pos].type != TokenType.LPAREN &&
+            tokens[pos].type != TokenType.LBRACKET &&
+            tokens[pos].type != TokenType.DOT &&
+            tokens[pos].type != TokenType.STAR_DOT &&
+            !(tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") &&
+            tokens[pos].type != TokenType.INCREMENT &&
+            tokens[pos].type != TokenType.DECREMENT)
+        {
+            size_t look = pos;
+            bool hasSemicolon = false;
+            while (look < tokens.length)
+            {
+                if (tokens[look].type == TokenType.SEMICOLON)
+                {
+                    hasSemicolon = true;
+                    break;
+                }
+                if (tokens[look].type == TokenType.LBRACE || tokens[look].type == TokenType.RBRACE)
+                    break;
+                look++;
+            }
+
+            if (hasSemicolon)
+            {
+                string functionArgs;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+
+                while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                {
+                    if (tokens[pos].type == TokenType.STR)
+                    {
+                        if (functionArgs.length > 0)
+                            functionArgs ~= " ";
+                        functionArgs ~= "\"" ~ tokens[pos].value ~ "\"";
+                    }
+                    else
+                    {
+                        if (functionArgs.length > 0)
+                            functionArgs ~= " ";
+                        functionArgs ~= tokens[pos].value;
+                    }
+                    pos++;
+                }
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after function call");
+                pos++;
+
+                debugWriteln("[parseStatementHelper] Optional-paren call sugar for '", identName, "' with args '", functionArgs, "'");
+                return new FunctionCallNode(identName, functionArgs);
+            }
+        }
 
         if (pos < tokens.length && (tokens[pos].type == TokenType.DOT || tokens[pos].type == TokenType.STAR_DOT))
         {
