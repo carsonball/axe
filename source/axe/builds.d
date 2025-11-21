@@ -216,6 +216,18 @@ bool handleMachineArgs(string[] args)
                 }
             }
 
+            // Include extra stuff like libraries or object files
+            // Example: ./axe std/os.axec -w std/os_helpers.c
+            string[] extraLinkArgs;
+            for (size_t i = 2; i < args.length; i++)
+            {
+                if (args[i] == "-w" && i + 1 < args.length)
+                {
+                    extraLinkArgs ~= args[i + 1];
+                    i++;
+                }
+            }
+
             if (hasExternalHeader(ast, "pcre.h"))
             {
                 import std.file : thisExePath;
@@ -312,6 +324,8 @@ bool handleMachineArgs(string[] args)
             {
                 clangCmd ~= ["-include", header];
             }
+
+            clangCmd ~= extraLinkArgs;
 
             if (makeDll)
             {
