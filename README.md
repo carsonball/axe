@@ -205,20 +205,6 @@ main {
 }
 ```
 
-### Structs
-
-```
-model Person {
-    name: string;
-    age: i32;
-}
-
-main {
-    val person = new Person(name: "Alice", age: 30);
-    println person.name;
-}
-```
-
 ## Roadmap
 
 - [x] Control flow constructs, functions, variables, fundamentals...
@@ -226,6 +212,6 @@ main {
 - [x] Parallel for
 - [x] Union types
 - [ ] Pure parallel { } blocks
-- [ ] Map and reduce clauses
-- [ ] Smart type inference based on RHS of exprs.
+- [x] Map and reduce clauses
+- [x] Smart type inference based on RHS of exprs.
 - [ ] Further memory models beyond arena allocation.
