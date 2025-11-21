@@ -1,0 +1,25 @@
+use std/lists;
+
+macro create_map(type1: untyped, type2: untyped, mapname: untyped, keytype: untyped, valtype: untyped) {
+    model mapname {
+        keys: keytype;
+        values: valtype;
+    }
+}
+
+create_map(string, string, StringStringMap, StringList, StringList);
+create_map(string, i32, StringIntMap, StringList, IntList);
+create_map(i32, string, IntStringMap, IntList, StringList);
+create_map(i32, i32, IntIntMap, IntList, IntList);
+create_map(string, float, StringFloatMap, StringList, FloatList);
+create_map(float, string, FloatStringMap, FloatList, StringList);
+create_map(i32, float, IntFloatMap, IntList, FloatList);
+create_map(float, i32, FloatIntMap, FloatList, IntList);
+create_map(string, bool, StringBoolMap, StringList, BoolList);
+create_map(bool, string, BoolStringMap, BoolList, StringList);
+create_map(i32, bool, IntBoolMap, IntList, BoolList);
+create_map(bool, i32, BoolIntMap, BoolList, IntList);
+create_map(float, bool, FloatBoolMap, FloatList, BoolList);
+create_map(bool, float, BoolFloatMap, BoolList, FloatList);
+
+test {}
