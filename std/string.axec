@@ -244,7 +244,7 @@ def is_digit(c: i32): i32 {
 }
 
 /// Checks if character is alphanumeric.
-def is_alnum(c: i32): i32 {
+def is_alphanum(c: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = isalnum(c);
@@ -625,7 +625,7 @@ def str(data: char*): string {
 test {    
     assert(is_alpha(65) != 0, "65 (A) should be alphabetic");
     assert(is_digit(48) != 0, "48 (0) should be a digit");
-    assert(is_alnum(97) != 0, "97 (a) should be alphanumeric");
+    assert(is_alphanum(97) != 0, "97 (a) should be alphanumeric");
     assert(to_upper_chr(97) == 65, "to_upper_chr('a') should return A");
     assert(to_lower_chr(65) == 97, "to_lower_chr('A') should return a");
     assert(str_ncmp("hello", "help", 3) == 0, "first 3 chars of hello and help should match");
