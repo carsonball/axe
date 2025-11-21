@@ -48,6 +48,7 @@ private string[string] g_arrayWidthVars;
 private int[][string] g_functionParamReordering;
 private MacroNode[string] g_macros;
 private bool[string] g_pointerFields;
+private string[string] g_fieldTypes;
 private string[string] g_varType;
 private string[string] g_isPointerVar;
 private string[string] g_functionPrefixes;
@@ -376,6 +377,7 @@ string generateC(ASTNode ast)
         g_isMutable.clear();
         g_macros.clear();
         g_pointerFields.clear();
+        g_fieldTypes.clear();
         g_isPointerVar.clear();
         g_varType.clear();
         g_functionPrefixes.clear();
@@ -442,6 +444,9 @@ string generateC(ASTNode ast)
                 {
                     if (field.type == modelNode.name)
                         g_pointerFields[modelNode.name ~ "." ~ field.name] = true;
+                    if (field.type.startsWith("ref "))
+                        g_pointerFields[modelNode.name ~ "." ~ field.name] = true;
+                    g_fieldTypes[modelNode.name ~ "." ~ field.name] = field.type;
                 }
             }
         }
@@ -2825,20 +2830,36 @@ string processExpression(string expr, string context = "")
                 string field = parts[i].strip();
                 string op = isPointer ? "->" : ".";
                 result ~= op ~ field;
-
-                // Check if this field is a pointer field for the next iteration
                 string fieldKey = baseModelName ~ "." ~ field;
                 if (fieldKey in g_pointerFields)
                 {
                     isPointer = true;
-                    // Update baseModelName to the field's type for subsequent accesses
-                    // (for self-referential structs, it's the same model name)
-                    // baseModelName stays the same for now
+                    if (fieldKey in g_fieldTypes)
+                    {
+                        string fieldType = g_fieldTypes[fieldKey];
+                        if (fieldType.startsWith("ref "))
+                            fieldType = fieldType[4 .. $].strip();
+                        if (fieldType.startsWith("mut "))
+                            fieldType = fieldType[4 .. $].strip();
+                        while (fieldType.length > 0 && fieldType[$ - 1] == '*')
+                            fieldType = fieldType[0 .. $ - 1].strip();
+                        baseModelName = fieldType;
+                    }
                 }
                 else
                 {
-                    // This field is not a pointer, so use . for any subsequent accesses
                     isPointer = false;
+                    if (fieldKey in g_fieldTypes)
+                    {
+                        string fieldType = g_fieldTypes[fieldKey];
+                        if (fieldType.startsWith("ref "))
+                            fieldType = fieldType[4 .. $].strip();
+                        if (fieldType.startsWith("mut "))
+                            fieldType = fieldType[4 .. $].strip();
+                        while (fieldType.length > 0 && fieldType[$ - 1] == '*')
+                            fieldType = fieldType[0 .. $ - 1].strip();
+                        baseModelName = fieldType;
+                    }
                 }
             }
             return result;
