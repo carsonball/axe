@@ -211,7 +211,8 @@ main {
 - [x] Immutability by default
 - [x] Parallel for
 - [x] Union types
-- [ ] Pure parallel { } blocks
+- [x] Pure `parallel { ... }` blocks
+- [x] Syntax (`single { ... }`) for isolating single threaded behaviours in parallel contexts
 - [x] Map and reduce clauses
 - [x] Smart type inference based on RHS of exprs.
 - [ ] Further memory models beyond arena allocation.
