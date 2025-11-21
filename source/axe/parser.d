@@ -27,6 +27,7 @@ private bool[string] g_importedModules;
  *   isAxec = Whether the source file is .axec
  *   checkEntryPoint = Whether to validate that the file has an entry point (main/test)
  *   currentModule = Name of the module being parsed (e.g., "std.string") for auto-import
+ *
  * Returns: 
  *   ASTNode = Abstract syntax tree representing the parsed tokens
  */
