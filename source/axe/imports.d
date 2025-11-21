@@ -340,10 +340,12 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 if (importChild.nodeType == "Function")
                 {
                     auto funcNode = cast(FunctionNode) importChild;
+                    
+                    if (funcNode.name == "main")
+                        continue;
+                    
                     if (useNode.importAll || useNode.imports.canFind(funcNode.name))
-                    {
                         resolvedImports[funcNode.name] = true;
-                    }
 
                     // Always add functions from imported modules (including transitive dependencies)
                     // But only rename if explicitly imported

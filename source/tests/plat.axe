@@ -1,0 +1,5 @@
+use crossplat;
+
+main {
+    cross_platform_func();
+}
