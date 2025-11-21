@@ -1,8 +1,8 @@
-def add(x: int, y: int): int {
+def add(x: i32, y: i32): i32 {
     return x + y;
 }
 
 test {
-    assert(add(1, 2) == 3, "add(1, 2) should be 3");
-    assert(add(1, 2) != 5, "add(1, 2) should not be 5");
+    assert add(1, 2) == 3, "add(1, 2) should be 3";
+    assert add(1, 2) != 5, "add(1, 2) should not be 5";
 }
