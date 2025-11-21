@@ -115,13 +115,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             typeName = tokens[pos].value;
             pos++;
 
-            // Handle array syntax: type[] or type[size]
             while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
                 typeName ~= "[";
                 pos++;
 
-                // Parse array size if present
                 while (pos < tokens.length && tokens[pos].type != TokenType.RBRACKET)
                 {
                     typeName ~= tokens[pos].value;
@@ -135,7 +133,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 }
             }
 
-            // Handle pointer syntax: type*
             while (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "*")
             {
                 typeName ~= "*";
@@ -545,7 +542,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
             auto platformNode = new PlatformNode(platformName);
 
-            // Parse statements/declarations inside the platform block (can include DEF, etc.)
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
@@ -559,7 +555,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 // We need to handle the parsing inline rather than using parseStatementHelper
                 if (tokens[pos].type == TokenType.DEF)
                 {
-                    // Parse function definition (similar to main parser)
                     pos++; // Skip 'def'
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
@@ -636,7 +631,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 }
                 else
                 {
-                    // Try parsing as a statement
                     ASTNode platformScopeNode = platformNode;
                     auto stmt = parseStatementHelper(pos, tokens, currentScope, platformScopeNode, isAxec);
                     if (stmt !is null)
