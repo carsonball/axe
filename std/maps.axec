@@ -84,7 +84,6 @@ create_map(f32, bool, FloatBoolMap, FloatList, BoolList);
 create_map(bool, f32, BoolFloatMap, BoolList, FloatList);
 
 test {
-    
     mut arena: Arena = Arena.create(1024);
     
     val int_map: ref IntIntMap = IntIntMap.create(ref_of(arena), 10);
