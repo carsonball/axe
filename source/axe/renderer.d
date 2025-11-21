@@ -2984,18 +2984,27 @@ import std.array;
  */
 private string getFormatSpecifier(string expr)
 {
-    // Check if expression contains .data (common for String types)
+    import std.string : strip;
+
+    string trimmed = expr.strip();
+
+    while (trimmed.startsWith("(") && trimmed.endsWith(")"))
+    {
+        trimmed = trimmed[1 .. $ - 1].strip();
+    }
+
+    if (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    {
+        return "%s";
+    }
+
     if (expr.canFind(".data"))
     {
         return "%s";
     }
 
-    // Check if it's a simple variable with string type
-    import std.string : strip;
+    string varName = trimmed;
 
-    string varName = expr.strip();
-
-    // Remove any member access to get base variable name
     if (varName.canFind("."))
     {
         varName = varName[0 .. varName.indexOf(".")];
@@ -3005,7 +3014,6 @@ private string getFormatSpecifier(string expr)
         varName = varName[0 .. varName.indexOf("->")];
     }
 
-    // Check if variable type is a string/pointer type
     if (varName in g_varType)
     {
         string varType = g_varType[varName];
@@ -3015,7 +3023,6 @@ private string getFormatSpecifier(string expr)
         }
     }
 
-    // Default to integer format (maintains backward compatibility)
     return "%d";
 }
 
