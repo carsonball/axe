@@ -19,8 +19,8 @@ import std.file;
 import std.process;
 import std.array;
 import std.stdio;
-import std.algorithm;
-import std.string : replace, startsWith, splitLines;
+import std.algorithm : canFind, endsWith;
+import std.string : replace, startsWith, splitLines, lastIndexOf;
 import std.path : dirName, buildPath;
 
 /**
@@ -40,6 +40,57 @@ bool hasParallelBlocks(ASTNode node)
     return false;
 }
 
+void collectModelNames(ASTNode node, ref string[string] modelNames)
+{
+    if (node.nodeType == "Model")
+    {
+        auto modelNode = cast(ModelNode) node;
+        if (modelNode !is null)
+        {
+            // Store the model name mapping
+            // Extract base name from prefixed name (e.g., "std_arena_Arena" -> "Arena")
+            string baseName = modelNode.name;
+            if (modelNode.name.canFind("_") && modelNode.name.startsWith("std_"))
+            {
+                auto lastUnderscore = modelNode.name.lastIndexOf('_');
+                if (lastUnderscore >= 0)
+                {
+                    baseName = modelNode.name[lastUnderscore + 1 .. $];
+                    modelNames[baseName] = modelNode.name;
+                }
+            }
+            else
+            {
+                // Not prefixed, so base name is the same as the model name
+                // For std files, prefix with module name
+                if (modelNode.name == "error")
+                    modelNames[modelNode.name] = "std_errors_" ~ modelNode.name;
+                else
+                    modelNames[modelNode.name] = modelNode.name;
+            }
+        }
+    }
+
+    foreach (child; node.children)
+    {
+        collectModelNames(child, modelNames);
+    }
+}
+
+string canonicalModelCName(string name, string[string] modelNames)
+{
+    if (name in modelNames)
+        return modelNames[name];
+
+    foreach (baseName, cName; modelNames)
+    {
+        if (cName == name)
+            return cName;
+    }
+
+    return "";
+}
+
 void collectDeclaredFunctions(ASTNode node, ref bool[string] declared)
 {
     if (node.nodeType == "Function")
@@ -53,11 +104,17 @@ void collectDeclaredFunctions(ASTNode node, ref bool[string] declared)
         auto modelNode = cast(ModelNode) node;
         if (modelNode !is null)
         {
+            import std.stdio : writeln;
+            writeln("DEBUG: Collecting from Model: ", modelNode.name, ", methods: ", 
+                    modelNode.methods.length, ", isPublic: ", modelNode.isPublic);
             foreach (method; modelNode.methods)
             {
                 auto methodFunc = cast(FunctionNode) method;
                 if (methodFunc !is null)
+                {
+                    writeln("DEBUG:    Method: ", methodFunc.name, ", isPublic: ", methodFunc.isPublic);
                     declared[methodFunc.name] = true;
+                }
             }
         }
     }
@@ -86,7 +143,7 @@ void collectDeclaredFunctions(ASTNode node, ref bool[string] declared)
     }
 }
 
-void validateFunctionCalls(ASTNode node, bool[string] declared, string modulePrefix = "")
+void validateFunctionCalls(ASTNode node, bool[string] declared, string[string] modelNames, string modulePrefix = "")
 {
     if (node.nodeType == "Model")
     {
@@ -98,7 +155,7 @@ void validateFunctionCalls(ASTNode node, bool[string] declared, string modulePre
                 auto methodFunc = cast(FunctionNode) method;
                 if (methodFunc !is null)
                 {
-                    validateFunctionCalls(methodFunc, declared, modulePrefix);
+                    validateFunctionCalls(methodFunc, declared, modelNames, modulePrefix);
                 }
             }
         }
@@ -128,26 +185,57 @@ void validateFunctionCalls(ASTNode node, bool[string] declared, string modulePre
 
             if (!isDeclared && name.canFind("."))
             {
-                import std.string : replace;
+                import std.string : replace, split, strip;
 
-                string underscored = name.replace(".", "_");
-                if (auto q = underscored in declared)
+                // Handle model.method calls like error.print_self
+                auto parts = name.split(".");
+                if (parts.length == 2)
                 {
-                    isDeclared = *q;
+                    string modelName = parts[0].strip();
+                    string methodName = parts[1].strip();
+
+                    // Look up the canonical model name (e.g., "error" -> "std_errors_error")
+                    if (modelName in modelNames)
+                    {
+                        string modelCName = canonicalModelCName(modelName, modelNames);
+                        if (modelCName.length == 0)
+                            modelCName = modelName;
+
+                        // Construct the full method name (e.g., "std_errors_error_print_self")
+                        string fullMethodName = modelCName ~ "_" ~ methodName;
+                        if (auto q = fullMethodName in declared)
+                        {
+                            isDeclared = *q;
+                        }
+                    }
                 }
 
-                if (!isDeclared && modulePrefix.length > 0)
+                // Fall back to simple underscore replacement
+                if (!isDeclared)
                 {
-                    string fullyPrefixed = modulePrefix ~ "_" ~ underscored;
-                    if (auto r = fullyPrefixed in declared)
+                    string underscored = name.replace(".", "_");
+                    if (auto q = underscored in declared)
                     {
-                        isDeclared = *r;
+                        isDeclared = *q;
+                    }
+
+                    if (!isDeclared && modulePrefix.length > 0)
+                    {
+                        string fullyPrefixed = modulePrefix ~ "_" ~ underscored;
+                        if (auto r = fullyPrefixed in declared)
+                        {
+                            isDeclared = *r;
+                        }
                     }
                 }
             }
 
             if (!isCEscape && !isDeclared)
             {
+                import std.stdio : writeln;
+                writeln("Failed validation for: ", name);
+                writeln("Module prefix: ", modulePrefix);
+                writeln("Declared keys: ", declared.keys);
                 throw new Exception("Undefined function: " ~ name);
             }
         }
@@ -155,7 +243,7 @@ void validateFunctionCalls(ASTNode node, bool[string] declared, string modulePre
 
     foreach (child; node.children)
     {
-        validateFunctionCalls(child, declared, modulePrefix);
+        validateFunctionCalls(child, declared, modelNames, modulePrefix);
     }
 }
 
@@ -274,6 +362,9 @@ bool handleMachineArgs(string[] args)
         bool[string] declaredFunctions;
         collectDeclaredFunctions(ast, declaredFunctions);
 
+        string[string] modelNames;
+        collectModelNames(ast, modelNames);
+
         string modulePrefix = "";
         if (moduleName.length > 0)
         {
@@ -282,7 +373,7 @@ bool handleMachineArgs(string[] args)
             modulePrefix = moduleName.replace(".", "_");
         }
 
-        validateFunctionCalls(ast, declaredFunctions, modulePrefix);
+        validateFunctionCalls(ast, declaredFunctions, modelNames, modulePrefix);
 
         if (args.canFind("-ast"))
             writeln(ast);

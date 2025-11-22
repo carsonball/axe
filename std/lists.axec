@@ -25,7 +25,7 @@ macro make_list(
     cep: untyped, 
     printer: untyped
 ) {
-    model name {
+    pub model name {
         data: ref type;
         len: i32;
         cap: i32;

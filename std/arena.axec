@@ -8,13 +8,13 @@ use std.errors (
 );
 
 /// Arena for memory allocation.
-model Arena {
+pub model Arena {
     buffer: usize;
     capacity: i32;
     offset: i32;
 
     /// Creates a new arena with the specified size.
-    def create(size: i32): Arena {
+    pub def create(size: i32): Arena {
         mut arena: Arena;
         
         raw {
@@ -27,7 +27,7 @@ model Arena {
     }
 
     /// Destroys the arena and frees its memory.
-    def destroy(arena: ref Arena) {
+    pub def destroy(arena: ref Arena) {
         raw {
             free((void*)arena->buffer);
             arena->buffer = 0;
@@ -37,7 +37,7 @@ model Arena {
     }
 
     /// Allocates memory from the arena, returns a proper reference pointer.
-    def alloc(arena: ref Arena, size: i32): ref void {
+    pub def alloc(arena: ref Arena, size: i32): ref void {
         mut result: ref void = nil;
 
         raw {
@@ -54,13 +54,13 @@ model Arena {
     }
 
     /// Allocates memory for an array from the arena.
-    def alloc_array(arena: ref Arena, element_size: i32, count: i32): ref void {
+    pub def alloc_array(arena: ref Arena, element_size: i32, count: i32): ref void {
         mut total_size: i32 = element_size * count;
         return Arena.alloc(arena, total_size);
     }
 
     /// Resets the arena, clearing all allocated memory.
-    def reset(arena: ref Arena) {
+    pub def reset(arena: ref Arena) {
         raw {
             arena->offset = 0;
             memset((void*)arena->buffer, 0, arena->capacity);
@@ -68,7 +68,7 @@ model Arena {
     }
 
     /// Returns the amount of memory used by the arena.
-    def used(arena: ref Arena): i32 {
+    pub def used(arena: ref Arena): i32 {
         mut result: i32 = 0;
         raw {
             result = arena->offset;
@@ -77,7 +77,7 @@ model Arena {
     }
 
     /// Returns the amount of remaining memory in the arena.
-    def remaining(arena: ref Arena): i32 {
+    pub def remaining(arena: ref Arena): i32 {
         mut result: i32 = 0;
         raw {
             result = arena->capacity - arena->offset;

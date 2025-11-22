@@ -18,108 +18,108 @@ overload print(x: generic) {
 }(x);
 
 /// Print out some char
-def print_char(value: char) {
+pub def print_char(value: char) {
     raw {
         printf("%c", value);
     }
 }
 
 /// Print out some char with a newline
-def println_char(value: char) {
+pub def println_char(value: char) {
     raw {
         printf("%c\n", value);
     }
 }
 
 /// Print out some string
-def print_chrptr(value: char*) {
+pub def print_chrptr(value: char*) {
     raw {
         printf("%s", value);
     }
 }
 
 /// Print out some string with a newline
-def println_chrptr(value: char*) {
+pub def println_chrptr(value: char*) {
     raw {
         printf("%s\n", value);
     }
 }
 
 /// Print out some string
-def print_str(value: string) {
+pub def print_str(value: string) {
     raw {
         printf("%s", value.data);
     }
 }
 
 /// Print out some string with a newline
-def println_str(value: string) {
+pub def println_str(value: string) {
     raw {
         printf("%s\n", value.data);
     }
 }
 
 /// Print out some float with no newline
-def print_f32(value: f32) {
+pub def print_f32(value: f32) {
     raw {
         printf("%.10f", value);
     }
 }
 
 /// Print a float with newline
-def println_f32(value: f32) {
+pub def println_f32(value: f32) {
     raw {
         printf("%.10f\n", value);
     }
 }
 
-def println_f64(value: f64) {
+pub def println_f64(value: f64) {
     raw {
         printf("%.10f\n", value);
     }
 }
 
-def print_f64(value: f64) {
+pub def print_f64(value: f64) {
     raw {
         printf("%.10f", value);
     }
 }
 
-def println_i64(value: i64) {
+pub def println_i64(value: i64) {
     raw {
         printf("%ld\n", value);
     }
 }
 
-def print_i64(value: i64) {
+pub def print_i64(value: i64) {
     raw {
         printf("%ld", value);
     }
 }
 
 /// Print out some int with no newline
-def print_i32(value: i32) {
+pub def print_i32(value: i32) {
     raw {
         printf("%d", value);
     }
 }
 
 /// Print an int with newline
-def println_i32(value: i32) {
+pub def println_i32(value: i32) {
     raw {
         printf("%d\n", value);
     }
 }
 
 /// Print a boolean with no newline
-def print_bool(value: bool) {
+pub def print_bool(value: bool) {
     raw {
         printf("%s", value ? "true" : "false");
     }
 }
 
 /// Print a boolean with newline
-def println_bool(value: bool) {
+pub def println_bool(value: bool) {
     raw {
         printf("%s\n", value ? "true" : "false");
     }

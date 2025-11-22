@@ -14,13 +14,13 @@ use std.arena (
 use std.io;
 
 /// string model representing a dynamic string with length tracking.
-model string {
+pub model string {
     data: char*;
     len: usize;
     cap: usize;
 
     /// Creates a new string from a char pointer.
-    def create(data: char*): string {
+    pub def create(data: char*): string {
         mut result: string;
         raw {
             result.data = NULL;
@@ -39,7 +39,7 @@ model string {
     }
 
     /// Creates a new empty string with specified capacity using arena allocation.
-    def create_with_capacity(arena: ref Arena, capacity: i32): string {
+    pub def create_with_capacity(arena: ref Arena, capacity: i32): string {
         mut result: string;
         raw {
             result.data = NULL;
@@ -60,12 +60,12 @@ model string {
 }
 
 /// Returns the length of a string.
-def str_len(s: string): usize {
+pub def str_len(s: string): usize {
     return s.len;
 }
 
 /// Convert some string to titlecase.
-def to_title_case(s: string): string {
+pub def to_title_case(s: string): string {
     mut result: string;
     raw {
         result.data = NULL;
@@ -92,7 +92,7 @@ def to_title_case(s: string): string {
 }
 
 /// Converts string to uppercase.
-def to_upper(s: string): string {
+pub def to_upper(s: string): string {
     mut result: string;
     raw {
         result.data = NULL;
@@ -115,7 +115,7 @@ def to_upper(s: string): string {
 }
 
 /// Converts string to lowercase.
-def to_lower(s: string): string {
+pub def to_lower(s: string): string {
     mut result: string;
     raw {
         result.data = NULL;
@@ -138,14 +138,14 @@ def to_lower(s: string): string {
 }
 
 /// Copies source string to destination. Modifies dest in place.
-def str_copy(src: string, desta: mut string): void {
+pub def str_copy(src: string, desta: mut string): void {
     for mut i = 0; i < src.len; i++ {
         desta.data[i] = src.data[i];
     }
 }
 
 /// Compares two strings. Returns 0 if equal.
-def compare(a: string, b: string): i32 {
+pub def compare(a: string, b: string): i32 {
     mut len: usize = 0;
 
     if a.len < b.len {
@@ -166,7 +166,7 @@ def compare(a: string, b: string): i32 {
 }
 
 /// Concatenates source string to destination. Returns a new string.
-def concat(dest: string, src: string): string {
+pub def concat(dest: string, src: string): string {
     mut result: string;
     raw {
         result.data = NULL;
@@ -193,7 +193,7 @@ def concat(dest: string, src: string): string {
 }
 
 /// Finds first occurrence of character in string. Returns pointer or 0.
-def first_occurrence(s: string, c: i32): char* {
+pub def first_occurrence(s: string, c: i32): char* {
     mut result: char* = 0;
     raw {
         result = strchr((const char*)s.data, c);
@@ -202,7 +202,7 @@ def first_occurrence(s: string, c: i32): char* {
 }
 
 /// Finds first occurrence of substring in string. Returns pointer or 0.
-def substring(haystack: string, needle: string): char* {
+pub def substring(haystack: string, needle: string): char* {
     mut result: char* = 0;
     raw {
         result = strstr((const char*)haystack.data, (const char*)needle.data);
@@ -211,7 +211,7 @@ def substring(haystack: string, needle: string): char* {
 }
 
 /// Converts string to integer.
-def str_to_int(s: string): i32 {
+pub def str_to_int(s: string): i32 {
     mut result: i32 = 0;
     raw {
         result = atoi((const char*)s.data);
@@ -220,7 +220,7 @@ def str_to_int(s: string): i32 {
 }
 
 /// Converts string to long integer.
-def str_to_long(s: char*): i64 {
+pub def str_to_long(s: char*): i64 {
     mut result: i64 = 0;
     raw {
         result = atol((const char*)s);
@@ -229,7 +229,7 @@ def str_to_long(s: char*): i64 {
 }
 
 /// Checks if character is alphabetic.
-def is_alpha(c: i32): i32 {
+pub def is_alpha(c: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = isalpha(c);
@@ -238,7 +238,7 @@ def is_alpha(c: i32): i32 {
 }
 
 /// Checks if character is numeric.
-def is_digit(c: i32): i32 {
+pub def is_digit(c: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = isdigit(c);
@@ -247,7 +247,7 @@ def is_digit(c: i32): i32 {
 }
 
 /// Checks if character is alphanumeric.
-def is_alphanum(c: i32): i32 {
+pub def is_alphanum(c: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = isalnum(c);
@@ -256,7 +256,7 @@ def is_alphanum(c: i32): i32 {
 }
 
 /// Converts char* to uppercase.
-def to_upper_chrptr(s: char*): char* {
+pub def to_upper_chrptr(s: char*): char* {
     mut result: char* = 0;
     raw {
         result = (char*)malloc(strlen((const char*)s) + 1);
@@ -271,7 +271,7 @@ def to_upper_chrptr(s: char*): char* {
 }
 
 /// Converts char* to lowercase.
-def to_lower_chrptr(s: char*): char* {
+pub def to_lower_chrptr(s: char*): char* {
     mut result: char* = 0;
     raw {
         result = (char*)malloc(strlen((const char*)s) + 1);
@@ -286,7 +286,7 @@ def to_lower_chrptr(s: char*): char* {
 }
 
 /// Converts character to uppercase.
-def to_upper_chr(c: i32): i32 {
+pub def to_upper_chr(c: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = toupper(c);
@@ -295,7 +295,7 @@ def to_upper_chr(c: i32): i32 {
 }
 
 /// Converts character to lowercase.
-def to_lower_chr(c: i32): i32 {
+pub def to_lower_chr(c: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = tolower(c);
@@ -304,7 +304,7 @@ def to_lower_chr(c: i32): i32 {
 }
 
 /// Allocates and copies a string. Caller must free the result.
-def str_dup(s: char*): char* {
+pub def str_dup(s: char*): char* {
     mut result: char* = 0;
     raw {
         int len = (int)strlen((const char*)s);
@@ -317,7 +317,7 @@ def str_dup(s: char*): char* {
 }
 
 /// Compares first n characters of two strings. Returns 0 if equal.
-def str_ncmp(s1: char*, s2: char*, n: i32): i32 {
+pub def str_ncmp(s1: char*, s2: char*, n: i32): i32 {
     mut result: i32 = 0;
     raw {
         result = strncmp((const char*)s1, (const char*)s2, (size_t)n);
@@ -326,7 +326,7 @@ def str_ncmp(s1: char*, s2: char*, n: i32): i32 {
 }
 
 /// Copies at most n characters from source to destination.
-def str_ncopy(dest: char*, src: char*, n: i32): char* {
+pub def str_ncopy(dest: char*, src: char*, n: i32): char* {
     mut result: char* = 0;
     raw {
         result = strncpy((char*)dest, (const char*)src, (size_t)n);
@@ -335,7 +335,7 @@ def str_ncopy(dest: char*, src: char*, n: i32): char* {
 }
 
 /// Converts an integer to a string. Buffer must be at least 12 bytes.
-def int_to_str(value: i32, buffer: char*): char* {
+pub def int_to_str(value: i32, buffer: char*): char* {
     raw {
         sprintf(buffer, "%d", value);
     }
@@ -343,7 +343,7 @@ def int_to_str(value: i32, buffer: char*): char* {
 }
 
 /// Converts a long to a string. Buffer must be at least 21 bytes.
-def long_to_str(value: i64, buffer: char*): char* {
+pub def long_to_str(value: i64, buffer: char*): char* {
     raw {
         sprintf(buffer, "%ld", value);
     }
@@ -351,7 +351,7 @@ def long_to_str(value: i64, buffer: char*): char* {
 }
 
 /// Converts a float to a string. Buffer must be at least 32 bytes.
-def float_to_str(value: f32, buffer: char*): char* {
+pub def float_to_str(value: f32, buffer: char*): char* {
     raw {
         sprintf(buffer, "%f", value);
     }
@@ -359,7 +359,7 @@ def float_to_str(value: f32, buffer: char*): char* {
 }
 
 /// Converts a double to a string. Buffer must be at least 32 bytes.
-def double_to_str(value: f64, buffer: char*): char* {
+pub def double_to_str(value: f64, buffer: char*): char* {
     raw {
         sprintf(buffer, "%lf", value);
     }
@@ -368,7 +368,7 @@ def double_to_str(value: f64, buffer: char*): char* {
 
 /// Returns the index of the first occurrence of character `c` in `s` at or after `start`.
 /// Returns -1 if the character is not found.
-def find_char_from(s: string, c: char, start: usize): i32 {
+pub def find_char_from(s: string, c: char, start: usize): i32 {
     mut index: i32 = -1;
     raw {
         if (start >= s.len) {
@@ -388,7 +388,7 @@ def find_char_from(s: string, c: char, start: usize): i32 {
 /// Returns a substring of `s` starting at `start` with the given `length`.
 /// If `start` is beyond the end of the string or `length` is zero, an empty string is returned.
 /// The function clamps the requested range to the bounds of the source string.
-def substr(s: string, start: usize, length: usize): string {
+pub def substr(s: string, start: usize, length: usize): string {
     mut result: string = string.create("");
     raw {
         if (start >= s.len || length == 0) {
@@ -412,7 +412,7 @@ def substr(s: string, start: usize, length: usize): string {
 }
 
 /// Checks if string has prefix.
-def has_prefix(s: string, prefix: string): bool {
+pub def has_prefix(s: string, prefix: string): bool {
     if prefix.len == 0 {
         return true;
     }
@@ -435,7 +435,7 @@ def has_prefix(s: string, prefix: string): bool {
 }
 
 /// Checks if string has suffix.
-def has_suffix(s: string, suffix: string): bool {
+pub def has_suffix(s: string, suffix: string): bool {
     if suffix.len == 0 {
         return true;
     }
@@ -459,7 +459,7 @@ def has_suffix(s: string, suffix: string): bool {
 }
 
 /// Removes prefix from string.
-def trim_prefix(s: string, prefix: string): string {
+pub def trim_prefix(s: string, prefix: string): string {
     if prefix.len == 0 or prefix.len > s.len {
         return s;
     }
@@ -479,7 +479,7 @@ def trim_prefix(s: string, prefix: string): string {
 }
 
 /// Removes suffix from string.
-def trim_suffix(s: string, suffix: string): string {
+pub def trim_suffix(s: string, suffix: string): string {
     if suffix.len == 0 or suffix.len > s.len {
         return s;
     }
@@ -500,7 +500,7 @@ def trim_suffix(s: string, suffix: string): string {
 }
 
 /// Strip leading whitespace from a string.
-def lstrip(s: string): string {
+pub def lstrip(s: string): string {
     if s.len == 0 {
         return s;
     }
@@ -526,7 +526,7 @@ def lstrip(s: string): string {
 }
 
 /// Strip trailing whitespace from a string.
-def rstrip(s: string): string {
+pub def rstrip(s: string): string {
     if s.len == 0 {
         return s;
     }
@@ -552,7 +552,7 @@ def rstrip(s: string): string {
 }
 
 /// String trailing and leading whitespace.
-def strip(s: string): string {
+pub def strip(s: string): string {
     if s.len == 0 {
         return s;
     }
@@ -590,7 +590,7 @@ def strip(s: string): string {
 }
 
 /// Convenience function to convert a char* to a string.
-def str(data: char*): string {
+pub def str(data: char*): string {
     return string.create(data);
 }
 

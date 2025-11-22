@@ -3985,6 +3985,79 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 fullLeftSide ~= "[" ~ indexExpr ~ "]";
             }
 
+            if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
+            {
+                // Method call: obj.method(...)
+                pos++;
+                string[] args;
+                string currentArg = "";
+                int parenDepth = 0;
+                bool lastWasRef = false;
+
+                while (pos < tokens.length && (tokens[pos].type != TokenType.RPAREN || parenDepth > 0))
+                {
+                    if (tokens[pos].type == TokenType.LPAREN)
+                    {
+                        parenDepth++;
+                        currentArg ~= tokens[pos].value;
+                        lastWasRef = false;
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.RPAREN)
+                    {
+                        parenDepth--;
+                        currentArg ~= tokens[pos].value;
+                        lastWasRef = false;
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.COMMA && parenDepth == 0)
+                    {
+                        args ~= currentArg.strip();
+                        currentArg = "";
+                        lastWasRef = false;
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.WHITESPACE)
+                    {
+                        if (lastWasRef)
+                        {
+                            currentArg ~= " ";
+                            lastWasRef = false;
+                        }
+                        pos++;
+                    }
+                    else if (tokens[pos].type == TokenType.STR)
+                    {
+                        currentArg ~= "\"" ~ tokens[pos].value ~ "\"";
+                        lastWasRef = false;
+                        pos++;
+                    }
+                    else
+                    {
+                        if (tokens[pos].value == "ref")
+                            lastWasRef = true;
+                        else
+                            lastWasRef = false;
+                        
+                        currentArg ~= tokens[pos].value;
+                        pos++;
+                    }
+                }
+
+                if (currentArg.strip().length > 0)
+                    args ~= currentArg.strip();
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                    "Expected ')' after function arguments");
+                pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                    "Expected ';' after function call");
+                pos++;
+                return new FunctionCallNode(fullLeftSide, args.join(", "));
+            }
+
             if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
             {
                 // Check if the object is declared (could be a function parameter or local variable)

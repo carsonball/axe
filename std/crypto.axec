@@ -12,7 +12,7 @@ val SHA1_DIGEST_SIZE: i32 = 20;
 val MD5_DIGEST_SIZE: i32 = 16;
 
 /// Represents a SHA256 hash digest
-model SHA256Digest {
+pub model SHA256Digest {
     bytes: i32[32];
     is_valid: bool;
 }

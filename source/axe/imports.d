@@ -66,6 +66,12 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
         g_processedModules[normalizedPath] = "1";
     }
 
+    if (currentFilePath.canFind("lists.axec"))
+    {
+        import std.stdio : writeln;
+        writeln("DEBUG: Processing std.lists imports. Children count: ", programNode.children.length);
+    }
+
     auto startsWithLower = (string s) {
         return s.length > 0 && s[0] >= 'a' && s[0] <= 'z';
     };
@@ -203,6 +209,16 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             string importBaseDir = dirName(modulePath);
             importAst = processImports(importAst, importBaseDir, importIsAxec, modulePath, false);
 
+            if (modulePath.canFind("errors.axec"))
+            {
+                 import std.stdio : writeln;
+                 writeln("DEBUG: Processed std.errors. Children: ", (cast(ProgramNode)importAst).children.length);
+                 foreach(c; (cast(ProgramNode)importAst).children) {
+                     if (c.nodeType == "Model") writeln("  Child Model: ", (cast(ModelNode)c).name);
+                     else writeln("  Child type: ", c.nodeType);
+                 }
+            }
+
             auto importProgram = cast(ProgramNode) importAst;
 
             if (!modulePath.canFind("std") && importProgram !is null)
@@ -229,6 +245,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
             foreach (importChild; importProgram.children)
             {
+                // import std.stdio : writeln;
+                // writeln("DEBUG: std.lists child nodeType: ", importChild.nodeType);
+                
                 if (importChild.nodeType == "ExternalImport")
                 {
                     auto extNode = cast(ExternalImportNode) importChild;
@@ -259,7 +278,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (pChild.nodeType == "Function")
                         {
                             auto funcNode = cast(FunctionNode) pChild;
-                            if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name)))
+                            if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name) || funcNode.name.startsWith("std_")))
                             {
                                 string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
                                     : (sanitizedModuleName ~ "_" ~ funcNode.name);
@@ -269,7 +288,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         else if (pChild.nodeType == "Model")
                         {
                             auto modelNode = cast(ModelNode) pChild;
-                            if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name)))
+                            if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name) || modelNode.name.startsWith("std_")))
                             {
                                 string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
                                     : (sanitizedModuleName ~ "_" ~ modelNode.name);
@@ -339,7 +358,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Function")
                 {
                     auto funcNode = cast(FunctionNode) importChild;
-                    if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name)))
+                    if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name) || funcNode.name.startsWith("std_")))
                     {
                         string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
                             : (sanitizedModuleName ~ "_" ~ funcNode.name);
@@ -349,7 +368,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
-                    if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name)))
+                    // import std.stdio : writeln;
+                    // writeln("DEBUG: Checking importChild Model: ", modelNode.name);
+                    if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name) || modelNode.name.startsWith("std_")))
                     {
                         string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
                             : (sanitizedModuleName ~ "_" ~ modelNode.name);
@@ -370,7 +391,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Enum")
                 {
                     auto enumNode = cast(EnumNode) importChild;
-                    if (useNode.importAll || useNode.imports.canFind(enumNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(enumNode.name) || enumNode.name.startsWith("std_"))
                     {
                         moduleModelMap[enumNode.name] = enumNode.name;
                     }
@@ -396,7 +417,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Macro")
                 {
                     auto macroNode = cast(MacroNode) importChild;
-                    if (useNode.importAll || useNode.imports.canFind(macroNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(macroNode.name) || macroNode.name.startsWith("std_"))
                     {
                         moduleMacroMap[macroNode.name] = macroNode.name;
                     }
@@ -404,7 +425,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Overload")
                 {
                     auto overloadNode = cast(OverloadNode) importChild;
-                    if (useNode.importAll || useNode.imports.canFind(overloadNode.name))
+                    if (useNode.importAll || useNode.imports.canFind(overloadNode.name) || overloadNode.name.startsWith("std_"))
                     {
                         moduleMacroMap[overloadNode.name] = overloadNode.name;
                     }
@@ -490,8 +511,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         else if (pChild.nodeType == "Model")
                         {
                             auto modelNode = cast(ModelNode) pChild;
+                            import std.stdio : writeln;
+                            writeln("DEBUG: [Platform] Found model '", modelNode.name, 
+                                         "', isPublic=", modelNode.isPublic);
                             if (!modelNode.isPublic)
+                            {
+                                writeln("DEBUG: [Platform] Skipping non-public model '", modelNode.name, "'");
                                 continue;
+                            }
 
                             if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                             {
@@ -504,6 +531,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 importedModels[modelNode.name] = prefixedName;
                                 auto newModel = new ModelNode(prefixedName, null);
                                 newModel.fields = modelNode.fields;
+                                newModel.isPublic = modelNode.isPublic;
 
                                 foreach (method; modelNode.methods)
                                 {
@@ -761,27 +789,52 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
+                    import std.stdio : writeln;
+                    writeln("DEBUG: Found model '", modelNode.name, "', isPublic=", modelNode.isPublic);
                     if (!modelNode.isPublic)
-                        continue;
-
-                    if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
-                        resolvedImports[modelNode.name] = true;
+                        writeln("DEBUG: Skipping non-public model '", modelNode.name, "'");
+                        continue;
                     }
 
-                    if (useNode.importAll || useNode.imports.canFind(modelNode.name))
+                    // Extract base model name for checking against import list
+                    // E.g., "std_errors_error" -> "error"
+                    string baseName = modelNode.name;
+                    if (modelNode.name.canFind("_"))
                     {
-                        string prefixedName = moduleModelMap[modelNode.name];
-                        importedModels[modelNode.name] = prefixedName;
+                        auto lastUnderscore = modelNode.name.lastIndexOf('_');
+                        if (lastUnderscore >= 0)
+                        {
+                            baseName = modelNode.name[lastUnderscore + 1 .. $];
+                        }
+                    }
+
+                    bool isExplicitlyImported = useNode.importAll || useNode.imports.canFind(baseName);
+                    
+                    writeln("DEBUG: Checking model '", modelNode.name, "', baseName='", baseName, 
+                                 "', isExplicit=", isExplicitlyImported, ", methods=", modelNode.methods.length);
+
+                    if (isExplicitlyImported)
+                    {
+                        resolvedImports[baseName] = true;
+                    }
+
+                    if (isExplicitlyImported)
+                    {
+                        writeln("DEBUG: Treating '", modelNode.name, "' as explicit import");
+                        string prefixedName = moduleModelMap.get(modelNode.name, modelNode.name);
+                        importedModels[baseName] = prefixedName;
                         auto newModel = new ModelNode(prefixedName, null);
                         newModel.fields = modelNode.fields;
+                        newModel.isPublic = modelNode.isPublic;
 
                         foreach (method; modelNode.methods)
                         {
                             auto methodFunc = cast(FunctionNode) method;
                             if (methodFunc !is null && methodFunc.isPublic)
                             {
-                                string prefixedMethodName = moduleFunctionMap[methodFunc.name];
+                                string prefixedMethodName = moduleFunctionMap.get(methodFunc.name, 
+                                                                                   methodFunc.name);
                                 auto newMethod = new FunctionNode(prefixedMethodName, methodFunc
                                         .params);
                                 newMethod.returnType = methodFunc.returnType;
@@ -811,7 +864,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 if (existingModel.name == modelNode.name)
                                 {
                                     alreadyAdded = true;
-                                    debugWriteln("DEBUG: Skipping duplicate transitive model: ", modelNode
+                                    writeln("DEBUG: Skipping duplicate transitive model: ", modelNode
                                             .name);
                                     break;
                                 }
@@ -821,8 +874,11 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (!alreadyAdded)
                         {
                             isTransitiveDependency[modelNode.name] = true;
-                            debugWriteln("DEBUG: Adding transitive model: ", modelNode.name);
+                            writeln("DEBUG: Adding transitive model: ", modelNode.name);
 
+                            // For transitive dependencies, just pass through the model as-is.
+                            // It should already be prefixed from when it was explicitly imported
+                            // in its original module.
                             foreach (method; modelNode.methods)
                             {
                                 auto methodFunc = cast(FunctionNode) method;

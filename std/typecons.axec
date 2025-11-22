@@ -12,7 +12,7 @@ enum AnyKind {
 }
 
 /// A type constructor for any type.
-model Any {
+pub model Any {
     kind: AnyKind;
 
     value: union {

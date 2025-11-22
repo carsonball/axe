@@ -7,20 +7,20 @@ use std.io(
 );
 
 /// Represents some kind of error in the program.
-model error {
+pub model error {
     msg: string;
 
-    def create(msg: char*): error {
+    pub def create(msg: char*): error {
         return new error(msg: string.create(msg));
     }
 
-    def print_self(err: error) {
+    pub def print_self(err: error) {
         print(err.msg);
     }
 }
 
 /// Stops the program with the given error message.
-def panic(err: error) {
+pub def panic(err: error) {
     print "\nRuntimeError: ";
     error.print_self(err);
     
@@ -30,13 +30,13 @@ def panic(err: error) {
 }
 
 /// Enforces a condition, panics if the condition is false.
-def enforce(condition: bool, err: error) {
+pub def enforce(condition: bool, err: error) {
     if !condition {
         panic(err);
     }
 }
 
-def __test_error(): error {
+pub def __test_error(): error {
     return new error(msg: string.create("Some bad thing happened"));
 }
 
