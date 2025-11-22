@@ -1042,26 +1042,30 @@ string escapeRegexLiteral(string value)
     return buffer.data;
 }
 
-private static string[string] g_regexPatternCache;
+import std.regex : Regex;
+private static Regex!char[string] g_regexCache;
+private bool[string] g_stringCheckCache;
 
 string replaceStandaloneCall(string text, string oldName, string newName)
 {
     import std.regex : regex, replaceAll, Regex;
 
+    if (!text.canFind(oldName))
+        return text;
+        
     if (newName.canFind("_" ~ oldName) && text.canFind(newName ~ "("))
     {
         return text;
     }
 
     string cacheKey = "standalone_" ~ oldName;
-    if (cacheKey !in g_regexPatternCache)
+    if (cacheKey !in g_regexCache)
     {
         auto escaped = escapeRegexLiteral(oldName);
-        g_regexPatternCache[cacheKey] = "(?<![A-Za-z0-9_])" ~ escaped ~ "(\\s*)\\(";
+        g_regexCache[cacheKey] = regex("(?<![A-Za-z0-9_])" ~ escaped ~ "(\\s*)\\(");
     }
     
-    auto pattern = regex(g_regexPatternCache[cacheKey]);
-    return replaceAll(text, pattern, newName ~ "$1(");
+    return replaceAll(text, g_regexCache[cacheKey], newName ~ "$1(");
 }
 
 /**
