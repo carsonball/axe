@@ -19,16 +19,12 @@ model SHA256Digest {
 
 /// Right rotate a 32-bit unsigned integer
 def rotr(x: i32, n: i32): i32 {
-    raw {
-        return (((uint32_t)x >> n) | ((uint32_t)x << (32 - n)));
-    }
+    return (((i32)x >> n) | ((i32)x << (32 - n)));    
 }
 
 /// Right shift with proper unsigned handling
 def shr(x: i32, n: i32): i32 {
-    raw {
-        return ((uint32_t)x >> n);
-    }
+    return ((i32)x >> n);
 }
 
 /// SHA-256 Ch function: (x AND y) XOR (NOT x AND z)
