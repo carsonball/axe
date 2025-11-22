@@ -7,6 +7,14 @@ use std.lists;
 use std.string;
 use lexer;
 
+model TokenList {
+    val length: i32;
+
+    def get(index: i32): TokenType {
+        return TokenType[index];
+    }
+}
+
 main {
     val args: StringList = get_cmdline_args();
     
@@ -36,7 +44,9 @@ main {
     val source_code: string = read_file(source_file);
     
     print("1 | Lex... ");
-    let tokens = lexer.lex(source_code);
+
+    mut tokens: TokenList = lexer.lex(source_code);
+
     println("Done");
     
     println($"Tokenized {tokens.length} tokens");
