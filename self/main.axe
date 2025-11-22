@@ -3,25 +3,37 @@
 
 use std.io;
 use std.os;
+use std.lists;
 use std.string;
 use lexer;
 
 main {
-    val args = get_cmdline_args()
+    val args: StringList = get_cmdline_args()
     
     if args.length < 2 {
-        println("Usage: axe <source_file>");
+        println("Usage: axe <input.axe|axec> [options]");
+        println("Options:")
+        println("  -asm          emit assembly and assemble/link/run it (requires nasm)")
+        println("  -e            keep the emitted file")
+        println("  -r            run the built executable after compilation")
+        println("  -tokens       print lexer tokens and exit")
+        println("  -ast          print the parsed AST and exit")
+        println("  -dll          build shared instead of standalone executable")
+        println("  --release     build in release mode")
+        println("  -q, --quiet   suppress debug output")
+        println("  -I<path>      pass a C include directory")
+        println("  --version, -v show axe version and exit")
         quit(1);
     }
     
-    let source_file = args[1]
+    val source_file: string = args[1]
     
-    if !os.file_exists(source_file) {
+    if !file_exists(source_file) {
         println($"Error: File '{source_file}' not found")
-        os.exit(1)
+        quit(1)
     }
     
-    let source_code = os.read_file(source_file)
+    val source_code: string = read_file(source_file)
     
     print("1 | Lex... ")
     let tokens = lexer.lex(source_code)
@@ -29,5 +41,5 @@ main {
     
     println($"Tokenized {tokens.length} tokens")
     
-    os.exit(0)
+    quit(0)
 }
