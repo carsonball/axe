@@ -77,7 +77,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             if (child.nodeType == "Model")
             {
                 auto modelNode = cast(ModelNode) child;
-                if (startsWithLower(modelNode.name))
+                if (startsWithLower(modelNode.name) && !startsWith("std_", modelNode.name))
                 {
                     throw new Exception(
                         "Declaring primitive types outside of the standard library is disallowed: " ~
@@ -118,13 +118,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             if (child.nodeType == "Model")
             {
                 auto modelNode = cast(ModelNode) child;
-                
+
                 if (modelNode.name == "C")
                 {
                     debugWriteln("DEBUG: Skipping special 'C' model (used for direct C calls)");
                     continue;
                 }
-                
+
                 localModels[modelNode.name] = currentModulePrefix ~ "_" ~ modelNode.name;
                 debugWriteln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
                         modelNode.name, "'");
@@ -224,7 +224,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     if (importChild.nodeType == "Model")
                     {
                         auto mNode = cast(ModelNode) importChild;
-                        if (startsWithLower(mNode.name))
+                        if (startsWithLower(mNode.name) && !mNode.name.startsWith("std_"))
                         {
                             string msg = "Declaring primitive types outside of the standard library is disallowed: "
                                 ~ mNode.name;
@@ -526,7 +526,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 {
                                     continue;
                                 }
-                                
+
                                 string prefixedName = moduleModelMap[modelNode.name];
                                 importedModels[modelNode.name] = prefixedName;
                                 auto newModel = new ModelNode(prefixedName, null);
@@ -719,7 +719,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         }
                         else
                         {
-                            debugWriteln("DEBUG: Skipping duplicate transitive function: ", funcNode.name);
+                            debugWriteln("DEBUG: Skipping duplicate transitive function: ", funcNode
+                                    .name);
                         }
                     }
                 }
@@ -759,7 +760,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         {
                             continue;
                         }
-                        
+
                         string prefixedName = moduleModelMap.get(modelNode.name, modelNode.name);
                         importedModels[baseName] = prefixedName;
                         auto newModel = new ModelNode(prefixedName, null);
@@ -1043,6 +1044,7 @@ string escapeRegexLiteral(string value)
 }
 
 import std.regex : Regex;
+
 private static Regex!char[string] g_regexCache;
 private bool[string] g_stringCheckCache;
 
@@ -1052,7 +1054,7 @@ string replaceStandaloneCall(string text, string oldName, string newName)
 
     if (!text.canFind(oldName))
         return text;
-        
+
     if (newName.canFind("_" ~ oldName) && text.canFind(newName ~ "("))
     {
         return text;
@@ -1064,7 +1066,7 @@ string replaceStandaloneCall(string text, string oldName, string newName)
         auto escaped = escapeRegexLiteral(oldName);
         g_regexCache[cacheKey] = regex("(?<![A-Za-z0-9_])" ~ escaped ~ "(\\s*)\\(");
     }
-    
+
     return replaceAll(text, g_regexCache[cacheKey], newName ~ "$1(");
 }
 
@@ -1088,11 +1090,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
 {
     if (nameMap.length == 0)
         return;
-        
+
     if (node.nodeType == "FunctionCall")
     {
         auto callNode = cast(FunctionCallNode) node;
-        
+
         if (callNode.functionName.startsWith("C_"))
         {
             // Who cares.
@@ -1232,15 +1234,15 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
     {
         auto declNode = cast(DeclarationNode) node;
         debugWriteln("    DEBUG renameFunctionCalls Declaration: initializer='", declNode.initializer, "'");
-        
+
         // Skip processing if the initializer contains C_ function calls
         bool hasDirectCCall = declNode.initializer.canFind("C_");
-        
+
         foreach (oldName, newName; nameMap)
         {
             if (hasDirectCCall)
                 continue;
-                
+
             auto newInit = replaceStandaloneCall(declNode.initializer, oldName, newName);
             if (newInit != declNode.initializer)
             {
@@ -1484,7 +1486,7 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
 {
     if (typeMap.length == 0)
         return;
-        
+
     import std.algorithm : startsWith;
     import std.array : split, join;
 
