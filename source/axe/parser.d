@@ -521,10 +521,26 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
     while (pos < tokens.length)
     {
+        bool isNextPublic = false;
+
         debugWriteln("Current token at pos ", pos, ": ", tokens[pos].type, " ('", tokens[pos].value, "')");
 
         switch (tokens[pos].type)
         {
+        case TokenType.PUB:
+            isNextPublic = true;
+            pos++;
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                pos++;
+            
+            if (pos < tokens.length && tokens[pos].type == TokenType.DEF)
+                goto case TokenType.DEF;
+            else if (pos < tokens.length && tokens[pos].type == TokenType.MODEL)
+                goto case TokenType.MODEL;
+            else
+                enforce(false, "Expected 'def' or 'model' after 'pub'");
+            break;
+
         case TokenType.PLATFORM:
             pos++; // Skip 'platform'
 
@@ -670,6 +686,16 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     continue;
                 }
 
+                bool isMethodPublic = false;
+                if (tokens[pos].type == TokenType.PUB)
+                {
+                    isMethodPublic = true;
+                    pos++;
+                    while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE ||
+                            tokens[pos].type == TokenType.NEWLINE))
+                        pos++;
+                }
+
                 if (tokens[pos].type == TokenType.DEF)
                 {
                     pos++; // Skip 'def'
@@ -709,7 +735,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     }
 
                     string namespacedName = modelName ~ "_" ~ methodName;
-                    auto funcNode = new FunctionNode(namespacedName, params, returnType);
+                    auto funcNode = new FunctionNode(namespacedName, params, returnType, isMethodPublic);
 
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
@@ -870,7 +896,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 "Expected '}' after model body");
             pos++; // Skip '}'
 
-            auto modelNode = new ModelNode(modelName, null);
+            auto modelNode = new ModelNode(modelName, null, isNextPublic);
             modelNode.fields = orderedFields;
             modelNode.methods = modelMethods;
             ast.children ~= modelNode;
@@ -2203,7 +2229,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     returnType = "ref " ~ returnType;
             }
 
-            auto funcNode = new FunctionNode(currentFuncName, params, returnType);
+            auto funcNode = new FunctionNode(currentFuncName, params, returnType, isNextPublic);
             debugWriteln("DEBUG: Function '", currentFuncName, "' has ", params.length, " parameters:");
             foreach (p; params)
                 debugWriteln("  DEBUG: param='", p, "'");
@@ -3644,6 +3670,17 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     string modelName = tokens[pos].value;
                     pos++;
 
+                    while (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+                    {
+                        modelName ~= ".";
+                        pos++;
+                        if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                        {
+                            modelName ~= tokens[pos].value;
+                            pos++;
+                        }
+                    }
+
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
 
@@ -4315,6 +4352,17 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 "Expected model name after 'new'");
             string modelName = tokens[pos].value;
             pos++;
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.DOT)
+            {
+                modelName ~= ".";
+                pos++;
+                if (pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER)
+                {
+                    modelName ~= tokens[pos].value;
+                    pos++;
+                }
+            }
 
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;

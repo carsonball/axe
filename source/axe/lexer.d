@@ -467,6 +467,12 @@ Token[] lex(string source)
                 tokens ~= Token(TokenType.MAIN, "main");
                 pos += 4;
             }
+            else if (pos + 3 <= source.length && source[pos .. pos + 3] == "pub" &&
+                (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
+            {
+                tokens ~= Token(TokenType.PUB, "pub");
+                pos += 3;
+            }
             else if (pos + 3 <= source.length && source[pos .. pos + 3] == "put" &&
                 (pos + 3 >= source.length || !(source[pos + 3].isAlphaNum || source[pos + 3] == '_')))
             {

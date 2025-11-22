@@ -89,6 +89,7 @@ enum TokenType
     EXTERN,
     UNSAFE,
     STAR_DOT,
+    PUB,
 }
 
 /** 
@@ -242,13 +243,15 @@ class FunctionNode : ASTNode
     string name;
     string[] params;
     string returnType;
+    bool isPublic;
 
-    this(string name, string[] params, string returnType = "void")
+    this(string name, string[] params, string returnType = "void", bool isPublic = false)
     {
         super("Function");
         this.name = name;
         this.params = params;
         this.returnType = returnType;
+        this.isPublic = isPublic;
     }
 }
 
@@ -584,6 +587,7 @@ class UseNode : ASTNode
 class ModelNode : ASTNode
 {
     string name;
+    bool isPublic;
 
     // Array of (fieldName, fieldType) tuples to preserve order
     struct Field {
@@ -604,10 +608,11 @@ class ModelNode : ASTNode
     Field[] fields;
     FunctionNode[] methods;
 
-    this(string name, string[string] fieldsMap)
+    this(string name, string[string] fieldsMap, bool isPublic = false)
     {
         super("Model");
         this.name = name;
+        this.isPublic = isPublic;
         // Convert map to ordered array (order will be arbitrary from map)
         // Parser should set fields array directly to preserve source order
         foreach (fieldName, fieldType; fieldsMap)

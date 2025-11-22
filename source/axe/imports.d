@@ -259,7 +259,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (pChild.nodeType == "Function")
                         {
                             auto funcNode = cast(FunctionNode) pChild;
-                            if (useNode.importAll || useNode.imports.canFind(funcNode.name))
+                            if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name)))
                             {
                                 string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
                                     : (sanitizedModuleName ~ "_" ~ funcNode.name);
@@ -269,7 +269,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         else if (pChild.nodeType == "Model")
                         {
                             auto modelNode = cast(ModelNode) pChild;
-                            if (useNode.importAll || useNode.imports.canFind(modelNode.name))
+                            if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name)))
                             {
                                 string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
                                     : (sanitizedModuleName ~ "_" ~ modelNode.name);
@@ -278,7 +278,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 foreach (method; modelNode.methods)
                                 {
                                     auto methodFunc = cast(FunctionNode) method;
-                                    if (methodFunc !is null)
+                                    if (methodFunc !is null && methodFunc.isPublic)
                                     {
                                         string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc
                                             .name : (sanitizedModuleName ~ "_" ~ methodFunc.name);
@@ -339,7 +339,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Function")
                 {
                     auto funcNode = cast(FunctionNode) importChild;
-                    if (useNode.importAll || useNode.imports.canFind(funcNode.name))
+                    if (funcNode.isPublic && (useNode.importAll || useNode.imports.canFind(funcNode.name)))
                     {
                         string prefixedName = funcNode.name.startsWith("std_") ? funcNode.name
                             : (sanitizedModuleName ~ "_" ~ funcNode.name);
@@ -349,7 +349,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
-                    if (useNode.importAll || useNode.imports.canFind(modelNode.name))
+                    if (modelNode.isPublic && (useNode.importAll || useNode.imports.canFind(modelNode.name)))
                     {
                         string prefixedName = modelNode.name.startsWith("std_") ? modelNode.name
                             : (sanitizedModuleName ~ "_" ~ modelNode.name);
@@ -358,7 +358,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         foreach (method; modelNode.methods)
                         {
                             auto methodFunc = cast(FunctionNode) method;
-                            if (methodFunc !is null)
+                            if (methodFunc !is null && methodFunc.isPublic)
                             {
                                 string prefixedMethodName = methodFunc.name.startsWith("std_") ? methodFunc.name
                                     : (sanitizedModuleName ~ "_" ~ methodFunc.name);
@@ -440,6 +440,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                             if (funcNode.name == "main")
                                 continue;
 
+                            if (!funcNode.isPublic)
+                                continue;
+
                             if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                                 resolvedImports[funcNode.name] = true;
 
@@ -487,6 +490,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         else if (pChild.nodeType == "Model")
                         {
                             auto modelNode = cast(ModelNode) pChild;
+                            if (!modelNode.isPublic)
+                                continue;
 
                             if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                             {
@@ -503,7 +508,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 foreach (method; modelNode.methods)
                                 {
                                     auto methodFunc = cast(FunctionNode) method;
-                                    if (methodFunc !is null)
+                                    if (methodFunc !is null && methodFunc.isPublic)
                                     {
                                         string prefixedMethodName = moduleFunctionMap[methodFunc
                                             .name];
@@ -511,6 +516,7 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                                 .params);
                                         newMethod.returnType = methodFunc.returnType;
                                         newMethod.children = methodFunc.children;
+                                        newMethod.isPublic = methodFunc.isPublic;
 
                                         renameFunctionCalls(newMethod, moduleFunctionMap);
                                         renameTypeReferences(newMethod, moduleModelMap);
@@ -690,6 +696,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     if (funcNode.name == "main")
                         continue;
 
+                    if (!funcNode.isPublic)
+                        continue;
+
                     if (useNode.importAll || useNode.imports.canFind(funcNode.name))
                         resolvedImports[funcNode.name] = true;
 
@@ -752,6 +761,9 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 else if (importChild.nodeType == "Model")
                 {
                     auto modelNode = cast(ModelNode) importChild;
+                    if (!modelNode.isPublic)
+                        continue;
+
                     if (useNode.importAll || useNode.imports.canFind(modelNode.name))
                     {
                         resolvedImports[modelNode.name] = true;
@@ -767,13 +779,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         foreach (method; modelNode.methods)
                         {
                             auto methodFunc = cast(FunctionNode) method;
-                            if (methodFunc !is null)
+                            if (methodFunc !is null && methodFunc.isPublic)
                             {
                                 string prefixedMethodName = moduleFunctionMap[methodFunc.name];
                                 auto newMethod = new FunctionNode(prefixedMethodName, methodFunc
                                         .params);
                                 newMethod.returnType = methodFunc.returnType;
                                 newMethod.children = methodFunc.children;
+                                newMethod.isPublic = methodFunc.isPublic;
 
                                 renameFunctionCalls(newMethod, moduleFunctionMap);
                                 renameTypeReferences(newMethod, moduleModelMap);
