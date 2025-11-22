@@ -33,6 +33,13 @@ pub def exec(cmd: char*): i32 {
     return result;
 }
 
+/// Quit with some code.
+pub def quit(code: i32) {
+    unsafe {
+        C.exit(code);
+    }
+}
+
 /// Check if a file exists.
 pub def file_exists(path: string): bool {
     mut val out: bool = false;
