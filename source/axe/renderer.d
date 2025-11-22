@@ -3749,7 +3749,7 @@ unittest
 
     {
         auto tokens = lex(
-            "overload println(x: generic) { i32 => println_i32; }(x) " ~
+            "overload println(x: generic) { i32 => println_i32; }(x); " ~
                 "def println_i32(x: i32) { put \"int\"; } " ~
                 "main { println(42); }");
 

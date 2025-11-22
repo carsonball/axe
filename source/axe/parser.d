@@ -2157,6 +2157,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 "Expected ')' after overload call expression");
             pos++;
 
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                "Expected ';' after overload definition");
+            pos++;
+
             auto overloadNode = new OverloadNode(overloadName, paramName, callExpr.strip(), typeNames, targetFuncs);
             ast.children ~= overloadNode;
             continue;

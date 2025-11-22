@@ -7,7 +7,7 @@ overload println(x: generic) {
     char*  => println_chrptr;
     i32    => println_i32;
     char   => println_char;
-}(x)
+}(x);
 
 /// Print out some value with no newline
 overload print(x: generic) {
@@ -15,7 +15,7 @@ overload print(x: generic) {
     char*  => print_chrptr;
     i32    => print_i32;
     char   => print_char;
-}(x)
+}(x);
 
 /// Print out some char
 def print_char(value: char) {
