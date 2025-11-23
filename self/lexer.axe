@@ -126,23 +126,6 @@ def substring(s: string, start: i32, end: i32): string {
     return result;
 }
 
-def str_equals(s1: string, s2: string, start: i32, len: i32, source_len: i32): bool {
-    if start + len > source_len {
-        return false;
-    }
-    mut i: i32 = 0;
-    loop {
-        if i >= len {
-            break;
-        }
-        if (get_char(s1, start + i) != get_char(s2, i)) {
-            return false;
-        }
-        i = i + 1;
-    }
-    return true;
-}
-
 def check_boundary(source: string, pos: i32, source_len: i32): bool {
     if pos >= source_len {
         return true;

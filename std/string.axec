@@ -161,6 +161,14 @@ pub def str_copy(src: string, desta: mut string): void {
     }
 }
 
+pub def equals_c(a: string, b: char*): i32 {
+    mut result: i32 = 0;
+    unsafe {
+        result = C.strcmp((char*)a.data, (char*)b);
+    }
+    return result;
+}
+
 /// Compares two strings. Returns 0 if equal.
 pub def compare(a: string, b: string): i32 {
     mut len: usize = 0;
@@ -688,6 +696,8 @@ test {
     assert(!has_suffix(base, string.create("foobarbaz")), "longer suffix should not match");
 
     assert get_char(string.create("hello"), 1) == 'e', "get_char should return correct character";
+    assert equals_c(string.create("test"), "test") == 0, "equals_c should return 0 for equal strings";
+    assert equals_c(string.create("test"), "TEST") != 0, "equals_c should return non-zero for different strings";
 
     val y = 10;
     
