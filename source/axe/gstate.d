@@ -8,6 +8,9 @@
 
 module axe.gstate;
 
+/**
+ * Logger class for managing quiet mode.
+ */
 static class Logger
 {
     static bool quietMode = false;
