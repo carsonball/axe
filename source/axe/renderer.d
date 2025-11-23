@@ -942,7 +942,7 @@ string generateC(ASTNode ast)
             {
                 string varName = callNode.args[0].strip();
                 string value = callNode.args[1].strip();
-                
+
                 // Check if this is a list_of variable
                 if (varName in g_listOfTypes)
                 {
@@ -1307,8 +1307,8 @@ string generateC(ASTNode ast)
                 string elementType = declNode.typeName[0 .. bracketPos999];
                 g_listOfTypes[declNode.name] = elementType;
                 isListOfType = true;
-                debugWriteln("DEBUG renderer: Detected list_of variable '", declNode.name, 
-                           "' with element type '", elementType, "'");
+                debugWriteln("DEBUG renderer: Detected list_of variable '", declNode.name,
+                    "' with element type '", elementType, "'");
             }
         }
 
@@ -1428,7 +1428,7 @@ string generateC(ASTNode ast)
         }
 
         cCode ~= decl ~ ";\n";
-        
+
         // For list_of types, also declare a length counter initialized to 0
         if (isListOfType)
         {
@@ -1436,7 +1436,7 @@ string generateC(ASTNode ast)
             cCode ~= "int " ~ lengthVar ~ " = 0;\n";
             debugWriteln("DEBUG renderer: Emitted length counter '", lengthVar, "' for list_of variable");
         }
-        
+
         break;
 
     case "Println":
@@ -5234,9 +5234,10 @@ unittest
         auto tokens = lex("main { mut lst: list_of(i32); append(lst, 10); append(lst, 20);}");
         auto ast = parse(tokens);
         auto cCode = generateC(ast);
-        
+
         writeln("list_of type test:");
         writeln(cCode);
+
         assert(cCode.canFind("int32_t lst[999];"), "Should declare list_of(i32) as int32_t array");
     }
 }
