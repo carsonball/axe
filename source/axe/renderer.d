@@ -2923,13 +2923,15 @@ string processExpression(string expr, string context = "")
 
     // len() is now handled by the C macro #define len(x) ((x).len)
     // No need for special processing here
-
+    //
     // EARLY EXIT: If the entire expression is a string literal, return it as-is without any processing
     // Handle both " and ' as starting quotes (sometimes quotes get corrupted in parsing)
+
     if (expr.length >= 2 && (expr[0] == '"' || expr[0] == '\''))
     {
         // Check if it's actually a complete string literal (not multiple strings)
         // Look for either " or ' as the ending quote
+
         bool inEscape = false;
         size_t endQuotePos = 0;
 
@@ -2950,10 +2952,8 @@ string processExpression(string expr, string context = "")
             }
         }
 
-        // If we found the closing quote and it's at the end of the expression, it's a complete string
         if (endQuotePos > 0 && endQuotePos + 1 == expr.length)
         {
-            // Fix corrupted opening quote if needed
             if (expr[0] != '"' && expr[endQuotePos] == '"')
             {
                 return '"' ~ expr[1 .. $];
