@@ -121,6 +121,59 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
     bool[string] addedEnumNames;
     bool[string] addedMacroNames;
     bool[string] addedOverloadNames;
+    string[string] macros;
+
+    if (currentModulePrefix.length > 0)
+    {
+        foreach (child; programNode.children)
+        {
+            if (child.nodeType == "Macro")
+            {
+                auto macroNode = cast(MacroNode) child;
+                foreach (macroChild; macroNode.children)
+                {
+                    if (macroChild.nodeType == "Model")
+                    {
+                        auto modelNode = cast(ModelNode) macroChild;
+                        if (macroNode.name == "create_map" && macroNode.params.length > 2)
+                        {
+                            macros[macroNode.name] = macroNode.params[2];
+                            debugWriteln("DEBUG: Macro '", macroNode.name,
+                                "' generates models using param '", macroNode.params[2], "'");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (currentModulePrefix.length > 0 && macros.length > 0)
+    {
+        foreach (child; programNode.children)
+        {
+            if (child.nodeType == "FunctionCall")
+            {
+                auto callNode = cast(FunctionCallNode) child;
+                if (callNode.functionName in macros)
+                {
+                    string modelParamName = macros[callNode.functionName];
+                    if (callNode.functionName == "create_map")
+                    {
+                        import std.string : strip;
+                        if (callNode.args.length > 2)
+                        {
+                            string modelName = callNode.args[2].strip();
+                            localModels[modelName] = currentModulePrefix ~ "_" ~ modelName;
+                            debugWriteln("DEBUG: Macro invocation '", callNode.functionName,
+                                "' generates model '", modelName, "' -> '",
+                                currentModulePrefix ~ "_" ~ modelName, "'");                            
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     if (currentModulePrefix.length > 0)
     {
         foreach (child; programNode.children)
@@ -129,15 +182,25 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
             {
                 auto modelNode = cast(ModelNode) child;
 
+                writeln("DEBUG: Found model with name='", modelNode.name, "'");
+
                 if (modelNode.name == "C")
                 {
                     debugWriteln("DEBUG: Skipping special 'C' model (used for direct C calls)");
                     continue;
                 }
 
-                localModels[modelNode.name] = currentModulePrefix ~ "_" ~ modelNode.name;
-                debugWriteln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
-                        modelNode.name, "'");
+                if (modelNode.name in localModels)
+                {
+                    writeln("DEBUG: Model '", modelNode.name, "' already registered, mapped to '",
+                        localModels[modelNode.name], "'");
+                }
+                else
+                {
+                    localModels[modelNode.name] = currentModulePrefix ~ "_" ~ modelNode.name;
+                    writeln("DEBUG: Added local model '", modelNode.name, "' -> '", currentModulePrefix ~ "_" ~
+                            modelNode.name, "'");
+                }
 
                 foreach (method; modelNode.methods)
                 {
@@ -1732,6 +1795,24 @@ void renameTypeReferences(ASTNode node, string[string] typeMap)
         foreach (oldType, newType; typeMap)
         {
             rawNode.code = replaceTypeOutsideStrings(rawNode.code, oldType, newType);
+        }
+    }
+    else if (node.nodeType == "Unsafe")
+    {
+        auto unsafeNode = cast(UnsafeNode) node;
+        // Process children of unsafe blocks to rename type references
+        foreach (child; unsafeNode.body)
+        {
+            renameTypeReferences(child, typeMap);
+        }
+    }
+    else if (node.nodeType == "Assignment")
+    {
+        auto assignNode = cast(AssignmentNode) node;
+        // Replace type names in the assignment expression
+        foreach (oldType, newType; typeMap)
+        {
+            assignNode.expression = replaceTypeOutsideStrings(assignNode.expression, oldType, newType);
         }
     }
 

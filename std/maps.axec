@@ -9,12 +9,22 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
         
         def create(arena: ref Arena, capacity: i32): ref mapname {
             mut map: ref mapname;
-            raw {
-                map = ({{mapname}}*)std_arena_Arena_alloc(arena, sizeof({{mapname}}));
+            unsafe {
+                map = Arena.alloc(arena, C.sizeof(mapname));
             }
             map.keys = keytype.create(ref_of(arena), capacity);
             map.values = valtype.create(ref_of(arena), capacity);
             return map;
+        }
+        
+        def clear(map: ref mapname) {
+            map.keys.len = 0;
+            map.values.len = 0;
+        }
+        
+        def append(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
+            keytype.push(map.keys, ref_of(arena), key);
+            valtype.push(map.values, ref_of(arena), value);
         }
         
         def add(map: ref mapname, arena: ref Arena, key: keytype_elem, value: valtype_elem) {
@@ -65,6 +75,43 @@ macro create_map(keytype_elem: untyped, valtype_elem: untyped, mapname: untyped,
             val keys: ref keytype = map.keys;
             return keys.len;
         }
+        
+        def pop(map: ref mapname, key: keytype_elem): valtype_elem {
+            mut i: i32 = 0;
+            mut keys: ref keytype = map.keys;
+            mut values: ref valtype = map.values;
+            mut result: valtype_elem;
+            mut found: bool = false;
+            loop {
+                if i >= keys.len {
+                    break;
+                }
+                raw {
+                    if (memcmp(&keys->data[i], &key, sizeof(key)) == 0) {
+                        found = true;
+                    }
+                }
+                if found {
+                    result = values.data[i];
+                    raw {
+                        for (int j = i; j < keys->len - 1; j++) {
+                            keys->data[j] = keys->data[j + 1];
+                            values->data[j] = values->data[j + 1];
+                        }
+                        
+                        keys->len--;
+                        values->len--;
+                    }
+                    return result;
+                }
+                i = i + 1;
+            }
+            mut default_val: valtype_elem;
+            unsafe {
+                C.memset(&default_val, 0, C.sizeof(default_val));
+            }
+            return default_val;
+        }
     }
 }
 
@@ -102,15 +149,15 @@ test {
     
     val str_int_map: ref StringIntMap = StringIntMap.create(ref_of(arena), 10);
     
-    StringIntMap.add(str_int_map, ref_of(arena), string.create("foo"), 42);
-    StringIntMap.add(str_int_map, ref_of(arena), string.create("bar"), 99);
-    StringIntMap.add(str_int_map, ref_of(arena), string.create("baz"), 77);
+    StringIntMap.add(str_int_map, ref_of(arena), str("foo"), 42);
+    StringIntMap.add(str_int_map, ref_of(arena), str("bar"), 99);
+    StringIntMap.add(str_int_map, ref_of(arena), str("baz"), 77);
     
-    assert(StringIntMap.get(str_int_map, string.create("foo")) == 42, "StringIntMap should return 42 for key 'foo'");
-    assert(StringIntMap.get(str_int_map, string.create("bar")) == 99, "StringIntMap should return 99 for key 'bar'");
-    assert(StringIntMap.get(str_int_map, string.create("baz")) == 77, "StringIntMap should return 77 for key 'baz'");
-    assert(StringIntMap.contains(str_int_map, string.create("foo")), "StringIntMap should contain key 'foo'");
-    assert(!StringIntMap.contains(str_int_map, string.create("missing")), "StringIntMap should not contain key 'missing'");
+    assert(StringIntMap.get(str_int_map, str("foo")) == 42, "StringIntMap should return 42 for key 'foo'");
+    assert(StringIntMap.get(str_int_map, str("bar")) == 99, "StringIntMap should return 99 for key 'bar'");
+    assert(StringIntMap.get(str_int_map, str("baz")) == 77, "StringIntMap should return 77 for key 'baz'");
+    assert(StringIntMap.contains(str_int_map, str("foo")), "StringIntMap should contain key 'foo'");
+    assert(!StringIntMap.contains(str_int_map, str("missing")), "StringIntMap should not contain key 'missing'");
     assert(StringIntMap.size(str_int_map) == 3, "StringIntMap size should be 3");
     
     val float_map: ref FloatIntMap = FloatIntMap.create(ref_of(arena), 10);
