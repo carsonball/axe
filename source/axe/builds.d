@@ -1002,7 +1002,7 @@ string mapCErrorsToAxe(string stderrOutput, string inputName, string ext)
     }
     else
     {
-        return format("Fallthrough error, report at https://github.com/axelang/axe. %d error(s) occurred:\n%s",
+        return format("Fallthrough error, report at https://github.com/axelang/axe/issues. %d error(s) occurred:\n%s",
             infos.length, stderrOutput);
     }
 }
