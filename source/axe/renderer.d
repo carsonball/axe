@@ -55,6 +55,7 @@ private string[string] g_functionPrefixes;
 private string[string] g_modelNames;
 private bool[string] g_generatedTypedefs;
 private bool[string] g_generatedFunctions;
+private bool[string] g_enumNames;
 private bool g_inTopLevel = false;
 
 string canonicalModelCName(string name)
@@ -107,7 +108,15 @@ string formatModelFieldType(string fieldType)
     auto modelName = canonicalModelCName(trimmed);
     if (modelName.length > 0)
     {
-        trimmed = "struct " ~ modelName;
+        // Check if it's an enum - enums don't need the 'struct' prefix
+        if (modelName in g_enumNames)
+        {
+            trimmed = modelName;
+        }
+        else
+        {
+            trimmed = "struct " ~ modelName;
+        }
     }
     else if (hadStructPrefix)
     {
@@ -396,6 +405,7 @@ string generateC(ASTNode ast)
         g_modelNames.clear();
         g_generatedTypedefs.clear();
         g_generatedFunctions.clear();
+        g_enumNames.clear();
 
         string[] globalExternalHeaders;
         string[][string] platformExternalHeaders;
@@ -459,6 +469,25 @@ string generateC(ASTNode ast)
                     if (field.type.startsWith("ref "))
                         g_pointerFields[modelNode.name ~ "." ~ field.name] = true;
                     g_fieldTypes[modelNode.name ~ "." ~ field.name] = field.type;
+                }
+            }
+            else if (child.nodeType == "Enum")
+            {
+                auto enumNode = cast(EnumNode) child;
+                // Store enum name mapping similar to models
+                string baseName = enumNode.name;
+                if (enumNode.name.canFind("_") && enumNode.name.startsWith("std_"))
+                {
+                    auto lastUnderscore = enumNode.name.lastIndexOf('_');
+                    if (lastUnderscore >= 0)
+                    {
+                        baseName = enumNode.name[lastUnderscore + 1 .. $];
+                        g_modelNames[baseName] = enumNode.name;
+                    }
+                }
+                else
+                {
+                    g_modelNames[enumNode.name] = enumNode.name;
                 }
             }
         }
@@ -587,7 +616,11 @@ string generateC(ASTNode ast)
         foreach (child; ast.children)
         {
             if (child.nodeType == "Enum")
+            {
+                auto enumNode = cast(EnumNode) child;
+                g_enumNames[enumNode.name] = true;
                 cCode ~= generateC(child) ~ "\n";
+            }
         }
 
         {
@@ -1701,7 +1734,7 @@ string generateC(ASTNode ast)
         cCode ~= "typedef enum {\n";
         foreach (i, value; enumNode.values)
         {
-            cCode ~= "    " ~ value;
+            cCode ~= "    " ~ enumNode.name ~ "_" ~ value;
             if (i < cast(int) enumNode.values.length - 1)
                 cCode ~= ",";
             cCode ~= "\n";
@@ -3155,6 +3188,18 @@ string processExpression(string expr, string context = "")
 
             if (!firstHasOps && first.length > 0 && first[0] >= 'A' && first[0] <= 'Z')
             {
+                if (first in g_enumNames)
+                {
+                    return first ~ "_" ~ parts[1].strip();
+                }
+                else if (first in g_modelNames)
+                {
+                    string prefixedEnumName = g_modelNames[first];
+                    if (prefixedEnumName in g_enumNames)
+                    {
+                        return prefixedEnumName ~ "_" ~ parts[1].strip();
+                    }
+                }
                 return parts[1].strip();
             }
 
@@ -4355,7 +4400,7 @@ unittest
         assert(cCode.canFind("} State;"), "Should have State typedef");
         assert(cCode.canFind("RUNNING"), "Should have enum value RUNNING");
         assert(cCode.canFind("STOPPED"), "Should have enum value STOPPED");
-        assert(cCode.canFind("State s = RUNNING;"), "Should use enum value without prefix");
+        assert(cCode.canFind("State s = State_RUNNING;"), "Should use enum value without prefix");
     }
 
     {
