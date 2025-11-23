@@ -279,12 +279,26 @@ Token[] lex(string source)
             }
 
         case '\'':
-            size_t cend = source.indexOf('\'', pos + 1);
-            enforce(cend != -1, "Unterminated character literal");
+            size_t cend = pos + 1;
+            while (cend < source.length)
+            {
+                if (source[cend] == '\'')
+                {
+                    break;
+                }
+                else if (source[cend] == '\\' && cend + 1 < source.length)
+                {
+                    cend += 2; // Skip escape sequence
+                }
+                else
+                {
+                    cend++;
+                }
+            }
+            enforce(cend < source.length, "Unterminated character literal");
             auto clen = cend - (pos + 1);
             enforce(clen >= 1 && clen <= 10,
-                "Character literals must contain between 1 and 10 characters, full context: " ~
-                    source[pos .. cend + 10]);
+                "Character literals must contain between 1 and 10 characters");
             tokens ~= Token(TokenType.CHAR, source[pos + 1 .. cend]);
             pos = cend + 1;
             break;
