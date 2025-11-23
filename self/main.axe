@@ -46,7 +46,6 @@ main {
     mut tokens: list(Token) = lex(source_code);
 
     println("Done");
-    
     println($"Tokenized {len(tokens)} tokens");
     
     quit(0);
