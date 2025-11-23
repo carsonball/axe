@@ -87,11 +87,11 @@
       "patterns": [
         {
           "name": "keyword.control.axe",
-          "match": "\\b(if|elif|else|for|main|in|switch|case|default|parallel|single|map|loop|break|continue|return|while|test|assert|use|platform|windows|posix|and|or|not|mod|enum|union|unsafe|opaque|extern)\\b"
+          "match": "\\b(if|elif|else|for|main|in|switch|case|default|parallel|single|loop|break|continue|return|while|test|assert|use|platform|windows|posix|and|or|not|mod|enum|union|unsafe|opaque|extern)\\b"
         },
         {
           "name": "keyword.other.axe",
-          "match": "\\b(pub|def|val|mut|model|macro|raw|overload)\\b"
+          "match": "\\b(pub|def|val|mut|model|macro|raw|overload|list|map)\\b"
         },
         {
           "name": "storage.modifier.axe",
