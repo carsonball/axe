@@ -268,9 +268,9 @@ pub def lex(source: string): list_of(Token) {
                     if ending >= source_len {
                         break;
                     }
-                    if source[ending] == '"' and (ending == 0 or source[ending - 1] != '\\') {
+                    if get_char(source, ending) == '"' and (ending == 0 or get_char(source, ending - 1) != '\\') {
                         break;
-                    } elif source[ending] == '\\' and ending + 1 < source_len {
+                    } elif get_char(source, ending) == '\\' and ending + 1 < source_len {
                         ending = ending + 2;
                     } else {
                         ending = ending + 1;
@@ -285,9 +285,9 @@ pub def lex(source: string): list_of(Token) {
                 if ending >= source_len {
                     break;
                 }
-                if source[ending] == '"' {
+                if get_char(source, ending) == '"' {
                     break;
-                } elif source[ending] == '\\' and ending + 1 < source_len {
+                } elif get_char(source, ending) == '\\' and ending + 1 < source_len {
                     ending = ending + 2;
                 } else {
                     ending = ending + 1;
