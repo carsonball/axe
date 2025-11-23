@@ -3,7 +3,7 @@
  * Author: Navid Momtahen (C) 2025
  * License: GPL-3.0
  * 
- * Handles the global state for logging and debug output.
+ * Handles the global state.
  */
 
 module axe.gstate;
@@ -12,6 +12,12 @@ static class Logger
 {
     static bool quietMode = false;
 }
+
+/** 
+ * Global module prefix for .axec files being compiled directly.
+ * Used to prefix function names in both imports and renderer.
+ */
+__gshared string g_currentModulePrefix = "";
 
 /** 
  * Helper function for conditional debug output.
