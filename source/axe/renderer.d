@@ -57,6 +57,7 @@ private string[string] g_modelNames;
 private bool[string] g_generatedTypedefs;
 private bool[string] g_generatedFunctions;
 private bool[string] g_enumNames;
+private string[string] g_enumValueToEnumName;
 private bool g_inTopLevel = false;
 
 string canonicalModelCName(string name)
@@ -418,6 +419,7 @@ string generateC(ASTNode ast)
         g_generatedTypedefs.clear();
         g_generatedFunctions.clear();
         g_enumNames.clear();
+        g_enumValueToEnumName.clear();
 
         string[] globalExternalHeaders;
         string[][string] platformExternalHeaders;
@@ -640,6 +642,18 @@ string generateC(ASTNode ast)
             {
                 auto enumNode = cast(EnumNode) child;
                 g_enumNames[enumNode.name] = true;
+                
+                string baseName = enumNode.name;
+                if (enumNode.name.canFind("_"))
+                {
+                    auto lastUnderscore = enumNode.name.lastIndexOf('_');
+                    if (lastUnderscore >= 0)
+                    {
+                        baseName = enumNode.name[lastUnderscore + 1 .. $];
+                        g_modelNames[baseName] = enumNode.name;
+                    }
+                }
+                
                 cCode ~= generateC(child) ~ "\n";
             }
         }
@@ -1838,6 +1852,7 @@ string generateC(ASTNode ast)
         cCode ~= "typedef enum {\n";
         foreach (i, value; enumNode.values)
         {
+            g_enumValueToEnumName[value] = enumNode.name;
             cCode ~= "    " ~ enumNode.name ~ "_" ~ value;
             if (i < cast(int) enumNode.values.length - 1)
                 cCode ~= ",";
@@ -3582,6 +3597,13 @@ string processExpression(string expr, string context = "")
     if (expr.length == 2 && expr[0] == '\\')
     {
         return "'" ~ expr ~ "'";
+    }
+
+    // Check if this is a standalone enum value that needs prefixing
+    if (expr in g_enumValueToEnumName)
+    {
+        string enumName = g_enumValueToEnumName[expr];
+        return enumName ~ "_" ~ expr;
     }
 
     debugWriteln("DEBUG processExpression FINAL: returning '", expr, "'");
