@@ -1,0 +1,9 @@
+use std.io(println);
+
+main {
+    mut message: char* = `This is a
+multiline string
+with multiple lines`;
+    
+    println message;
+}
