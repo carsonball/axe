@@ -4,6 +4,12 @@ This directory contains the self-hosted version of the Axe compiler, written in 
 
 ### TODO
 
+#### Bugfixes
+
+- [ ] Fix `[]` syntax with non-primitive types
+
+#### Overarching
+
 - [x] **lexer.axe** - Lexical Analysis and Tokenization
 - [ ] **parser.axe** - Parse tokens into an AST
 - [ ] **ast.axe** - Abstract syntax tree node definitions
