@@ -47,7 +47,7 @@ pub model string {
             result.cap  = 0;
             
             if (capacity > 0) {
-                result.data = (char*)std_arena_Arena_alloc(arena, capacity + 1);
+                result.data = (char*)std__arena__Arena__alloc(arena, capacity + 1);
                 if (result.data != NULL) {
                     result.data[0] = '\0';
                     result.len = 0;
@@ -500,7 +500,7 @@ pub def substr(s: string, start: usize, length: usize): string {
         }
         memcpy(buf, s.data + start, copy_len);
         buf[copy_len] = '\0';
-        result = std_string_string_create(buf);
+        result = std__string__string__create(buf);
         free(buf);
     }
     return result;

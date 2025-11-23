@@ -649,6 +649,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                             returnType = "ref " ~ returnType;
                     }
 
+                    // Validate that function name doesn't contain double underscores (reserved for module separator)
+                    if (funcName.canFind("__"))
+                    {
+                        throw new Exception("Function name '" ~ funcName ~ 
+                            "' cannot contain double underscores (__). This is reserved for module prefixes.");
+                    }
+
                     auto funcNode = new FunctionNode(funcName, params, returnType);
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
@@ -714,6 +721,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 "Expected model name after 'model'");
             string modelName = tokens[pos].value;
             pos++;
+
+            // Validate that model name doesn't contain double underscores
+            if (modelName.canFind("__"))
+            {
+                throw new Exception("Model name '" ~ modelName ~ 
+                    "' cannot contain double underscores (__). This is reserved for module prefixes.");
+            }
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                 "Expected '{' after model name");

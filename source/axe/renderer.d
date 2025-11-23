@@ -449,7 +449,7 @@ string generateC(ASTNode ast)
             if (child.nodeType == "Use")
             {
                 auto useNode = cast(UseNode) child;
-                string modulePrefix = useNode.moduleName.replace(".", "_");
+                string modulePrefix = useNode.moduleName.replace(".", "__");
                 foreach (importName; useNode.imports)
                 {
                     if (importName.length > 0 && !(importName[0] >= 'A' && importName[0] <= 'Z'))
@@ -457,9 +457,9 @@ string generateC(ASTNode ast)
                         // Skip overload names - they should not be prefixed
                         if (importName !in overloadNames)
                         {
-                            g_functionPrefixes[importName] = modulePrefix ~ "_" ~ importName;
-                            g_modelNames[importName] = modulePrefix ~ "_" ~ importName;
-                            g_enumNames[modulePrefix ~ "_" ~ importName] = true;
+                            g_functionPrefixes[importName] = modulePrefix ~ "__" ~ importName;
+                            g_modelNames[importName] = modulePrefix ~ "__" ~ importName;
+                            g_enumNames[modulePrefix ~ "__" ~ importName] = true;
                         }
                     }
                 }
@@ -476,10 +476,10 @@ string generateC(ASTNode ast)
                 string baseName = modelNode.name;
                 if (modelNode.name.canFind("_") && modelNode.name.startsWith("std_"))
                 {
-                    auto lastUnderscore = modelNode.name.lastIndexOf('_');
+                    auto lastUnderscore = modelNode.name.lastIndexOf("__");
                     if (lastUnderscore >= 0)
                     {
-                        baseName = modelNode.name[lastUnderscore + 1 .. $];
+                        baseName = modelNode.name[lastUnderscore + 2 .. $];
                         g_modelNames[baseName] = modelNode.name;
                     }
                 }
@@ -487,10 +487,10 @@ string generateC(ASTNode ast)
                 {
                     if (modelNode.name.canFind("_"))
                     {
-                        auto lastUnderscore = modelNode.name.lastIndexOf('_');
+                        auto lastUnderscore = modelNode.name.lastIndexOf("__");
                         if (lastUnderscore >= 0)
                         {
-                            baseName = modelNode.name[lastUnderscore + 1 .. $];
+                            baseName = modelNode.name[lastUnderscore + 2 .. $];
                             g_modelNames[baseName] = modelNode.name;
                         }
                     }
@@ -519,10 +519,10 @@ string generateC(ASTNode ast)
                 string baseName = enumNode.name;
                 if (enumNode.name.canFind("_") && enumNode.name.startsWith("std_"))
                 {
-                    auto lastUnderscore = enumNode.name.lastIndexOf('_');
+                    auto lastUnderscore = enumNode.name.lastIndexOf("__");
                     if (lastUnderscore >= 0)
                     {
-                        baseName = enumNode.name[lastUnderscore + 1 .. $];
+                        baseName = enumNode.name[lastUnderscore + 2 .. $];
                         g_modelNames[baseName] = enumNode.name;
                     }
                 }
@@ -616,22 +616,32 @@ string generateC(ASTNode ast)
             {
                 auto ov = cast(OverloadNode) child;
                 if (ov.name == "print")
+                {
                     hasPrintOverload = true;
+                    debugWriteln("DEBUG: Found Overload node for 'print'");
+                }
                 else if (ov.name == "println")
+                {
                     hasPrintlnOverload = true;
+                    debugWriteln("DEBUG: Found Overload node for 'println'");
+                }
             }
         }
 
         import std.string : startsWith, endsWith;
 
+        debugWriteln("DEBUG: hasPrintOverload=", hasPrintOverload, ", 'print' in g_functionPrefixes=", ("print" in g_functionPrefixes) !is null);
+        debugWriteln("DEBUG: hasPrintlnOverload=", hasPrintlnOverload, ", 'println' in g_functionPrefixes=", ("println" in g_functionPrefixes) !is null);
+
         if (!hasPrintOverload && ("print" in g_functionPrefixes))
         {
             string macroName = g_functionPrefixes["print"]; // e.g. std_io_print
+            debugWriteln("DEBUG: Generating fallback macro for print: ", macroName);
             if (macroName.startsWith("std_io_") && macroName.endsWith("print"))
             {
                 string prefix = macroName[0 .. $ - "print".length]; // std_io_
                 cCode ~= "#define " ~ macroName ~ "(x) _Generic((x), \\\n";
-                cCode ~= "    std_string_string: " ~ prefix ~ "print_str, \\\n";
+                cCode ~= "    std__string__string: " ~ prefix ~ "print_str, \\\n";
                 cCode ~= "    char*: " ~ prefix ~ "print_chrptr, \\\n";
                 cCode ~= "    int32_t: " ~ prefix ~ "print_i32, \\\n";
                 cCode ~= "    char: " ~ prefix ~ "print_char \\\n";
@@ -642,11 +652,12 @@ string generateC(ASTNode ast)
         if (!hasPrintlnOverload && ("println" in g_functionPrefixes))
         {
             string macroName = g_functionPrefixes["println"]; // e.g. std_io_println
+            debugWriteln("DEBUG: Generating fallback macro for println: ", macroName);
             if (macroName.startsWith("std_io_") && macroName.endsWith("println"))
             {
                 string prefix = macroName[0 .. $ - "println".length]; // std_io_
                 cCode ~= "#define " ~ macroName ~ "(x) _Generic((x), \\\n";
-                cCode ~= "    std_string_string: " ~ prefix ~ "print_str, \\\n";
+                cCode ~= "    std__string__string: " ~ prefix ~ "print_str, \\\n";
                 cCode ~= "    char*: " ~ prefix ~ "println_chrptr, \\\n";
                 cCode ~= "    int32_t: " ~ prefix ~ "println_i32, \\\n";
                 cCode ~= "    char: " ~ prefix ~ "println_char \\\n";
@@ -667,10 +678,10 @@ string generateC(ASTNode ast)
                 string baseName = enumNode.name;
                 if (enumNode.name.canFind("_"))
                 {
-                    auto lastUnderscore = enumNode.name.lastIndexOf('_');
+                    auto lastUnderscore = enumNode.name.lastIndexOf("__");
                     if (lastUnderscore >= 0)
                     {
-                        baseName = enumNode.name[lastUnderscore + 1 .. $];
+                        baseName = enumNode.name[lastUnderscore + 2 .. $];
                         g_modelNames[baseName] = enumNode.name;
                     }
                 }
@@ -917,11 +928,11 @@ string generateC(ASTNode ast)
                 auto funcNode = cast(FunctionNode) child;
                 if (funcNode.name.canFind("_"))
                 {
-                    auto lastUnderscore = funcNode.name.lastIndexOf('_');
+                    auto lastUnderscore = funcNode.name.lastIndexOf("__");
                     if (lastUnderscore > 0)
                     {
                         string potentialPrefix = funcNode.name[0 .. lastUnderscore];
-                        string baseName = funcNode.name[lastUnderscore + 1 .. $];
+                        string baseName = funcNode.name[lastUnderscore + 2 .. $];
                         functionModulePrefixes[baseName] = potentialPrefix;
 
                         foreach (enumName; g_enumNames.byKey())
@@ -947,10 +958,10 @@ string generateC(ASTNode ast)
 
                     if (funcNode.name.canFind("_"))
                     {
-                        auto lastUnderscore = funcNode.name.lastIndexOf('_');
+                        auto lastUnderscore = funcNode.name.lastIndexOf("__");
                         if (lastUnderscore >= 0)
                         {
-                            string baseName = funcNode.name[lastUnderscore + 1 .. $];
+                            string baseName = funcNode.name[lastUnderscore + 2 .. $];
                             if (funcNode.name.startsWith("std_") || funcNode.name.startsWith(
                                     "lexer_"))
                             {
@@ -1193,7 +1204,7 @@ string generateC(ASTNode ast)
             }
             else
             {
-                callName = callName.replace(".", "_");
+                callName = callName.replace(".", "__");
             }
         }
         else if (callName in g_functionPrefixes)
@@ -1204,11 +1215,11 @@ string generateC(ASTNode ast)
         {
             import std.string : indexOf;
 
-            auto underscorePos = callName.indexOf('_');
+            auto underscorePos = callName.indexOf("__");
             if (underscorePos > 0)
             {
                 string modelName = callName[0 .. underscorePos];
-                string methodName = callName[underscorePos + 1 .. $];
+                string methodName = callName[underscorePos + 2 .. $];
 
                 if (modelName in g_modelNames && methodName.length > 0)
                 {
@@ -2187,7 +2198,7 @@ string generateC(ASTNode ast)
                     }
                     else
                     {
-                        cTargetName = cTargetName.replace(".", "_");
+                        cTargetName = cTargetName.replace(".", "__");
                     }
                 }
                 else if (cTargetName in g_functionPrefixes)
@@ -2196,11 +2207,11 @@ string generateC(ASTNode ast)
                 }
                 else
                 {
-                    auto underscorePos = cTargetName.indexOf('_');
+                    auto underscorePos = cTargetName.indexOf("__");
                     if (underscorePos > 0)
                     {
                         string modelName = cTargetName[0 .. underscorePos];
-                        string methodName = cTargetName[underscorePos + 1 .. $];
+                        string methodName = cTargetName[underscorePos + 2 .. $];
 
                         if (modelName in g_modelNames && methodName.length > 0)
                         {
@@ -2721,7 +2732,7 @@ string convertToString(string expr, string varType)
     while (varType.startsWith("ref "))
         varType = varType[4 .. $].strip();
 
-    if (varType == "string" || varType.endsWith("_string") || varType == "std_string_string")
+    if (varType == "string" || varType.endsWith("_string") || varType == "std__string__string")
     {
         return expr;
     }
@@ -2743,7 +2754,7 @@ string convertToString(string expr, string varType)
 
     return "({char " ~ tempVar ~ "[64]; snprintf(" ~ tempVar ~
         ", 64, \"" ~ formatSpec ~ "\", " ~ exprToFormat ~ "); " ~
-        "std_string_string_create(" ~ tempVar ~ "); })";
+        "std__string__string_create(" ~ tempVar ~ "); })";
 }
 
 /**
@@ -2825,7 +2836,7 @@ string processInterpolatedString(string interpContent, bool returnStruct = false
         if (i + 1 < parts.length)
             code ~= " + " ~ parts[i + 1].length.to!string;
 
-        if (varType == "string" || varType.endsWith("_string") || varType == "std_string_string")
+        if (varType == "string" || varType.endsWith("_string") || varType == "std__string__string")
             code ~= " + (" ~ processedExprForLen ~ ").len";
         else
             code ~= " + 32";
@@ -2850,9 +2861,9 @@ string processInterpolatedString(string interpContent, bool returnStruct = false
             string varType = lookupExpressionType(expr);
             string processedExpr = processExpression(expr);
 
-            if (varType == "string" || varType.endsWith("_string") || varType == "std_string_string")
+            if (varType == "string" || varType.endsWith("_string") || varType == "std__string__string")
             {
-                code ~= "{ struct std_string_string _s = " ~ processedExpr ~ "; ";
+                code ~= "{ struct std__string__string _s = " ~ processedExpr ~ "; ";
                 code ~= "memcpy(" ~ resultVar ~ "_p, _s.data, _s.len); ";
                 code ~= resultVar ~ "_p += _s.len; } ";
             }
@@ -2872,7 +2883,7 @@ string processInterpolatedString(string interpContent, bool returnStruct = false
     if (returnStruct)
     {
         string structVar = "_axe_str_struct_" ~ uniform(0, 999_999).to!string;
-        code ~= "struct std_string_string " ~ structVar ~ " = {0}; ";
+        code ~= "struct std__string__string " ~ structVar ~ " = {0}; ";
         code ~= structVar ~ ".data = " ~ resultVar ~ "; ";
         code ~= structVar ~ ".len = " ~ resultVar ~ "_p - " ~ resultVar ~ "; ";
         code ~= structVar ~ ".cap = " ~ resultVar ~ "_len + 1; ";
@@ -3166,7 +3177,7 @@ string processExpression(string expr, string context = "")
             if (afterC.length > 0 && (afterC[0] == '.' || afterC[0] == '_'))
             {
                 auto dotPos = funcName.indexOf('.');
-                auto underscorePos = funcName.indexOf('_');
+                auto underscorePos = funcName.indexOf("__");
 
                 if (dotPos != -1)
                 {
@@ -3174,7 +3185,7 @@ string processExpression(string expr, string context = "")
                 }
                 else if (underscorePos != -1)
                 {
-                    funcName = funcName[underscorePos + 1 .. $].strip();
+                    funcName = funcName[underscorePos + 2 .. $].strip();
                 }
             }
         }
