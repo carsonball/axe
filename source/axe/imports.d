@@ -414,7 +414,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                     }
                     else if (!funcNode.isPublic && funcNode.name != "main")
                     {
-                        // Also map non-public functions so they get prefixed
                         string prefixedName = sanitizedModuleName ~ "_" ~ funcNode.name;
                         moduleFunctionMap[funcNode.name] = prefixedName;
                         writeln("DEBUG: Mapped non-public function '", funcNode.name, "' -> '", prefixedName, "'");
