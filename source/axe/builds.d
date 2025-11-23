@@ -144,6 +144,9 @@ void collectDeclaredFunctions(ASTNode node, ref bool[string] declared)
 
 void validateFunctionCalls(ASTNode node, bool[string] declared, string[string] modelNames, string modulePrefix = "")
 {
+    // Add built-in functions that are always available
+    declared["append"] = true;
+    
     if (node.nodeType == "Model")
     {
         auto modelNode = cast(ModelNode) node;

@@ -48,6 +48,7 @@ private string[string] g_arrayWidthVars;
 private int[][string] g_functionParamReordering;
 private MacroNode[string] g_macros;
 private bool[string] g_pointerFields;
+private string[string] g_listOfTypes; // Maps variable name -> element type for list_of declarations
 private string[string] g_fieldTypes;
 private string[string] g_varType;
 private string[string] g_isPointerVar;
@@ -932,7 +933,28 @@ string generateC(ASTNode ast)
         auto callNode = cast(FunctionCallNode) ast;
         string callName = callNode.functionName;
 
-        import std.string : startsWith;
+        import std.string : startsWith, indexOf, strip;
+
+        // Handle append() for list_of types
+        if (callName == "append")
+        {
+            if (callNode.args.length >= 2)
+            {
+                string varName = callNode.args[0].strip();
+                string value = callNode.args[1].strip();
+                
+                // Check if this is a list_of variable
+                if (varName in g_listOfTypes)
+                {
+                    string lengthVar = "__list_length_" ~ varName;
+                    string processedValue = processExpression(value);
+                    cCode ~= varName ~ "[" ~ lengthVar ~ "] = " ~ processedValue ~ ";\n";
+                    cCode ~= lengthVar ~ "++;\n";
+                    debugWriteln("DEBUG: Generated append code for '", varName, "'");
+                    break;
+                }
+            }
+        }
 
         if (callName.startsWith("C."))
         {
@@ -1272,7 +1294,23 @@ string generateC(ASTNode ast)
         string baseType;
 
         import std.string : indexOf, count;
+        import std.algorithm : canFind;
         import std.conv : to;
+
+        // Check if this is a list_of type (has [999] marker)
+        bool isListOfType = false;
+        if (declNode.typeName.length > 0 && declNode.typeName.canFind("[999]"))
+        {
+            auto bracketPos999 = declNode.typeName.indexOf("[999]");
+            if (bracketPos999 > 0)
+            {
+                string elementType = declNode.typeName[0 .. bracketPos999];
+                g_listOfTypes[declNode.name] = elementType;
+                isListOfType = true;
+                debugWriteln("DEBUG renderer: Detected list_of variable '", declNode.name, 
+                           "' with element type '", elementType, "'");
+            }
+        }
 
         if (declNode.typeName.length > 0)
         {
@@ -1390,6 +1428,15 @@ string generateC(ASTNode ast)
         }
 
         cCode ~= decl ~ ";\n";
+        
+        // For list_of types, also declare a length counter initialized to 0
+        if (isListOfType)
+        {
+            string lengthVar = "__list_length_" ~ declNode.name;
+            cCode ~= "int " ~ lengthVar ~ " = 0;\n";
+            debugWriteln("DEBUG renderer: Emitted length counter '", lengthVar, "' for list_of variable");
+        }
+        
         break;
 
     case "Println":

@@ -1,0 +1,70 @@
+// Test the list_of() feature for dynamic arrays
+
+use std.io (
+    print_i32,
+    println
+);
+
+model Token {
+    token_type: i32;
+    value: i32;
+}
+
+main {
+    // Create a dynamic array using list_of()
+    mut tokens: list_of(Token);
+    
+    // Create some tokens
+    mut t1: Token;
+    t1.token_type = 1;
+    t1.value = 100;
+    
+    mut t2: Token;
+    t2.token_type = 2;
+    t2.value = 200;
+    
+    mut t3: Token;
+    t3.token_type = 3;
+    t3.value = 300;
+    
+    // Append tokens to the list
+    append(tokens, t1);
+    append(tokens, t2);
+    append(tokens, t3);
+    
+    // Access and print the tokens
+    println "Token 0: type=";
+    print_i32(tokens[0].token_type);
+    print " value=";
+    print_i32(tokens[0].value);
+    println "";
+    
+    println "Token 1: type=";
+    print_i32(tokens[1].token_type);
+    print " value=";
+    print_i32(tokens[1].value);
+    println "";
+    
+    println "Token 2: type=";
+    print_i32(tokens[2].token_type);
+    print " value=";
+    print_i32(tokens[2].value);
+    println "";
+    
+    // Test with simple types
+    mut numbers: list_of(i32);
+    append(numbers, 10);
+    append(numbers, 20);
+    append(numbers, 30);
+    append(numbers, 40);
+    
+    println "Numbers:";
+    print_i32(numbers[0]);
+    print " ";
+    print_i32(numbers[1]);
+    print " ";
+    print_i32(numbers[2]);
+    print " ";
+    print_i32(numbers[3]);
+    println "";
+}

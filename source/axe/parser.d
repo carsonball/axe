@@ -18,6 +18,7 @@ import axe.gstate;
 private string[string] g_typeAliases;
 private MacroDef[string] g_macros;
 private bool[string] g_importedModules;
+private string[string] g_listOfTypes;
 
 /**
  * Parses an array of tokens into an abstract syntax tree (AST).
@@ -114,7 +115,41 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
         if (tokens[pos].type == TokenType.IDENTIFIER)
         {
             typeName = tokens[pos].value;
-            pos++;
+
+            if (typeName == "list_of")
+            {
+                pos++; // Skip 'list_of'
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                    "Expected '(' after 'list_of'");
+                pos++; // Skip '('
+
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                    "Expected type name inside 'list_of(...)'");
+
+                string elementType = tokens[pos].value;
+                pos++; // Skip element type
+
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
+
+                enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                    "Expected ')' after type in 'list_of(...)'");
+                pos++; // Skip ')'
+
+                typeName = elementType ~ "[999]";
+
+                debugWriteln("DEBUG: Parsed list_of(", elementType, ") -> ", typeName);
+            }
+            else
+            {
+                pos++;
+            }
 
             while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
             {
@@ -530,9 +565,10 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
         case TokenType.PUB:
             isNextPublic = true;
             pos++;
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
-            
+
             if (pos < tokens.length && tokens[pos].type == TokenType.DEF)
                 goto case TokenType.DEF;
             else if (pos < tokens.length && tokens[pos].type == TokenType.MODEL)
@@ -1095,7 +1131,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++; // Skip 'opaque'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -1106,7 +1143,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 // Skip whitespace
-                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                        .NEWLINE))
                     pos++;
 
                 if (pos >= tokens.length || tokens[pos].type == TokenType.RBRACE)
@@ -1132,7 +1170,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++; // Skip '}'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -1146,7 +1185,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++; // Skip 'extern'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.DEF,
@@ -1154,7 +1194,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++; // Skip 'def'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
@@ -1163,7 +1204,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++;
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
@@ -1174,7 +1216,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
             {
                 // Skip whitespace
-                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                        .NEWLINE))
                     pos++;
 
                 if (pos >= tokens.length || tokens[pos].type == TokenType.RPAREN)
@@ -1182,9 +1225,11 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
                 // Parse parameter: name: type
                 string paramStr = "";
-                while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RPAREN)
+                while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType
+                    .RPAREN)
                 {
-                    if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType.NEWLINE)
+                    if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType
+                        .NEWLINE)
                     {
                         paramStr ~= tokens[pos].value;
                     }
@@ -1207,7 +1252,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++; // Skip ')'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             string externReturnType = "";
@@ -1216,13 +1262,15 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                 pos++; // Skip ':'
 
                 // Skip whitespace
-                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                        .NEWLINE))
                     pos++;
 
                 // Parse return type
                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                 {
-                    if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType.NEWLINE)
+                    if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType
+                        .NEWLINE)
                     {
                         externReturnType ~= tokens[pos].value;
                     }
@@ -1236,7 +1284,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             }
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -1250,7 +1299,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++; // Skip 'unsafe'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -1269,13 +1319,13 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     braceDepth++;
                 else if (tokens[pos].type == TokenType.RBRACE)
                     braceDepth--;
-                
+
                 if (braceDepth > 0)
                     pos++;
             }
 
             enforce(braceDepth == 0, "Unclosed unsafe block");
-            
+
             size_t blockEnd = pos;
             pos++; // Skip closing '}'
 
@@ -2120,7 +2170,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
-                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+                while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                        .NEWLINE))
                     pos++;
                 if (pos < tokens.length && tokens[pos].type == TokenType.RBRACE)
                     break;
@@ -2324,7 +2375,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                 hasSemicolon = true;
                                 break;
                             }
-                            if (tokens[look].type == TokenType.LBRACE || tokens[look].type == TokenType.RBRACE)
+                            if (tokens[look].type == TokenType.LBRACE || tokens[look].type == TokenType
+                                .RBRACE)
                                 break;
                             look++;
                         }
@@ -3798,6 +3850,22 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
             debugWriteln("[VAL case] About to return DeclarationNode");
             currentScope.addVariable(varName, isMutable);
+
+            // Track list_of types - extract element type from Type[999] format
+            import std.string : indexOf;
+            import std.algorithm : canFind;
+
+            if (typeName.canFind("[999]"))
+            {
+                auto bracketPos = typeName.indexOf("[999]");
+                if (bracketPos > 0)
+                {
+                    string elementType = typeName[0 .. bracketPos];
+                    g_listOfTypes[varName] = elementType;
+                    debugWriteln("DEBUG: Tracked list_of variable '", varName, "' with element type '", elementType, "'");
+                }
+            }
+
             return new DeclarationNode(varName, isMutable, initializer, typeName, refDepth);
         }
 
@@ -3861,9 +3929,9 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             }
         }
 
-        if (pos < tokens.length && (tokens[pos].type == TokenType.DOT || tokens[pos].type == TokenType.STAR_DOT))
+        if (pos < tokens.length && (tokens[pos].type == TokenType.DOT || tokens[pos].type == TokenType
+                .STAR_DOT))
         {
-            // Could be: obj.field = value, obj.field[index] = value, OR Model.method(...) or ptr*.field = value
             bool isUnsafeDeref = tokens[pos].type == TokenType.STAR_DOT;
             pos++; // Skip '.' or '*.'
             enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
@@ -3874,7 +3942,6 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
 
-            // Check if this is a method call: Model.method(...)
             if (pos < tokens.length && tokens[pos].type == TokenType.LPAREN)
             {
                 // This is a namespaced function call
@@ -3959,7 +4026,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             string fullLeftSide = identName ~ (isUnsafeDeref ? "*." : ".") ~ memberName;
 
             // Consume additional ".identifier" or "*.identifier" segments, updating memberName to the last segment
-            while (pos < tokens.length && (tokens[pos].type == TokenType.DOT || tokens[pos].type == TokenType.STAR_DOT))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.DOT || tokens[pos].type == TokenType
+                    .STAR_DOT))
             {
                 string dotOp = tokens[pos].type == TokenType.STAR_DOT ? "*." : ".";
                 pos++; // Skip '.' or '*.'
@@ -4044,7 +4112,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                             lastWasRef = true;
                         else
                             lastWasRef = false;
-                        
+
                         currentArg ~= tokens[pos].value;
                         pos++;
                     }
@@ -4562,7 +4630,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++; // Skip 'opaque'
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -4573,7 +4642,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
         {
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             if (pos >= tokens.length || tokens[pos].type == TokenType.RBRACE)
@@ -4599,7 +4669,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++; // Skip '}'
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -4612,7 +4683,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++; // Skip 'extern'
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.DEF,
@@ -4620,7 +4692,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++; // Skip 'def'
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
@@ -4629,7 +4702,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++;
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
@@ -4640,7 +4714,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
         {
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             if (pos >= tokens.length || tokens[pos].type == TokenType.RPAREN)
@@ -4648,9 +4723,11 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
 
             // Parse parameter: name: type
             string paramStr = "";
-            while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType.RPAREN)
+            while (pos < tokens.length && tokens[pos].type != TokenType.COMMA && tokens[pos].type != TokenType
+                .RPAREN)
             {
-                if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType.NEWLINE)
+                if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType
+                    .NEWLINE)
                 {
                     paramStr ~= tokens[pos].value;
                 }
@@ -4673,7 +4750,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         pos++; // Skip ')'
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         string externReturnType = "";
@@ -4682,13 +4760,15 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             pos++; // Skip ':'
 
             // Skip whitespace
-            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+            while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                    .NEWLINE))
                 pos++;
 
             // Parse return type
             while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
             {
-                if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType.NEWLINE)
+                if (tokens[pos].type != TokenType.WHITESPACE && tokens[pos].type != TokenType
+                    .NEWLINE)
                 {
                     externReturnType ~= tokens[pos].value;
                 }
@@ -4702,7 +4782,8 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
 
         // Skip whitespace
-        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE))
+        while (pos < tokens.length && (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType
+                .NEWLINE))
             pos++;
 
         enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
@@ -4772,7 +4853,8 @@ private IfNode parseIfHelper(ref size_t pos, Token[] tokens, ref Scope currentSc
     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
         pos++;
     enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
-        "Expected '{' after if condition here: " ~ tokens[max(0, cast(int) pos - 5) .. min(tokens.length, pos + 5)].map!(t => t.value)
+        "Expected '{' after if condition here: " ~ tokens[max(0, cast(int) pos - 5) .. min(tokens.length, pos + 5)]
+            .map!(t => t.value)
             .join(" "));
     pos++;
 
@@ -5457,6 +5539,40 @@ private string parseTypeHelper(ref size_t pos, Token[] tokens)
     {
         typeName = tokens[pos].value;
         debugWriteln("[parseTypeHelper] Got type name: ", typeName);
+
+        if (typeName == "list_of")
+        {
+            pos++; // Skip 'list_of'
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
+                "Expected '(' after 'list_of'");
+            pos++; // Skip '('
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
+                "Expected type name inside 'list_of(...)'");
+
+            string elementType = tokens[pos].value;
+            pos++; // Skip element type
+
+            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                pos++;
+
+            enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
+                "Expected ')' after type in 'list_of(...)'");
+            pos++; // Skip ')'
+
+            typeName = elementType ~ "[999]";
+
+            debugWriteln("[parseTypeHelper] Parsed list_of(", elementType, ") -> ", typeName);
+
+            return typeName;
+        }
+
         pos++;
 
         // Validate that the type is not forbidden
