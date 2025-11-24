@@ -698,7 +698,8 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 funcNode.name);
 
                             // For .axec modules, include all platform functions regardless of explicit imports
-                            if (!importIsAxec && !useNode.importAll && !useNode.imports.canFind(funcNode.name))
+                            if (!importIsAxec && !useNode.importAll && !useNode.imports.canFind(
+                                    funcNode.name))
                                 continue;
 
                             if (isExplicitImport)
