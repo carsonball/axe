@@ -692,12 +692,13 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
 
                             // NOTE: For platform blocks, include ALL functions (even private ones)
                             // because private functions may be dependencies of public functions
-                            // that are imported. When importAll is used, include all functions.
-                            // Otherwise only include explicitly listed functions.
+                            // that are imported. For .axec files, always include all platform functions
+                            // as they are typically low-level helpers needed by other functions.
                             bool isExplicitImport = useNode.importAll || useNode.imports.canFind(
                                 funcNode.name);
 
-                            if (!useNode.importAll && !useNode.imports.canFind(funcNode.name))
+                            // For .axec modules, include all platform functions regardless of explicit imports
+                            if (!importIsAxec && !useNode.importAll && !useNode.imports.canFind(funcNode.name))
                                 continue;
 
                             if (isExplicitImport)
@@ -849,6 +850,14 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                                 {
                                     newPlatform.children ~= externNode;
                                 }
+                            }
+                        }
+                        else if (pChild.nodeType == "Opaque")
+                        {
+                            auto opaqueNode = cast(OpaqueNode) pChild;
+                            if (opaqueNode !is null)
+                            {
+                                newPlatform.children ~= opaqueNode;
                             }
                         }
                         else if (pChild.nodeType == "Macro")

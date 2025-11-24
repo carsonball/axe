@@ -1301,13 +1301,25 @@ string generateC(ASTNode ast)
                     {
                         import std.string : replace;
 
+                        string prefixedValue = paramValue;
+                        if (paramValue in g_functionPrefixes)
+                        {
+                            prefixedValue = g_functionPrefixes[paramValue];
+                            debugWriteln("  DEBUG: Type '", paramValue, "' needs function prefix: '", prefixedValue, "'");
+                        }
+                        else if (paramValue in g_modelNames)
+                        {
+                            prefixedValue = g_modelNames[paramValue];
+                            debugWriteln("  DEBUG: Type '", paramValue, "' needs model prefix: '", prefixedValue, "'");
+                        }
+
                         string pattern = "{{" ~ paramName ~ "}}";
                         if (expandedCode.canFind(pattern))
                         {
                             debugWriteln("  DEBUG: Found pattern '", pattern, "' in code");
-                            debugWriteln("  DEBUG: Replacing '", pattern, "' with '", paramValue, "'");
+                            debugWriteln("  DEBUG: Replacing '", pattern, "' with '", prefixedValue, "'");
                             string beforeReplace = expandedCode;
-                            expandedCode = expandedCode.replace(pattern, paramValue);
+                            expandedCode = expandedCode.replace(pattern, prefixedValue);
                             if (beforeReplace == expandedCode)
                             {
                                 debugWriteln("  DEBUG: WARNING - replacement didn't change code!");
@@ -1315,8 +1327,8 @@ string generateC(ASTNode ast)
                         }
                         else if (expandedCode == paramName)
                         {
-                            debugWriteln("  DEBUG: Exact match (legacy) - replacing '", paramName, "' with '", paramValue, "'");
-                            expandedCode = paramValue;
+                            debugWriteln("  DEBUG: Exact match (legacy) - replacing '", paramName, "' with '", prefixedValue, "'");
+                            expandedCode = prefixedValue;
                         }
                     }
 
@@ -3109,6 +3121,21 @@ private string replaceKeywordOutsideStrings(string input, string keyword, string
 string processExpression(string expr, string context = "")
 {
     expr = expr.strip();
+
+    import std.string : replace;
+    import std.algorithm : canFind;
+    import std.regex : replaceAll, regex;
+
+    expr = expr.replaceAll(regex(r"\bC\s*\.\s*"), "");
+
+    foreach (typeName, prefixedName; g_modelNames)
+    {
+        if (typeName != prefixedName)
+        {
+            auto pattern = regex(r"\b" ~ typeName ~ r"\b");
+            expr = expr.replaceAll(pattern, prefixedName);
+        }
+    }
 
     // len() is now handled by the C macro #define len(x) ((x).len)
     // No need for special processing here

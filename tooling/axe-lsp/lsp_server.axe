@@ -19,6 +19,10 @@ use std.string (
     str_to_int
 );
 
+use std.os (
+    quit
+);
+
 use std.json;
 use std.maps (
     StringHashMapString
@@ -181,7 +185,7 @@ def handle_did_open(params: ref char) {
     if uri_obj != nil and text_obj != nil {
         mut uri: string = get_str(uri_obj);
         mut text: string = get_str(text_obj);
-        StringHashMapString.add(addr_of(g_documents), uri, text);
+        StringHashMapString.add(addr_of(g_documents), addr_of(g_arena), uri, text);
     }
 }
 
@@ -212,7 +216,7 @@ def handle_did_change(params: ref char) {
                 mut text_obj: ref char = obj_get(change, str("text"));
                 if text_obj != nil {
                     mut text: string = get_str(text_obj);
-                    StringHashMapString.add(addr_of(g_documents), uri, text);
+                    StringHashMapString.add(addr_of(g_documents), addr_of(g_arena), uri, text);
                 }
             }
         }
@@ -312,7 +316,9 @@ def process_message(message: string) {
         } elif equals_c(method, "shutdown") {
             send_response(id, str("null"));
         } elif equals_c(method, "exit") {
-            quit(0);
+            unsafe {
+                C.exit(0);
+            }
         } elif equals_c(method, "textDocument/didOpen") {
             handle_did_open(params_val);
         } elif equals_c(method, "textDocument/didChange") {
