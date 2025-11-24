@@ -9,7 +9,7 @@ use std.string;
 
 model Person {
     name: string;
-    age: i32;
+    age:  i32;
 }
 
 def main() {
