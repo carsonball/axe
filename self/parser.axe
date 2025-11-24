@@ -587,28 +587,28 @@ def parse_type(ctx: ref ParserContext): string {
     return concat(ref_prefix, type_name);
 }
 
-// // Parse ref depth (e.g., "ref ref int" returns 2)
-// def parse_ref_depth(ctx: ref ParserContext): i32 {
-//     mut depth: i32 = 0;
+/// Parse ref depth (e.g., "ref ref int" returns 2)
+def parse_ref_depth(ctx: ref ParserContext): i32 {
+    mut depth: i32 = 0;
     
-//     loop {
-//         skip_whitespace(ctx);
+    loop {
+        skip_whitespace(ctx);
         
-//         if ctx.pos >= len(ctx.tokens) {
-//             break;
-//         }
+        if ctx.pos >= len(ctx.tokens) {
+            break;
+        }
         
-//         val token = peek(ctx);
-//         if token.token_type == TokenType.REF {
-//             depth++;
-//             consume(ctx);
-//         } else {
-//             break;
-//         }
-//     }
+        val token: Token = peek(ctx);
+        if token.token_type == TokenType.REF {
+            depth++;
+            consume(ctx);
+        } else {
+            break;
+        }
+    }
     
-//     return depth;
-// }
+    return depth;
+}
 
 // // TODO:                Implement remaining parser functions
 // // - parse_top_level:   Parse use, model, enum, function, etc.
