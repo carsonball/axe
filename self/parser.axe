@@ -19,7 +19,7 @@ use std.maps;
 mut g_type_aliases: StringHashMapString;
 mut g_imported_modules: StringHashMapBool;
 mut g_list_of_types: StringHashMapString;
-// val g_macros: map(string, MacroDef);
+// mut g_macros: map(string, MacroDef);
 
 def initialize_all() {
     mut arena: Arena = Arena.create(1024 * 1024);
