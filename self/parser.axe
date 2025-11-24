@@ -610,8 +610,80 @@ def parse_ref_depth(ctx: ref ParserContext): i32 {
     return depth;
 }
 
+/// Parse function definition
+def parse_function(ctx: ref ParserContext): ASTNode {
+    mut func: ASTNode;
+    func.node_type = str("Function");
+    
+    skip_whitespace(ctx);
+    if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+        println "ERROR: Expected function name after 'def'";
+        return func;
+    }
+    
+    val func_name: string = ctx.tokens.data[ctx.pos].value;
+    ctx.pos++;
+    
+    skip_whitespace(ctx);
+    if !expect(ctx, TokenType.LPAREN) {
+        println "ERROR: Expected '(' after function name";
+        return func;
+    }
+    consume(ctx);
+    
+    mut depth: i32 = 1;
+    loop {
+        if ctx.pos >= len(ctx.tokens) {
+            break;
+        }
+        
+        if ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
+            depth = depth + 1;
+        } elif ctx.tokens.data[ctx.pos].token_type == TokenType.RPAREN {
+            depth = depth - 1;
+            if depth == 0 {
+                ctx.pos++;
+                break;
+            }
+        }
+        ctx.pos++;
+    }
+    
+    skip_whitespace(ctx);
+    if expect(ctx, TokenType.COLON) {
+        consume(ctx);
+        val return_type: string = parse_type(ctx);
+    }
+    
+    skip_whitespace(ctx);
+    if !expect(ctx, TokenType.LBRACE) {
+        println "ERROR: Expected '{' after function declaration";
+        return func;
+    }
+    consume(ctx);
+    
+    depth = 1;
+    loop {
+        if ctx.pos >= len(ctx.tokens) {
+            break;
+        }
+        
+        if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            depth = depth + 1;
+        } elif ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+            depth = depth - 1;
+            if depth == 0 {
+                ctx.pos++;
+                break;
+            }
+        }
+        ctx.pos++;
+    }
+    
+    return func;
+}
+
 // // TODO:                Implement remaining parser functions
-// // - parse_function:    Parse function definitions
 // // - parse_model:       Parse model definitions
 // // - parse_enum:        Parse enum definitions
 // // - parse_statement:   Parse statements in function bodies
