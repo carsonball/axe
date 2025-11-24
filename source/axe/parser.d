@@ -2487,7 +2487,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                 string rawContent = tokens[pos].value;
                                 enforce(rawContent.canFind("{"),
                                     "Interpolated string must contain at least one {} expression. " ~
-                                    "Use a regular string if no interpolation is needed.");
+                                        "Use a regular string if no interpolation is needed.");
                                 functionArgs ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
                                 lastWasRef = false;
                                 pos++;
@@ -2715,7 +2715,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
             auto declNode = new DeclarationNode(varName, isMutable, initializer.strip(), varType);
             ast.children ~= declNode;
-            
+
             // Register global variable in currentScope so it can be found by isDeclared checks
             currentScope.addVariable(varName, isMutable);
             continue;
@@ -3066,23 +3066,23 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         else if (pos < tokens.length && tokens[pos].type == TokenType.LOCAL)
         {
             pos++; // Skip 'local'
-            
+
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LPAREN,
                 "Expected '(' after 'parallel local'");
             pos++; // Skip '('
-            
+
             string[] privateVars;
             string[] privateTypes;
             bool[] isMutable;
-            
+
             while (pos < tokens.length && tokens[pos].type != TokenType.RPAREN)
             {
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
-                
+
                 bool isMut = false;
                 if (pos < tokens.length && tokens[pos].type == TokenType.MUT)
                 {
@@ -3091,22 +3091,22 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
                 }
-                
+
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.IDENTIFIER,
                     "Expected variable name in parallel local");
                 string varName = tokens[pos].value;
                 pos++;
-                
+
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
-                
+
                 enforce(pos < tokens.length && tokens[pos].type == TokenType.COLON,
                     "Expected ':' after variable name in parallel local");
                 pos++;
-                
+
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
-                
+
                 int refDepth = 0;
                 while (pos < tokens.length && tokens[pos].type == TokenType.REF)
                 {
@@ -3115,48 +3115,48 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                         pos++;
                 }
-                
+
                 string typeName = parseTypeHelper(pos, tokens, isAxec);
-                
+
                 privateVars ~= varName;
                 privateTypes ~= (refDepth > 0 ? "ref " : "") ~ typeName;
                 isMutable ~= isMut;
-                
+
                 currentScope.addVariable(varName, isMut);
-                
+
                 while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                     pos++;
-                
+
                 if (pos < tokens.length && tokens[pos].type == TokenType.COMMA)
                 {
                     pos++; // Skip ','
                 }
             }
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RPAREN,
                 "Expected ')' after parallel local variables");
             pos++; // Skip ')'
-            
+
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
                 "Expected '{' after parallel local declaration");
             pos++; // Skip '{'
-            
+
             auto parallelLocalNode = new ParallelLocalNode(privateVars, privateTypes, isMutable);
-            
+
             while (pos < tokens.length && tokens[pos].type != TokenType.RBRACE)
             {
                 auto stmt = parseStatementHelper(pos, tokens, currentScope, currentScopeNode, isAxec);
                 if (stmt !is null)
                     parallelLocalNode.children ~= stmt;
             }
-            
+
             enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                 "Expected '}' after parallel local block");
             pos++; // Skip '}'
-            
+
             return parallelLocalNode;
         }
         else
@@ -3816,6 +3816,40 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                 "Expected ';' after variable declaration");
             pos++;
 
+            if (typeName.length == 0 && initializer.length > 0)
+            {
+                import std.string : indexOf, strip;
+                import std.algorithm : canFind;
+
+                string trimmedInit = initializer.strip();
+
+                if (trimmedInit.canFind("("))
+                {
+                    bool looksLikeFunctionCall = false;
+
+                    size_t parenPos = trimmedInit.indexOf("(");
+                    if (parenPos > 0)
+                    {
+                        size_t i = parenPos - 1;
+                        while (i > 0 && (trimmedInit[i] == ' ' || trimmedInit[i] == '\t'))
+                            i--;
+
+                        if (i < trimmedInit.length &&
+                            (trimmedInit[i] >= 'a' && trimmedInit[i] <= 'z') ||
+                            (trimmedInit[i] >= 'A' && trimmedInit[i] <= 'Z') ||
+                            (trimmedInit[i] >= '0' && trimmedInit[i] <= '9') ||
+                            trimmedInit[i] == '_' || trimmedInit[i] == '.')
+                        {
+                            looksLikeFunctionCall = true;
+                        }
+                    }
+
+                    enforce(!looksLikeFunctionCall,
+                        "Variable '" ~ varName ~
+                            "' initialized with call requires explicit type annotation. ");
+                }
+            }
+
             debugWriteln("[VAL case] About to return DeclarationNode");
             currentScope.addVariable(varName, isMutable);
 
@@ -3889,7 +3923,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         string rawContent = tokens[pos].value;
                         enforce(rawContent.canFind("{"),
                             "Interpolated string must contain at least one {} expression. " ~
-                            "Use a regular string if no interpolation is needed.");
+                                "Use a regular string if no interpolation is needed.");
                         functionArgs ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
                     }
                     else
