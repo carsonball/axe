@@ -464,20 +464,19 @@ def skip_whitespace(ctx: ref ParserContext) {
     }
 }
 
-// // Peek at current token without advancing
-// def peek(ctx: ref ParserContext): Token {
-//     if ctx.pos < len(ctx.tokens) {
-//         return ctx.tokens.data[ctx.pos];
-//     }
+/// Peek at current token without advancing
+def peek(ctx: ref ParserContext): Token {
+    if ctx.pos < len(ctx.tokens) {
+        return ctx.tokens.data[ctx.pos];
+    }
     
-//     // Return empty token if at end
-//     mut empty: Token;
-//     empty.token_type = TokenType.IDENTIFIER;
-//     empty.value = "";
-//     empty.line = 0;
-//     empty.column = 0;
-//     return empty;
-// }
+    mut empty: Token;
+    empty.token_type = TokenType.IDENTIFIER;
+    empty.value = str("");
+    empty.line = 0;
+    empty.column = 0;
+    return empty;
+}
 
 // // Consume current token and advance
 // def consume(ctx: ref ParserContext): Token {

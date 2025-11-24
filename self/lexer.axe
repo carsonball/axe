@@ -84,6 +84,8 @@ enum TokenType {
 pub model Token {
     pub token_type: i32;
     pub value: string;
+    pub line: i32;
+    pub column: i32;
 }
 
 def create_token(token_type: i32, value: ref char): Token {
