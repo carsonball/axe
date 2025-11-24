@@ -463,19 +463,19 @@ def peek(ctx: ref ParserContext): Token {
     return empty;
 }
 
-// Consume current token and advance
+/// Consume current token and advance
 def consume(ctx: ref ParserContext): Token {
     val token: Token = peek(ctx);
     ctx.pos = ctx.pos + 1;
     return token;
 }
 
-// // Check if current token matches expected type
-// def expect(ctx: ref ParserContext, expected_type: i32): bool {
-//     skip_whitespace(ctx);
-//     val token = peek(ctx);
-//     return token.token_type == expected_type;
-// }
+/// Check if current token matches expected type
+def expect(ctx: ref ParserContext, expected_type: i32): bool {
+    skip_whitespace(ctx);
+    val token: Token = peek(ctx);
+    return token.token_type == expected_type;
+}
 
 // // Parse a type specification (e.g., "i32", "ref string", "list(Token)")
 // def parse_type(ctx: ref ParserContext): string {
