@@ -294,11 +294,8 @@ def sha256_to_hex(digest: SHA256Digest, arena: ref Arena): string {
         val byte_val: i32 = digest.bytes[i] & 0xff;
         val high: i32 = (byte_val >> 4) & 0xf;
         val low: i32 = byte_val & 0xf;
-        
-        raw {
-            result.data[pos] = hex_chars[high];
-            result.data[pos + 1] = hex_chars[low];
-        }
+        result.data[pos] = hex_chars[high];
+        result.data[pos + 1] = hex_chars[low];
         pos = pos + 2;
     }
     
