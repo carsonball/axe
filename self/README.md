@@ -6,7 +6,7 @@ This directory contains the self-hosted version of the Axe compiler, written in 
 
 #### Bugfixes
 
-- [ ] Fix `[]` syntax with non-primitive types
+- [x] Fix `[]` syntax with non-primitive types
 
 #### Overarching
 
