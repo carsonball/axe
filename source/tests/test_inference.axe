@@ -1,0 +1,10 @@
+use std.io;
+
+model SomeType {
+    stuff: i32;
+}
+
+def main() {
+    val instance = new SomeType(stuff:42);
+    println instance.stuff;
+}
