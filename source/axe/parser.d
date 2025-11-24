@@ -112,7 +112,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
         }
 
         string typeName;
-        
+
         // Special case: 'model' keyword can be used as a type for anonymous model definitions
         if (tokens[pos].type == TokenType.MODEL)
         {
@@ -120,7 +120,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             pos++;
             return refPrefix ~ typeName;
         }
-        
+
         if (tokens[pos].type == TokenType.IDENTIFIER)
         {
             typeName = tokens[pos].value;
@@ -190,7 +190,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
         }
 
         validateTypeNotForbidden(typeName);
-        
+
         if (!isAxec)
             validateNoRawPointerSyntax(typeName);
 
@@ -655,8 +655,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                     // Validate that function name doesn't contain double underscores (reserved for module separator)
                     if (funcName.canFind("__"))
                     {
-                        throw new Exception("Function name '" ~ funcName ~ 
-                            "' cannot contain double underscores (__). This is reserved for module prefixes.");
+                        throw new Exception("Function name '" ~ funcName ~
+                                "' cannot contain double underscores (__). This is reserved for module prefixes.");
                     }
 
                     auto funcNode = new FunctionNode(funcName, params, returnType);
@@ -728,8 +728,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
             // Validate that model name doesn't contain double underscores
             if (modelName.canFind("__"))
             {
-                throw new Exception("Model name '" ~ modelName ~ 
-                    "' cannot contain double underscores (__). This is reserved for module prefixes.");
+                throw new Exception("Model name '" ~ modelName ~
+                        "' cannot contain double underscores (__). This is reserved for module prefixes.");
             }
 
             enforce(pos < tokens.length && tokens[pos].type == TokenType.LBRACE,
@@ -870,31 +870,32 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                             if (tokens[pos].type != TokenType.IDENTIFIER)
                             {
                                 bool isKeyword = (tokens[pos].type == TokenType.RETURN ||
-                                                 tokens[pos].type == TokenType.IF ||
-                                                 tokens[pos].type == TokenType.ELSE ||
-                                                 tokens[pos].type == TokenType.ELIF ||
-                                                 tokens[pos].type == TokenType.LOOP ||
-                                                 tokens[pos].type == TokenType.FOR ||
-                                                 tokens[pos].type == TokenType.MODEL ||
-                                                 tokens[pos].type == TokenType.DEF ||
-                                                 tokens[pos].type == TokenType.MUT ||
-                                                 tokens[pos].type == TokenType.USE ||
-                                                 tokens[pos].type == TokenType.MACRO ||
-                                                 tokens[pos].type == TokenType.ENUM ||
-                                                 tokens[pos].type == TokenType.OPAQUE ||
-                                                 tokens[pos].type == TokenType.EXTERN ||
-                                                 tokens[pos].type == TokenType.UNSAFE ||
-                                                 tokens[pos].type == TokenType.SWITCH ||
-                                                 tokens[pos].type == TokenType.CASE ||
-                                                 tokens[pos].type == TokenType.PLATFORM ||
-                                                 tokens[pos].type == TokenType.PARALLEL ||
-                                                 tokens[pos].type == TokenType.RAW ||
-                                                 tokens[pos].type == TokenType.PUB);
+                                        tokens[pos].type == TokenType.IF ||
+                                        tokens[pos].type == TokenType.ELSE ||
+                                        tokens[pos].type == TokenType.ELIF ||
+                                        tokens[pos].type == TokenType.LOOP ||
+                                        tokens[pos].type == TokenType.FOR ||
+                                        tokens[pos].type == TokenType.MODEL ||
+                                        tokens[pos].type == TokenType.DEF ||
+                                        tokens[pos].type == TokenType.MUT ||
+                                        tokens[pos].type == TokenType.USE ||
+                                        tokens[pos].type == TokenType.MACRO ||
+                                        tokens[pos].type == TokenType.ENUM ||
+                                        tokens[pos].type == TokenType.OPAQUE ||
+                                        tokens[pos].type == TokenType.EXTERN ||
+                                        tokens[pos].type == TokenType.UNSAFE ||
+                                        tokens[pos].type == TokenType.SWITCH ||
+                                        tokens[pos].type == TokenType.CASE ||
+                                        tokens[pos].type == TokenType.PLATFORM ||
+                                        tokens[pos].type == TokenType.PARALLEL ||
+                                        tokens[pos].type == TokenType.RAW ||
+                                        tokens[pos].type == TokenType.PUB);
                                 if (!isKeyword)
                                 {
                                     import std.conv : to;
+
                                     enforce(false, "Expected field name inside union block, got " ~
-                                        tokens[pos].type.to!string ~ " with value '" ~ tokens[pos].value ~ "'");
+                                            tokens[pos].type.to!string ~ " with value '" ~ tokens[pos].value ~ "'");
                                 }
                             }
                             string innerName = tokens[pos].value;
@@ -908,20 +909,22 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                             string innerBaseType = parseType();
                             string innerFieldType;
 
-                            if (innerBaseType == "model" && pos < tokens.length && tokens[pos].type == TokenType.LBRACE)
+                            if (innerBaseType == "model" && pos < tokens.length && tokens[pos].type == TokenType
+                                .LBRACE)
                             {
                                 ModelNode.Field innerField;
                                 innerField.name = innerName;
                                 innerField.type = "model";
                                 innerField.isUnion = true;
-                                
+
                                 pos++; // Skip '{'
-                                
+
                                 int braceDepth = 0;
                                 while (pos < tokens.length)
                                 {
                                     if (tokens[pos].type == TokenType.WHITESPACE || tokens[pos].type == TokenType.NEWLINE
-                                        || tokens[pos].type == TokenType.SEMICOLON || tokens[pos].type == TokenType.COMMENT)
+                                        || tokens[pos].type == TokenType.SEMICOLON || tokens[pos].type == TokenType
+                                        .COMMENT)
                                     {
                                         pos++;
                                         continue;
@@ -948,31 +951,32 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                     if (tokens[pos].type != TokenType.IDENTIFIER)
                                     {
                                         bool isKeyword = (tokens[pos].type == TokenType.RETURN ||
-                                                         tokens[pos].type == TokenType.IF ||
-                                                         tokens[pos].type == TokenType.ELSE ||
-                                                         tokens[pos].type == TokenType.ELIF ||
-                                                         tokens[pos].type == TokenType.LOOP ||
-                                                         tokens[pos].type == TokenType.FOR ||
-                                                         tokens[pos].type == TokenType.MODEL ||
-                                                         tokens[pos].type == TokenType.DEF ||
-                                                         tokens[pos].type == TokenType.MUT ||
-                                                         tokens[pos].type == TokenType.USE ||
-                                                         tokens[pos].type == TokenType.MACRO ||
-                                                         tokens[pos].type == TokenType.ENUM ||
-                                                         tokens[pos].type == TokenType.OPAQUE ||
-                                                         tokens[pos].type == TokenType.EXTERN ||
-                                                         tokens[pos].type == TokenType.UNSAFE ||
-                                                         tokens[pos].type == TokenType.SWITCH ||
-                                                         tokens[pos].type == TokenType.CASE ||
-                                                         tokens[pos].type == TokenType.PLATFORM ||
-                                                         tokens[pos].type == TokenType.PARALLEL ||
-                                                         tokens[pos].type == TokenType.RAW ||
-                                                         tokens[pos].type == TokenType.PUB);
+                                                tokens[pos].type == TokenType.IF ||
+                                                tokens[pos].type == TokenType.ELSE ||
+                                                tokens[pos].type == TokenType.ELIF ||
+                                                tokens[pos].type == TokenType.LOOP ||
+                                                tokens[pos].type == TokenType.FOR ||
+                                                tokens[pos].type == TokenType.MODEL ||
+                                                tokens[pos].type == TokenType.DEF ||
+                                                tokens[pos].type == TokenType.MUT ||
+                                                tokens[pos].type == TokenType.USE ||
+                                                tokens[pos].type == TokenType.MACRO ||
+                                                tokens[pos].type == TokenType.ENUM ||
+                                                tokens[pos].type == TokenType.OPAQUE ||
+                                                tokens[pos].type == TokenType.EXTERN ||
+                                                tokens[pos].type == TokenType.UNSAFE ||
+                                                tokens[pos].type == TokenType.SWITCH ||
+                                                tokens[pos].type == TokenType.CASE ||
+                                                tokens[pos].type == TokenType.PLATFORM ||
+                                                tokens[pos].type == TokenType.PARALLEL ||
+                                                tokens[pos].type == TokenType.RAW ||
+                                                tokens[pos].type == TokenType.PUB);
                                         if (!isKeyword)
                                         {
                                             import std.conv : to;
-                                            enforce(false, "Expected field name inside anonymous model, got " ~ 
-                                                tokens[pos].type.to!string ~ " with value '" ~ tokens[pos].value ~ "'");
+
+                                            enforce(false, "Expected field name inside anonymous model, got " ~
+                                                    tokens[pos].type.to!string ~ " with value '" ~ tokens[pos].value ~ "'");
                                         }
                                     }
                                     string nestedFieldName = tokens[pos].value;
@@ -986,7 +990,8 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                     string nestedBaseType = parseType();
                                     string nestedFieldType;
 
-                                    if (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
+                                    if (pos < tokens.length && tokens[pos].type == TokenType
+                                        .LBRACKET)
                                     {
                                         pos = nestedSavedPos;
                                         auto nestedArrayInfo = parseArrayType();
@@ -1014,16 +1019,17 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                     nestedField.type = nestedFieldType;
                                     innerField.nestedFields ~= nestedField;
 
-                                    if (pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON)
+                                    if (pos < tokens.length && tokens[pos].type == TokenType
+                                        .SEMICOLON)
                                         pos++;
                                 }
-                                
+
                                 enforce(pos < tokens.length && tokens[pos].type == TokenType.RBRACE,
                                     "Expected '}' after anonymous model body");
                                 pos++; // Skip '}'
-                                
+
                                 unionField.nestedFields ~= innerField;
-                                
+
                                 if (pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON)
                                     pos++;
                             }
@@ -1044,7 +1050,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                                     else
                                         innerFieldType ~= "[]";
                                 }
-                                
+
                                 ModelNode.Field innerField;
                                 innerField.name = innerName;
                                 innerField.type = innerFieldType;
@@ -1053,7 +1059,7 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                             else
                             {
                                 innerFieldType = innerBaseType;
-                                
+
                                 ModelNode.Field innerField;
                                 innerField.name = innerName;
                                 innerField.type = innerFieldType;
@@ -2469,10 +2475,39 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                             pos++;
 
-                        enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
-                            "Expected ';' after function call");
-                        pos++;
-                        funcNode.children ~= new FunctionCallNode(identName, functionArgs);
+                        bool isAssignment = false;
+                        if (pos < tokens.length)
+                        {
+                            if ((tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") ||
+                                tokens[pos].type == TokenType.EQUALS)
+                            {
+                                isAssignment = true;
+                            }
+                        }
+
+                        if (isAssignment)
+                        {
+                            pos++;
+                            while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                                pos++;
+                            string value = "";
+                            while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
+                            {
+                                value ~= tokens[pos].value;
+                                pos++;
+                            }
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after assignment");
+                            pos++;
+                            funcNode.children ~= new AssignmentNode(identName ~ "(" ~ functionArgs ~ ")", value.strip());
+                        }
+                        else
+                        {
+                            enforce(pos < tokens.length && tokens[pos].type == TokenType.SEMICOLON,
+                                "Expected ';' after function call");
+                            pos++;
+                            funcNode.children ~= new FunctionCallNode(identName, functionArgs);
+                        }
                     }
                     else
                     {
@@ -3618,6 +3653,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         else if (tokens[pos].type == TokenType.MULTILINE_STR)
                         {
                             import std.string : replace;
+
                             string escaped = tokens[pos].value.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
                             initializer ~= "\"" ~ escaped ~ "\"";
                         }
@@ -3627,7 +3663,7 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                         {
                             enforce(tokens[pos].value.canFind("{"),
                                 "Interpolated string must contain at least one {} expression. " ~
-                                "If you don't need interpolation, use a regular string instead.");
+                                    "If you don't need interpolation, use a regular string instead.");
                             initializer ~= "__INTERPOLATED__" ~ tokens[pos].value ~ "__INTERPOLATED__";
                         }
                         else
@@ -3665,10 +3701,13 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
         }
 
     case TokenType.IDENTIFIER:
+        debugWriteln("[parseStatementHelper] IDENTIFIER case, pos=", pos, " identName='", tokens[pos].value, "'");
         string identName = tokens[pos].value;
         pos++;
         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
             pos++;
+        debugWriteln("[parseStatementHelper] After consuming identifier, pos=", pos, " next token type=", tokens[pos]
+                .type);
 
         if (pos < tokens.length && tokens[pos].type != TokenType.LPAREN &&
             tokens[pos].type != TokenType.LBRACKET &&
@@ -3790,7 +3829,9 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
                     else if (tokens[pos].type == TokenType.MULTILINE_STR)
                     {
                         import std.string : replace;
-                        string escaped = tokens[pos].value.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+
+                        string escaped = tokens[pos].value.replace("\n", "\\n")
+                            .replace("\r", "\\r").replace("\t", "\\t");
                         currentArg ~= "\"" ~ escaped ~ "\"";
                         lastWasRef = false;
                         pos++;
@@ -4260,10 +4301,25 @@ private ASTNode parseStatementHelper(ref size_t pos, Token[] tokens, ref Scope c
             pos++;
             while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                 pos++;
-            if (pos < tokens.length && tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=")
+
+            bool isAssignment = false;
+            if (pos < tokens.length)
             {
-                // Assignment to function call result, e.g., deref(ptr) = value
+                debugWriteln("[parseStatementHelper] After ), pos=", pos, " token type=", tokens[pos].type, " value='",
+                    tokens[pos].value, "'");
+                if ((tokens[pos].type == TokenType.OPERATOR && tokens[pos].value == "=") ||
+                    tokens[pos].type == TokenType.EQUALS)
+                {
+                    isAssignment = true;
+                    debugWriteln("[parseStatementHelper] Detected assignment after function call");
+                }
+            }
+
+            if (isAssignment)
+            {
                 pos++;
+                while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
+                    pos++;
                 string value = "";
                 while (pos < tokens.length && tokens[pos].type != TokenType.SEMICOLON)
                 {
@@ -5379,7 +5435,7 @@ private string parseTypeHelper(ref size_t pos, Token[] tokens, bool isAxec = fal
         pos++;
 
         validateTypeNotForbidden(typeName);
-        
+
         if (!isAxec)
             validateNoRawPointerSyntax(typeName);
 
@@ -5525,7 +5581,7 @@ void validateNoRawPointerSyntax(string typeName)
 
         throw new Exception(
             "Pointer syntax '" ~ typeName ~ "' is deprecated.\n" ~
-            "Use 'ref' semantics instead: " ~ refSuggestion ~ "\n"
+                "Use 'ref' semantics instead: " ~ refSuggestion ~ "\n"
         );
     }
 }
