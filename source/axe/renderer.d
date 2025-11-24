@@ -511,6 +511,8 @@ string generateC(ASTNode ast)
                         g_pointerFields[modelNode.name ~ "." ~ field.name] = true;
                     if (field.type.startsWith("ref "))
                         g_pointerFields[modelNode.name ~ "." ~ field.name] = true;
+                    if (field.type.endsWith("[999]"))
+                        g_pointerFields[modelNode.name ~ "." ~ field.name] = true;
                     g_fieldTypes[modelNode.name ~ "." ~ field.name] = field.type;
                 }
             }
@@ -3868,9 +3870,19 @@ string processExpression(string expr, string context = "")
             for (size_t i = 1; i < parts.length; i++)
             {
                 string field = parts[i].strip();
+                string fieldName = field;
+                string arraySuffix = "";
+                auto bracketPos = field.indexOf('[');
+
+                if (bracketPos >= 0)
+                {
+                    fieldName = field[0 .. bracketPos];
+                    arraySuffix = field[bracketPos .. $];
+                }
+
                 string op = isPointer ? "->" : ".";
-                result ~= op ~ field;
-                string fieldKey = baseModelName ~ "." ~ field;
+                result ~= op ~ fieldName ~ arraySuffix;
+                string fieldKey = baseModelName ~ "." ~ fieldName;
                 if (fieldKey in g_pointerFields)
                 {
                     isPointer = true;

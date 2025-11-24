@@ -2199,7 +2199,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
 
                     string leftSide = identName;
 
-                    // Handle array access on base identifier
                     while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
                     {
                         pos++; // Skip '['
@@ -2231,7 +2230,6 @@ ASTNode parse(Token[] tokens, bool isAxec = false, bool checkEntryPoint = true, 
                         while (pos < tokens.length && tokens[pos].type == TokenType.WHITESPACE)
                             pos++;
 
-                        // Handle array access after field
                         while (pos < tokens.length && tokens[pos].type == TokenType.LBRACKET)
                         {
                             pos++; // Skip '['

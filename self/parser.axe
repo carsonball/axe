@@ -45,65 +45,66 @@ model Scope {
     parent: ref Scope;
 }
 
-// // Entry point for parsing tokens into an AST
-// pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, current_module: string): ASTNode {
-//     mut ctx: ParserContext;
-//     ctx.tokens = tokens;
-//     ctx.pos = 0;
-//     ctx.is_axec = is_axec;
-//     ctx.check_entry_point = check_entry_point;
-//     ctx.current_module = current_module;
+/// Parse the tokens into an AST
+pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, current_module: string): ASTNode {
+    mut ctx: ParserContext;
+    ctx.tokens = tokens;
+    ctx.pos = 0;
+    ctx.is_axec = is_axec;
+    ctx.check_entry_point = check_entry_point;
+    ctx.current_module = current_module;
     
-//     mut ast: ASTNode;
-//     ast.node_type = "Program";
+    mut ast: ASTNode;
+    ast.node_type = "Program";
     
-//     // TODO: Clear global state
-//     // g_type_aliases.clear()
+    StringHashMapString.clear(g_type_aliases);
+    StringHashMapBool.clear(g_imported_modules);
+    StringHashMapString.clear(g_list_of_types);
     
-//     if str_len(current_module) > 0 {
-//         // g_imported_modules[current_module] = true
-//         println "Auto-imported current module: ";
-//         println current_module;
-//     }
+    if str_len(current_module) > 0 {
+        // g_imported_modules[current_module] = true
+        println "Auto-imported current module: ";
+        println current_module;
+    }
     
-//     loop {
-//         if ctx.pos >= len(tokens) {
-//             break;
-//         }
+    loop {
+        if ctx.pos >= len(tokens) {
+            break;
+        }
         
-//         skip_whitespace(ctx);
+        skip_whitespace(ctx);
         
-//         if ctx.pos >= len(tokens) {
-//             break;
-//         }
+        if ctx.pos >= len(tokens) {
+            break;
+        }
         
-//         // Parse next top-level item
-//         // val child = parse_top_level(ctx)
-//         // ast.children.append(child)
+        // Parse next top-level item
+        // val child = parse_top_level(ctx)
+        // ast.children.append(child)
         
-//         // TODO: JUST ADVANCING TO AVOID INFINITE LOOP. REMOVE LATER.
-//         ctx.pos++;
-//     }
+        // TODO: JUST ADVANCING TO AVOID INFINITE LOOP. REMOVE LATER.
+        ctx.pos++;
+    }
     
-//     return ast;
-// }
+    return ast;
+}
 
-// // Skip whitespace and newline tokens
-// def skip_whitespace(ctx: ref ParserContext) {
-//     loop {
-//         if ctx.pos >= len(ctx.tokens) {
-//             break;
-//         }
+/// Skip the whitespace and newline tokens
+def skip_whitespace(ctx: ref ParserContext) {
+    loop {
+        if ctx.pos >= len(ctx.tokens) {
+            break;
+        }
         
-//         val token_type = ctx.tokens.data[ctx.pos].token_type;
+        val token_type = ctx.tokens.data[ctx.pos].token_type;
         
-//         if token_type == TokenType.WHITESPACE || token_type == TokenType.NEWLINE {
-//             ctx.pos++;
-//         } else {
-//             break;
-//         }
-//     }
-// }
+        if token_type == TokenType.WHITESPACE or token_type == TokenType.NEWLINE {
+            ctx.pos++;
+        } else {
+            break;
+        }
+    }
+}
 
 // // Peek at current token without advancing
 // def peek(ctx: ref ParserContext): Token {
