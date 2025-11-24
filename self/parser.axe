@@ -72,7 +72,7 @@ pub def parse(tokens: list(Token), is_axec: bool, check_entry_point: bool, curre
             break;
         }
         
-        skip_whitespace(ctx);
+        skip_whitespace(addr_of(ctx));
         
         if ctx.pos >= len(tokens) {
             break;

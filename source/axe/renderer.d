@@ -279,32 +279,40 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
     {
         if (info.isArray)
         {
-            auto bracketPos = info.type.indexOf('[');
-            string baseType = info.type[0 .. bracketPos].strip();
-
-            while (baseType.startsWith("ref "))
+            if (info.type.endsWith("[999]"))
             {
-                baseType = baseType[4 .. $].strip();
-            }
-            while (baseType.startsWith("mut "))
-            {
-                baseType = baseType[4 .. $].strip();
-            }
-
-            baseType = mapAxeTypeToC(baseType);
-
-            if (info.dimNames.length > 0)
-            {
-                string dimString = "";
-                foreach (dimName; info.dimNames)
-                {
-                    dimString ~= "[" ~ dimName ~ "]";
-                }
-                otherParams ~= baseType ~ " " ~ info.name ~ dimString;
+                string listType = mapAxeTypeToCForReturnOrParam(info.type);
+                otherParams ~= listType ~ "* " ~ info.name;
             }
             else
             {
-                otherParams ~= baseType ~ "* " ~ info.name;
+                auto bracketPos = info.type.indexOf('[');
+                string baseType = info.type[0 .. bracketPos].strip();
+
+                while (baseType.startsWith("ref "))
+                {
+                    baseType = baseType[4 .. $].strip();
+                }
+                while (baseType.startsWith("mut "))
+                {
+                    baseType = baseType[4 .. $].strip();
+                }
+
+                baseType = mapAxeTypeToC(baseType);
+
+                if (info.dimNames.length > 0)
+                {
+                    string dimString = "";
+                    foreach (dimName; info.dimNames)
+                    {
+                        dimString ~= "[" ~ dimName ~ "]";
+                    }
+                    otherParams ~= baseType ~ " " ~ info.name ~ dimString;
+                }
+                else
+                {
+                    otherParams ~= baseType ~ "* " ~ info.name;
+                }
             }
         }
         else
@@ -672,7 +680,7 @@ string generateC(ASTNode ast)
         }
 
         // Generate len() macro that accesses the len field
-        cCode ~= "#define len(x) ((x).len)\n";
+        cCode ~= "#define len(x) ((x)->len)\n";
 
         foreach (child; ast.children)
         {
@@ -2390,18 +2398,16 @@ string generateC(ASTNode ast)
                     }
                     else
                     {
-                        // Regular union field
+                        // Regular union field here.
+
                         string innerType;
                         string innerArrayPart = "";
 
                         import std.string : indexOf;
 
-                        // Check if this is a list type (ends with [999])
                         if (inner.type.endsWith("[999]"))
                         {
-                            // This is a list type - use a pointer to the list struct
                             innerType = mapAxeTypeToCForReturnOrParam(inner.type) ~ "*";
-                            // Don't include the [999] array part for list types
                         }
                         else
                         {
@@ -2450,8 +2456,8 @@ string generateC(ASTNode ast)
             {
                 // This is a list type - use a pointer to the list struct
                 // (list typedefs come after model definitions, so we need forward compat)
-                fieldType = mapAxeTypeToCForReturnOrParam(field.type) ~ "*";
                 // Don't include the [999] array part for list types
+                fieldType = mapAxeTypeToCForReturnOrParam(field.type) ~ "*";
             }
             else
             {
