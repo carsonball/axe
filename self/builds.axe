@@ -1,0 +1,237 @@
+// Author: Navid Momtahen (C) 2025
+// License: GPL-3.0
+// 
+// Handles build process orchestration.
+
+use structs (
+    ASTNode,
+    Token
+);
+use lexer (
+    lex
+);
+use parser (
+    parse
+);
+
+use renderer;
+use std.io;
+use std.os;
+
+/// Compile an Axe source file to C and then to executable
+def compile_file(filename: string, is_axec: bool): bool {
+    println concat(str("Compiling: "), filename);
+    
+    println str("1 | IO");
+    val source: string = read_file(filename);
+    if str_len(source) == 0 {
+        println str("Error: Could not read source file");
+        return false;
+    }
+    
+    println str("2 | Lex");
+    val tokens: list(Token) = lex(source);
+    if len(tokens) == 0 {
+        println str("Error: No tokens generated");
+        return false;
+    }
+    
+    println str("3 | Parse");
+    val ast: ref ASTNode = parse(addr_of(tokens), is_axec, true, str(""));
+    if ast == nil {
+        println str("Error: Failed to parse");
+        return false;
+    }
+    
+    println str("4 | Imports (TODO)");
+    println str("5 | Collect Decls (TODO)");
+    println str("6 | Collect Models (TODO)");
+    println str("7 | Validate Calls (TODO)");
+    println str("8 | Lowering");
+
+    initialize_renderer();
+    
+    val c_code: string = generate_c(ast);
+    if str_len(c_code) == 0 {
+        println str("Error: Failed to generate C code");
+        return false;
+    }
+    
+    val c_filename: string = replace_extension(filename, str(".c"));
+    write_file(c_filename, c_code);
+    println concat(str("Generated: "), c_filename);
+    
+    println str("9 | Last compilation pass");
+    val exe_filename: string = replace_extension(filename, str(".exe"));
+    
+    mut compile_cmd: string = str("clang ");
+    compile_cmd = concat(compile_cmd, c_filename);
+    compile_cmd = concat(compile_cmd, str(" -Wno-everything -O0 -o "));
+    compile_cmd = concat(compile_cmd, exe_filename);
+    
+    val exit_code: i32 = system(compile_cmd);
+    if exit_code != 0 {
+        println str("Error: Compilation failed");
+        return false;
+    }
+    
+    println str("Compiled.");
+    return true;
+}
+
+/// Replace file extension
+def replace_extension(filename: string, new_ext: string): string {
+    val len: i32 = str_len(filename);
+    mut i: i32 = len - 1;
+    
+    loop {
+        if i < 0 {
+            break;
+        }
+        
+        val ch: char = get_char(filename, i);
+        if ch == '.' {
+            val base: string = substring_se(filename, 0, i);
+            return concat(base, new_ext);
+        }
+        
+        i--;
+    }
+    
+    return concat(filename, new_ext);
+}
+
+def read_file(filename: string): string {
+    // TODO: Implement file reading
+    // For now, return empty string as placeholder
+    return str("");
+}
+
+/// Write string to file
+def write_file(filename: string, content: string) {
+    // TODO: Implement file writing
+    // For now, just print what we would write
+    println concat(str("Would write to: "), filename);
+}
+
+/// Execute system command
+def system(cmd: string): i32 {
+    // TODO: Implement system command execution
+    // For now, just print and return success
+    println concat(str("Would execute: "), cmd);
+    return 0;
+}
+
+/// Check if AST contains parallel blocks
+def has_parallel_blocks(ast: ref ASTNode): bool {
+    if ast == nil {
+        return false;
+    }
+    
+    val node_type: string = ast.node_type;
+    
+    if equals_c(node_type, "ParallelFor") {
+        return true;
+    }
+    
+    if equals_c(node_type, "Parallel") {
+        return true;
+    }
+    
+    if equals_c(node_type, "ParallelLocal") {
+        return true;
+    }
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        mut i: i32 = 0;
+        loop {
+            if i >= len(deref(children)) {
+                break;
+            }
+            
+            if has_parallel_blocks(addr_of(children.data[i])) {
+                return true;
+            }
+            
+            i++;
+        }
+    }
+    
+    return false;
+}
+
+/// Collect model names from AST
+def collect_model_names(ast: ref ASTNode) {
+    if ast == nil {
+        return;
+    }
+    
+    val node_type: string = ast.node_type;
+    
+    if equals_c(node_type, "Model") {
+        val model_name: string = ast.data.model_node.name;
+        println concat(str("Found model: "), model_name);
+    }
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        mut i: i32 = 0;
+        loop {
+            if i >= len(deref(children)) {
+                break;
+            }
+            
+            collect_model_names(addr_of(children.data[i]));
+            i++;
+        }
+    }
+}
+
+/// Collect declared functions from AST
+def collect_declared_functions(ast: ref ASTNode) {
+    if ast == nil {
+        return;
+    }
+    
+    val node_type: string = ast.node_type;
+    
+    if equals_c(node_type, "Function") {
+        // TODO: Store function name in global map
+        val func_name: string = ast.data.function.name;
+        println concat(str("Found function: "), func_name);
+    }
+    
+    if ast.children != nil {
+        val children: ref list(ASTNode) = ast.children;
+        mut i: i32 = 0;
+        loop {
+            if i >= len(deref(children)) {
+                break;
+            }
+            
+            collect_declared_functions(addr_of(children.data[i]));
+            i++;
+        }
+    }
+}
+
+test {
+    println "\nTest 1: Replace extension";
+    assert equals_c(replace_extension(str("test.axe"), str(".c")), "test.c"), "Expected test.c";
+    assert equals_c(replace_extension(str("file.txt"), str(".exe")), "file.exe"), "Expected file.exe";
+    assert equals_c(replace_extension(str("noext"), str(".c")), "noext.c"), "Expected noext.c";
+    
+    println "\nTest 2: Has parallel blocks (negative)";
+    mut simple_ast: ASTNode;
+    simple_ast.node_type = str("Program");
+    simple_ast.children = nil;
+    assert !has_parallel_blocks(addr_of(simple_ast)), "Expected no parallel blocks";
+    
+    println "\nTest 3: Collect model names";
+    mut model_ast: ASTNode;
+    model_ast.node_type = str("Model");
+    model_ast.data.model_node.name = str("TestModel");
+    model_ast.children = nil;
+    collect_model_names(addr_of(model_ast));
+}
