@@ -1,0 +1,6 @@
+use h2;
+use std.io;
+
+def main() {
+    println ::g_global;
+}

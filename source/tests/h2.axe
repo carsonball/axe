@@ -1,0 +1,1 @@
+pub val g_global: i32 = 20;
