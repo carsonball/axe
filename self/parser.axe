@@ -1198,6 +1198,137 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
             return node;
         }
         
+        if next_token.token_type == TokenType.LBRACKET {
+            // Array access: array[index] or array[index] = value or array[i][j]
+            consume(ctx); // Skip '['
+            skip_whitespace(ctx);
+            
+            mut index_expr: string = str("");
+            mut bracket_depth: i32 = 0;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t: Token = peek(ctx);
+                if t.token_type == TokenType.LBRACKET {
+                    bracket_depth = bracket_depth + 1;
+                    index_expr = concat(index_expr, t.value);
+                    index_expr = concat(index_expr, str(" "));
+                } elif t.token_type == TokenType.RBRACKET {
+                    if bracket_depth == 0 {
+                        break;
+                    }
+                    bracket_depth = bracket_depth - 1;
+                    index_expr = concat(index_expr, t.value);
+                    index_expr = concat(index_expr, str(" "));
+                } elif t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                    index_expr = concat(index_expr, t.value);
+                    index_expr = concat(index_expr, str(" "));
+                }
+                consume(ctx);
+            }
+            
+            if !expect(ctx, TokenType.RBRACKET) {
+                enforce_raw(false, "ERROR: Expected ']' after array index");
+                return node;
+            }
+            consume(ctx);
+            skip_whitespace(ctx);
+            
+            mut index2_expr: string = str("");
+            if expect(ctx, TokenType.LBRACKET) {
+                consume(ctx); // Skip '['
+                skip_whitespace(ctx);
+                
+                bracket_depth = 0;
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.LBRACKET {
+                        bracket_depth = bracket_depth + 1;
+                        index2_expr = concat(index2_expr, t.value);
+                        index2_expr = concat(index2_expr, str(" "));
+                    } elif t.token_type == TokenType.RBRACKET {
+                        if bracket_depth == 0 {
+                            break;
+                        }
+                        bracket_depth = bracket_depth - 1;
+                        index2_expr = concat(index2_expr, t.value);
+                        index2_expr = concat(index2_expr, str(" "));
+                    } elif t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                        index2_expr = concat(index2_expr, t.value);
+                        index2_expr = concat(index2_expr, str(" "));
+                    }
+                    consume(ctx);
+                }
+                
+                if !expect(ctx, TokenType.RBRACKET) {
+                    enforce_raw(false, "ERROR: Expected ']' after second array index");
+                    return node;
+                }
+                consume(ctx);
+                skip_whitespace(ctx);
+            }
+            
+            // Check if this is array assignment: array[index] = value
+            if expect(ctx, TokenType.OPERATOR) {
+                val op_token: Token = peek(ctx);
+                if equals_c(op_token.value, "=") {
+                    consume(ctx); // Skip '='
+                    skip_whitespace(ctx);
+                    
+                    mut value_expr: string = str("");
+                    loop {
+                        if ctx.pos >= len(ctx.tokens) {
+                            break;
+                        }
+                        val t: Token = peek(ctx);
+                        if t.token_type == TokenType.SEMICOLON {
+                            consume(ctx);
+                            break;
+                        }
+                        if t.token_type == TokenType.STR {
+                            value_expr = concat(value_expr, str("\""));
+                            value_expr = concat(value_expr, t.value);
+                            value_expr = concat(value_expr, str("\" "));
+                        } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                        } else {
+                            value_expr = concat(value_expr, t.value);
+                            value_expr = concat(value_expr, str(" "));
+                        }
+                        consume(ctx);
+                    }
+                    
+                    node.node_type = str("ArrayAssign");
+                    node.data.array_assign.array_name = ident_name;
+                    node.data.array_assign.index = index_expr;
+                    node.data.array_assign.index2 = index2_expr;
+                    node.data.array_assign.value = value_expr;
+                    return node;
+                }
+            }
+            
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t: Token = peek(ctx);
+                if t.token_type == TokenType.SEMICOLON {
+                    consume(ctx);
+                    break;
+                }
+                consume(ctx);
+            }
+            
+            node.node_type = str("ArrayAccess");
+            node.data.array_access.array_name = ident_name;
+            node.data.array_access.index = index_expr;
+            node.data.array_access.index2 = index2_expr;
+            return node;
+        }
+        
         if next_token.token_type == TokenType.DOT {
             // Member access: object.member or object.member = value
             consume(ctx); // Skip '.'
@@ -1864,7 +1995,6 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
     }
     
     // TODO: Implement remaining token types:
-    // - Array access (LBRACKET)
     // - Increment/Decrement
     
     // For now, skip unknown tokens
@@ -2112,4 +2242,39 @@ test {
     assert equals_c(stmt29.data.member_access.object_name, "obj"), "Expected object name 'obj'";
     assert equals_c(stmt29.data.member_access.member_name, "field"), "Expected member name 'field'";
     assert equals_c(stmt29.data.member_access.value, ""), "Expected empty value for read access";
+
+    println "\nTest 30: parse_statement_helper with array access";
+    mut tokens30: list(Token) = lex(str("arr[5];"));
+    mut ctx30: ParserContext;
+    ctx30.tokens = addr_of(tokens30);
+    ctx30.pos = 0;
+    ctx30.is_axec = false;
+    mut stmt30: ASTNode = parse_statement_helper(addr_of(ctx30));
+    assert equals_c(stmt30.node_type, "ArrayAccess"), "Expected ArrayAccess node";
+    assert equals_c(stmt30.data.array_access.array_name, "arr"), "Expected array name 'arr'";
+    assert str_contains_c(stmt30.data.array_access.index, "5"), "Expected index to contain '5'";
+
+    println "\nTest 31: parse_statement_helper with array assignment";
+    mut tokens31: list(Token) = lex(str("arr[i] = 42;"));
+    mut ctx31: ParserContext;
+    ctx31.tokens = addr_of(tokens31);
+    ctx31.pos = 0;
+    ctx31.is_axec = false;
+    mut stmt31: ASTNode = parse_statement_helper(addr_of(ctx31));
+    assert equals_c(stmt31.node_type, "ArrayAssign"), "Expected ArrayAssign node";
+    assert equals_c(stmt31.data.array_assign.array_name, "arr"), "Expected array name 'arr'";
+    assert str_contains_c(stmt31.data.array_assign.index, "i"), "Expected index to contain 'i'";
+    assert str_contains_c(stmt31.data.array_assign.value, "42"), "Expected value to contain '42'";
+
+    println "\nTest 32: parse_statement_helper with 2D array access";
+    mut tokens32: list(Token) = lex(str("matrix[i][j];"));
+    mut ctx32: ParserContext;
+    ctx32.tokens = addr_of(tokens32);
+    ctx32.pos = 0;
+    ctx32.is_axec = false;
+    mut stmt32: ASTNode = parse_statement_helper(addr_of(ctx32));
+    assert equals_c(stmt32.node_type, "ArrayAccess"), "Expected ArrayAccess node for 2D array";
+    assert equals_c(stmt32.data.array_access.array_name, "matrix"), "Expected array name 'matrix'";
+    assert str_contains_c(stmt32.data.array_access.index, "i"), "Expected first index to contain 'i'";
+    assert str_contains_c(stmt32.data.array_access.index2, "j"), "Expected second index to contain 'j'";
 }
