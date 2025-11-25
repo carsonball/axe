@@ -336,11 +336,17 @@ string mapAxeTypeToCForReturnOrParam(string axeType)
 {
     if (axeType.endsWith("[999]"))
     {
-        string elementType = axeType[0 .. $ - 5];
+        string elementType = axeType[0 .. $ - 5].strip();
+        bool isRef = false;
+        if (elementType.startsWith("ref "))
+        {
+            isRef = true;
+            elementType = elementType[4 .. $].strip();
+        }
         string mappedElementType = mapAxeTypeToC(elementType);
         string structName = "__list_" ~ mappedElementType.replace("*", "_ptr")
             .replace(" ", "_") ~ "_t";
-        return structName;
+        return isRef ? (structName ~ "*") : structName;
     }
     return mapAxeTypeToC(axeType);
 }
@@ -351,6 +357,26 @@ string mapAxeTypeToC(string axeType)
     {
         string baseType = axeType[4 .. $].strip();
         return mapAxeTypeToC(baseType);
+    }
+
+    if (axeType.endsWith("[999]"))
+    {
+        string elementType = axeType[0 .. $ - 5].strip();
+        if (elementType.startsWith("ref "))
+        {
+            elementType = elementType[4 .. $].strip();
+            string mappedElementType = mapAxeTypeToC(elementType);
+            string structName = "__list_" ~ mappedElementType.replace("*", "_ptr")
+                .replace(" ", "_") ~ "_t";
+            return structName ~ "*";
+        }
+        else
+        {
+            string mappedElementType = mapAxeTypeToC(elementType);
+            string structName = "__list_" ~ mappedElementType.replace("*", "_ptr")
+                .replace(" ", "_") ~ "_t";
+            return structName;
+        }
     }
 
     if (axeType.startsWith("ref "))
@@ -527,7 +553,6 @@ string generateC(ASTNode ast)
             else if (child.nodeType == "Enum")
             {
                 auto enumNode = cast(EnumNode) child;
-                // Store enum name mapping similar to models
                 string baseName = enumNode.name;
                 if (enumNode.name.canFind("_") && enumNode.name.startsWith("std_"))
                 {
@@ -719,6 +744,10 @@ string generateC(ASTNode ast)
                 if (bracketPos > 0)
                 {
                     string elementType = returnType[0 .. bracketPos].strip();
+                    if (elementType.startsWith("ref "))
+                    {
+                        elementType = elementType[4 .. $].strip();
+                    }
                     string cElementType = mapAxeTypeToC(elementType);
                     listElementTypes[cElementType] = true;
                 }
@@ -734,6 +763,10 @@ string generateC(ASTNode ast)
                     if (bracketPos > 0)
                     {
                         string elementType = field.type[0 .. bracketPos].strip();
+                        if (elementType.startsWith("ref "))
+                        {
+                            elementType = elementType[4 .. $].strip();
+                        }
                         string cElementType = mapAxeTypeToC(elementType);
                         listElementTypes[cElementType] = true;
                     }
@@ -746,6 +779,10 @@ string generateC(ASTNode ast)
                             if (innerBracketPos > 0)
                             {
                                 string innerElementType = inner.type[0 .. innerBracketPos].strip();
+                                if (innerElementType.startsWith("ref "))
+                                {
+                                    innerElementType = innerElementType[4 .. $].strip();
+                                }
                                 string innerCElementType = mapAxeTypeToC(innerElementType);
                                 listElementTypes[innerCElementType] = true;
                             }
@@ -758,6 +795,10 @@ string generateC(ASTNode ast)
                                     if (nestedBracketPos > 0)
                                     {
                                         string nestedElementType = nestedField.type[0 .. nestedBracketPos].strip();
+                                        if (nestedElementType.startsWith("ref "))
+                                        {
+                                            nestedElementType = nestedElementType[4 .. $].strip();
+                                        }
                                         string nestedCElementType = mapAxeTypeToC(nestedElementType);
                                         listElementTypes[nestedCElementType] = true;
                                     }
@@ -2469,7 +2510,13 @@ string generateC(ASTNode ast)
                 // This is a list type - use a pointer to the list struct
                 // (list typedefs come after model definitions, so we need forward compat)
                 // Don't include the [999] array part for list types
-                fieldType = mapAxeTypeToCForReturnOrParam(field.type) ~ "*";
+                fieldType = mapAxeTypeToCForReturnOrParam(field.type);
+
+                // If not already a pointer (ref list returns with *), add pointer
+                if (!fieldType.endsWith("*"))
+                {
+                    fieldType ~= "*";
+                }
             }
             else
             {
@@ -3128,12 +3175,12 @@ string processExpression(string expr, string context = "")
 
     expr = expr.replaceAll(regex(r"\bC\s*\.\s*"), "");
 
+    // Replace model names outside of string literals only
     foreach (typeName, prefixedName; g_modelNames)
     {
         if (typeName != prefixedName)
         {
-            auto pattern = regex(r"\b" ~ typeName ~ r"\b");
-            expr = expr.replaceAll(pattern, prefixedName);
+            expr = replaceKeywordOutsideStrings(expr, typeName, prefixedName);
         }
     }
 
@@ -3405,10 +3452,57 @@ string processExpression(string expr, string context = "")
         "ptrdiff": "intptr_t"
     ];
 
+    // IMPORTANT: Do type replacements outside of string literals only
     foreach (axeType, cType; typeCastMap)
     {
-        string pattern = r"\(\s*" ~ axeType ~ r"\s*\)";
-        expr = expr.replaceAll(regex(pattern), "(" ~ cType ~ ")");
+        string result = "";
+        bool inString = false;
+        bool inCharLiteral = false;
+        size_t i = 0;
+
+        while (i < expr.length)
+        {
+            if (expr[i] == '"' && !inCharLiteral && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inString = !inString;
+                result ~= expr[i];
+                i++;
+            }
+            else if (expr[i] == '\'' && !inString && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inCharLiteral = !inCharLiteral;
+                result ~= expr[i];
+                i++;
+            }
+            else if (!inString && !inCharLiteral && i < expr.length && expr[i] == '(')
+            {
+                size_t j = i + 1;
+                while (j < expr.length && (expr[j] == ' ' || expr[j] == '\t'))
+                    j++;
+                
+                if (j + axeType.length <= expr.length && expr[j .. j + axeType.length] == axeType)
+                {
+                    size_t k = j + axeType.length;
+                    while (k < expr.length && (expr[k] == ' ' || expr[k] == '\t'))
+                        k++;
+                    
+                    if (k < expr.length && expr[k] == ')')
+                    {
+                        result ~= "(" ~ cType ~ ")";
+                        i = k + 1;
+                        continue;
+                    }
+                }
+                result ~= expr[i];
+                i++;
+            }
+            else
+            {
+                result ~= expr[i];
+                i++;
+            }
+        }
+        expr = result;
     }
 
     {
@@ -3699,11 +3793,49 @@ string processExpression(string expr, string context = "")
     }
 
     {
-        import std.regex : regex, replaceAll;
+        // Replace "ref varname" with "&varname" OUTSIDE OF THE DAMN STRING LITERALS
+        string result = "";
+        bool inString = false;
+        bool inCharLiteral = false;
+        size_t i = 0;
 
-        expr = expr.replaceAll(
-            regex(r"\bref\s+([A-Za-z_][A-Za-z0-9_]*)"),
-            `&$1`);
+        while (i < expr.length)
+        {
+            if (expr[i] == '"' && !inCharLiteral && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inString = !inString;
+                result ~= expr[i];
+                i++;
+            }
+            else if (expr[i] == '\'' && !inString && (i == 0 || expr[i - 1] != '\\'))
+            {
+                inCharLiteral = !inCharLiteral;
+                result ~= expr[i];
+                i++;
+            }
+            else if (!inString && !inCharLiteral && i + 4 <= expr.length && expr[i .. i + 3] == "ref" && expr[i + 3] == ' ')
+            {
+                bool isWordBoundary = (i == 0 || !((expr[i - 1] >= 'a' && expr[i - 1] <= 'z') ||
+                                                     (expr[i - 1] >= 'A' && expr[i - 1] <= 'Z') ||
+                                                     (expr[i - 1] >= '0' && expr[i - 1] <= '9') ||
+                                                     expr[i - 1] == '_'));
+                
+                if (isWordBoundary)
+                {
+                    i += 4;
+                    result ~= "&";
+                    continue;
+                }
+                result ~= expr[i];
+                i++;
+            }
+            else
+            {
+                result ~= expr[i];
+                i++;
+            }
+        }
+        expr = result;
     }
 
     if (expr.canFind("["))
