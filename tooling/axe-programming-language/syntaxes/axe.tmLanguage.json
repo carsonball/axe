@@ -91,7 +91,7 @@
         },
         {
           "name": "keyword.other.axe",
-          "match": "\\b(pub|def|val|mut|model|macro|raw|overload|list|map)\\b"
+          "match": "\\b(pub|def|val|mut|model|macro|raw|overload|list)\\b"
         },
         {
           "name": "storage.modifier.axe",
