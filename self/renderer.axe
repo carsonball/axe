@@ -114,8 +114,217 @@ def generate_c(ast: ref ASTNode): string {
     }
     
     if equals_c(node_type, "Function") {
-        result = concat(result, str("// Function node\n"));
-        result = concat(result, str("void function_placeholder() {}\n\n"));
+        mut func_name: string = ast.data.function.name;
+        val return_type: string = ast.data.function.return_type;
+        val is_public: bool = ast.data.function.is_public;
+        
+        if !equals_c(func_name, "main") {
+            if StringStringMap.contains(addr_of(g_function_prefixes), func_name) {
+                func_name = StringStringMap.get(addr_of(g_function_prefixes), func_name);
+            }
+        }
+        
+        if StringBoolMap.contains(addr_of(g_generated_functions), func_name) {
+            return str("");
+        }
+        
+        mut arena: Arena = Arena.create(1024);
+        StringBoolMap.set(addr_of(g_generated_functions), addr_of(arena), func_name, true);
+        
+        if equals_c(func_name, "main") {
+            result = concat(result, str("int main(int argc, char** argv) {\n"));
+            
+            if ast.children != nil {
+                val children: ref list(ASTNode) = ast.children;
+                mut i: i32 = 0;
+                loop {
+                    if i >= len(deref(children)) {
+                        break;
+                    }
+                    val child_code: string = generate_c(addr_of(children.data[i]));
+                    result = concat(result, child_code);
+                    i++;
+                }
+            }
+            
+            result = concat(result, str("return 0;\n"));
+            result = concat(result, str("}\n\n"));
+            return result;
+        }
+        
+        val mapped_return_type: string = map_type(return_type);
+        
+        result = concat(result, mapped_return_type);
+        result = concat(result, str(" "));
+        result = concat(result, func_name);
+        result = concat(result, str("("));
+        
+        // Add parameters
+        val params: ref list(string) = ast.data.function.params;
+        if params != nil {
+            mut param_idx: i32 = 0;
+            loop {
+                if param_idx >= len(deref(params)) {
+                    break;
+                }
+                
+                if param_idx > 0 {
+                    result = concat(result, str(", "));
+                }
+                
+                val param: string = params.data[param_idx];
+                // TODO: Parse and process parameters properly
+                result = concat(result, param);
+                
+                param_idx++;
+            }
+        }
+        
+        result = concat(result, str(") {\n"));
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i: i32 = 0;
+            loop {
+                if i >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr_of(children.data[i]));
+                result = concat(result, child_code);
+                i++;
+            }
+        }
+        
+        result = concat(result, str("}\n\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "Return") {
+        result = concat(result, str("return "));
+        val expr: string = ast.data.return_node.expression;
+        result = concat(result, expr);
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "Break") {
+        result = concat(result, str("break;\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "Continue") {
+        result = concat(result, str("continue;\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "Declaration") {
+        val var_name: string = ast.data.declaration.name;
+        val type_name: string = ast.data.declaration.type_name;
+        val is_mutable: bool = ast.data.declaration.is_mutable;
+        val initializer: string = ast.data.declaration.initializer;
+        
+        val mapped_type: string = map_type(type_name);
+        
+        if is_mutable {
+            result = concat(result, mapped_type);
+            result = concat(result, str(" "));
+            result = concat(result, var_name);
+        } else {
+            result = concat(result, str("const "));
+            result = concat(result, mapped_type);
+            result = concat(result, str(" "));
+            result = concat(result, var_name);
+        }
+        
+        if str_len(initializer) > 0 {
+            result = concat(result, str(" = "));
+            result = concat(result, initializer);
+        }
+        
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "Assignment") {
+        val variable: string = ast.data.assignment.variable;
+        val expression: string = ast.data.assignment.expression;
+        
+        result = concat(result, variable);
+        result = concat(result, str(" = "));
+        result = concat(result, expression);
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "FunctionCall") {
+        val func_name: string = ast.data.func_call.function_name;
+        
+        result = concat(result, func_name);
+        result = concat(result, str("("));
+        
+        val args: ref list(string) = ast.data.func_call.args;
+        if args != nil {
+            mut arg_idx: i32 = 0;
+            loop {
+                if arg_idx >= len(deref(args)) {
+                    break;
+                }
+                
+                if arg_idx > 0 {
+                    result = concat(result, str(", "));
+                }
+                
+                result = concat(result, args.data[arg_idx]);
+                arg_idx++;
+            }
+        }
+        
+        result = concat(result, str(");\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "Loop") {
+        result = concat(result, str("while (1) {\n"));
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i: i32 = 0;
+            loop {
+                if i >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr_of(children.data[i]));
+                result = concat(result, child_code);
+                i++;
+            }
+        }
+        
+        result = concat(result, str("}\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "If") {
+        val condition: string = ast.data.if_node.condition;
+        
+        result = concat(result, str("if ("));
+        result = concat(result, condition);
+        result = concat(result, str(") {\n"));
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i: i32 = 0;
+            loop {
+                if i >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr_of(children.data[i]));
+                result = concat(result, child_code);
+                i++;
+            }
+        }
+        
+        result = concat(result, str("}\n"));
+        return result;
     }
     
     if equals_c(node_type, "Model") {
@@ -181,5 +390,26 @@ test {
     assert str_contains_c(code, "#include <stdio.h>"), "Expected stdio.h include";
     assert str_contains_c(code, "#include <stdint.h>"), "Expected stdint.h include";
     
-    println "\nAll renderer tests passed!";
+    println "\nTest 4: Generate main function";
+    mut func_ast: ASTNode;
+    func_ast.node_type = str("Function");
+    func_ast.data.function.name = str("main");
+    func_ast.data.function.return_type = str("i32");
+    func_ast.data.function.is_public = false;
+    func_ast.data.function.params = nil;
+    func_ast.children = nil;
+    val func_code: string = generate_c(addr_of(func_ast));
+    assert str_contains_c(func_code, "int main"), "Expected int main function";
+    assert str_contains_c(func_code, "return 0;"), "Expected return 0 in main";
+    
+    println "\nTest 5: Generate simple function";
+    mut simple_func: ASTNode;
+    simple_func.node_type = str("Function");
+    simple_func.data.function.name = str("add");
+    simple_func.data.function.return_type = str("i32");
+    simple_func.data.function.is_public = false;
+    simple_func.data.function.params = nil;
+    simple_func.children = nil;
+    val simple_code: string = generate_c(addr_of(simple_func));
+    assert str_contains_c(simple_code, "int32_t add"), "Expected int32_t add function";
 }
