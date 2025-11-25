@@ -475,6 +475,7 @@ string generateC(ASTNode ast)
 
         // First pass: collect all overload names so we don't treat them as functions
         bool[string] overloadNames;
+
         foreach (child; ast.children)
         {
             if (child.nodeType == "Overload")
