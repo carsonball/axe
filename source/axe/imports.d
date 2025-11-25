@@ -574,11 +574,16 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                 }
                 else if (importChild.nodeType == "Declaration" || importChild.nodeType == "ArrayDeclaration")
                 {
-                    if (!useNode.importAll)
-                        continue;
+                    // Any module that is imported may have top-level globals that its
+                    // own functions depend on. If we only import the functions but
+                    // drop their globals, those functions will fail to compile when
+                    // used from another module. 
+                    // 
+                    // To avoid this, always bring over the module's top-level globals into the merged AST. 
+                    // Visibility (isPublic) is still respected later for the :: / gvar__ sugar,
+                    // but here we ensure the implementation details are present.
 
                     string globalName;
-                    bool isPublic = false;
 
                     if (importChild.nodeType == "Declaration")
                     {
@@ -586,7 +591,6 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (declNode !is null)
                         {
                             globalName = declNode.name;
-                            isPublic = declNode.isPublic;
                         }
                     }
                     else
@@ -595,11 +599,10 @@ ASTNode processImports(ASTNode ast, string baseDir, bool isAxec, string currentF
                         if (arrayDecl !is null)
                         {
                             globalName = arrayDecl.name;
-                            isPublic = arrayDecl.isPublic;
                         }
                     }
 
-                    if (isPublic && globalName.length > 0)
+                    if (globalName.length > 0)
                     {
                         string key = "__global__" ~ useNode.moduleName ~ "__" ~ globalName;
                         if (key !in g_addedNodeNames)
