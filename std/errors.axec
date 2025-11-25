@@ -21,7 +21,7 @@ pub model error {
 
 /// Stops the program with the given error message.
 pub def panic(err: error) {
-    print "\nRuntimeError: ";
+    print "\nerror: ";
     error.print_self(err);
     
     raw {
@@ -33,6 +33,13 @@ pub def panic(err: error) {
 pub def enforce(condition: bool, err: error) {
     if !condition {
         panic(err);
+    }
+}
+
+/// Enforces a condition, panics with the given message if the condition is false.
+pub def enforce_raw(condition: bool, msg: ref char) {
+    if !condition {
+        panic(error.create(msg));
     }
 }
 

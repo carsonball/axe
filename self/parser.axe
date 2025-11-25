@@ -16,11 +16,11 @@ use std.string;
 use std.io;
 use std.maps;
 use std.arena;
+use std.errors;
 
 mut g_type_aliases: StringHashMapString;
 mut g_imported_modules: StringHashMapBool;
 mut g_list_of_types: StringHashMapString;
-// mut g_macros: map(string, MacroDef);
 
 def initialize_all() {
     mut arena: Arena = Arena.create(1024 * 1024);
@@ -28,7 +28,6 @@ def initialize_all() {
     g_imported_modules = deref(StringHashMapBool.create(ref_of(arena), 128));
     g_list_of_types = deref(StringHashMapString.create(ref_of(arena), 128));
 }
-
 
 /// Parser context - holds state during parsing
 model ParserContext {
@@ -465,7 +464,7 @@ def parse_type(ctx: ref ParserContext): string {
     skip_whitespace(ctx);
     
     if ctx.pos >= len(ctx.tokens) {
-        println "ERROR: Expected type but reached end of tokens";
+        enforce_raw(false, "Expected type but reached end of tokens");
         return str("");
     }
     
@@ -500,7 +499,7 @@ def parse_type(ctx: ref ParserContext): string {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.LPAREN) {
-                println "ERROR: Expected '(' after 'list'";
+                enforce_raw(false, "ERROR: Expected '(' after 'list'");
                 return str("");
             }
             consume(ctx);
@@ -511,7 +510,7 @@ def parse_type(ctx: ref ParserContext): string {
             
             skip_whitespace(ctx);
             if !expect(ctx, TokenType.RPAREN) {
-                println "ERROR: Expected ')' after list element type";
+                enforce_raw(false, "ERROR: Expected ')' after list element type");
                 return str("");
             }
             consume(ctx);
@@ -551,7 +550,7 @@ def parse_type(ctx: ref ParserContext): string {
             }
         }
     } else {
-        println "ERROR: Invalid type specification";
+        enforce_raw(false, "ERROR: Invalid type specification");
         return str("");
     }
     
@@ -593,7 +592,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     skip_whitespace(ctx);
     if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
-        println "ERROR: Expected function name after 'def'";
+        enforce_raw(false, "ERROR: Expected function name after 'def'");
         return func;
     }
     
@@ -602,7 +601,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     skip_whitespace(ctx);
     if !expect(ctx, TokenType.LPAREN) {
-        println "ERROR: Expected '(' after function name";
+        enforce_raw(false, "ERROR: Expected '(' after function name");
         return func;
     }
     consume(ctx);
@@ -634,7 +633,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     skip_whitespace(ctx);
     if !expect(ctx, TokenType.LBRACE) {
-        println "ERROR: Expected '{' after function declaration";
+        enforce_raw(false, "ERROR: Expected '{' after function declaration");
         return func;
     }
     consume(ctx);
@@ -686,7 +685,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            println "ERROR: Expected ';' after break";
+            enforce_raw(false, "ERROR: Expected ';' after break");
             return node;
         }
         consume(ctx);
@@ -701,7 +700,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            println "ERROR: Expected ';' after continue";
+            enforce_raw(false, "ERROR: Expected ';' after continue");
             return node;
         }
         consume(ctx);
@@ -761,14 +760,14 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.COMMA) {
-            println "ERROR: Expected ',' after assert condition";
+            enforce_raw(false, "ERROR: Expected ',' after assert condition");
             return node;
         }
         consume(ctx);
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.STR) {
-            println "ERROR: Expected string message after comma in assert";
+            enforce_raw(false, "ERROR: Expected string message after comma in assert");
             return node;
         }
         val message_token: Token = consume(ctx);
@@ -777,7 +776,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         
         if has_parens {
             if !expect(ctx, TokenType.RPAREN) {
-                println "ERROR: Expected ')' after assert message";
+                enforce_raw(false, "ERROR: Expected ')' after assert message");
                 return node;
             }
             consume(ctx);
@@ -785,7 +784,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            println "ERROR: Expected ';' after assert statement";
+            enforce_raw(false, "ERROR: Expected ';' after assert statement");
             return node;
         }
         consume(ctx);
@@ -824,7 +823,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.SEMICOLON) {
-            println "ERROR: Expected ';' after return";
+            enforce_raw(false, "ERROR: Expected ';' after return");
             return node;
         }
         consume(ctx);
@@ -840,7 +839,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after loop";
+            enforce_raw(false, "ERROR: Expected '{' after loop");
             return node;
         }
         consume(ctx);
@@ -890,7 +889,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after switch expression";
+            enforce_raw(false, "ERROR: Expected '{' after switch expression");
             return node;
         }
         consume(ctx);
@@ -939,7 +938,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after if condition";
+            enforce_raw(false, "ERROR: Expected '{' after if condition");
             return node;
         }
         consume(ctx);
@@ -987,7 +986,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after for header";
+            enforce_raw(false, "ERROR: Expected '{' after for header");
             return node;
         }
         consume(ctx);
@@ -1020,7 +1019,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.IDENTIFIER) {
-            println "ERROR: Expected identifier after 'val'";
+            enforce_raw(false, "ERROR: Expected identifier after 'val'");
             return node;
         }
         val var_name: Token = consume(ctx);
@@ -1052,7 +1051,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.IDENTIFIER) {
-            println "ERROR: Expected identifier after 'mut'";
+            enforce_raw(false, "ERROR: Expected identifier after 'mut'");
             return node;
         }
         val var_name: Token = consume(ctx);
@@ -1160,7 +1159,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.WINDOWS) and !expect(ctx, TokenType.POSIX) {
-            println "ERROR: Expected 'windows' or 'posix' after 'platform'";
+            enforce_raw(false, "ERROR: Expected 'windows' or 'posix' after 'platform'");
             return node;
         }
         val platform_token: Token = consume(ctx);
@@ -1168,7 +1167,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after platform name";
+            enforce_raw(false, "ERROR: Expected '{' after platform name");
             return node;
         }
         consume(ctx);
@@ -1217,7 +1216,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
             }
             
             if !expect(ctx, TokenType.LBRACE) {
-                println "ERROR: Expected '{' after parallel for header";
+                enforce_raw(false, "ERROR: Expected '{' after parallel for header");
                 return node;
             }
             consume(ctx);
@@ -1245,7 +1244,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after 'parallel'";
+            enforce_raw(false, "ERROR: Expected '{' after 'parallel'");
             return node;
         }
         consume(ctx);
@@ -1278,7 +1277,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after 'single'";
+            enforce_raw(false, "ERROR: Expected '{' after 'single'");
             return node;
         }
         consume(ctx);
@@ -1310,7 +1309,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after 'unsafe'";
+            enforce_raw(false, "ERROR: Expected '{' after 'unsafe'");
             return node;
         }
         consume(ctx);
@@ -1341,7 +1340,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
     // Handle RAW (only in .axec files)
     if token_type == TokenType.RAW {
         if !ctx.is_axec {
-            println "ERROR: Raw C blocks are only allowed in .axec files";
+            enforce_raw(false, "ERROR: Raw C blocks are only allowed in .axec files");
             return node;
         }
         
@@ -1349,7 +1348,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after 'raw'";
+            enforce_raw(false, "ERROR: Expected '{' after 'raw'");
             return node;
         }
         consume(ctx);
@@ -1380,7 +1379,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.LBRACE) {
-            println "ERROR: Expected '{' after 'opaque'";
+            enforce_raw(false, "ERROR: Expected '{' after 'opaque'");
             return node;
         }
         consume(ctx);
@@ -1421,7 +1420,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         skip_whitespace(ctx);
         
         if !expect(ctx, TokenType.DEF) {
-            println "ERROR: Expected 'def' after 'extern'";
+            enforce_raw(false, "ERROR: Expected 'def' after 'extern'");
             return node;
         }
         consume(ctx);
@@ -1429,7 +1428,7 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         
         // Get function name
         if !expect(ctx, TokenType.IDENTIFIER) {
-            println "ERROR: Expected function name after 'extern def'";
+            enforce_raw(false, "ERROR: Expected function name after 'extern def'");
             return node;
         }
         val func_name_token: Token = consume(ctx);
