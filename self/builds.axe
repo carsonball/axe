@@ -69,7 +69,7 @@ def compile_file(filename: string, is_axec: bool): bool {
     compile_cmd = concat(compile_cmd, str(" -Wno-everything -O0 -o "));
     compile_cmd = concat(compile_cmd, exe_filename);
     
-    val exit_code: i32 = system(compile_cmd);
+    val exit_code: i32 = exec(compile_cmd.data);
     if exit_code != 0 {
         println str("Error: Compilation failed");
         return false;
@@ -99,19 +99,6 @@ def replace_extension(filename: string, new_ext: string): string {
     }
     
     return concat(filename, new_ext);
-}
-
-def read_file(filename: string): string {
-    // TODO: Implement file reading
-    // For now, return empty string as placeholder
-    return str("");
-}
-
-/// Write string to file
-def write_file(filename: string, content: string) {
-    // TODO: Implement file writing
-    // For now, just print what we would write
-    println concat(str("Would write to: "), filename);
 }
 
 /// Execute system command
