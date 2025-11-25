@@ -943,7 +943,6 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
         }
         consume(ctx);
         
-        // Skip if body
         mut depth: i32 = 1;
         loop {
             if ctx.pos >= len(ctx.tokens) {
@@ -962,7 +961,91 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
             consume(ctx);
         }
         
-        // TODO: Handle elif and else
+        // Handle elif clauses
+        skip_whitespace(ctx);
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+            val t: Token = peek(ctx);
+            if t.token_type != TokenType.ELIF {
+                break;
+            }
+            
+            consume(ctx);
+            skip_whitespace(ctx);
+            
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val elif_t: Token = peek(ctx);
+                if elif_t.token_type == TokenType.LBRACE {
+                    break;
+                }
+                consume(ctx);
+            }
+            
+            if !expect(ctx, TokenType.LBRACE) {
+                enforce_raw(false, "ERROR: Expected '{' after elif condition");
+                return node;
+            }
+            consume(ctx);
+            
+            depth = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val elif_body_t: Token = peek(ctx);
+                if elif_body_t.token_type == TokenType.LBRACE {
+                    depth = depth + 1;
+                } elif elif_body_t.token_type == TokenType.RBRACE {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        consume(ctx);
+                        break;
+                    }
+                }
+                consume(ctx);
+            }
+            
+            skip_whitespace(ctx);
+        }
+        
+        // Handle else clause
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) {
+            val t: Token = peek(ctx);
+            if t.token_type == TokenType.ELSE {
+                consume(ctx);
+                skip_whitespace(ctx);
+                
+                if !expect(ctx, TokenType.LBRACE) {
+                    enforce_raw(false, "ERROR: Expected '{' after else");
+                    return node;
+                }
+                consume(ctx);
+                
+                depth = 1;
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val else_t: Token = peek(ctx);
+                    if else_t.token_type == TokenType.LBRACE {
+                        depth = depth + 1;
+                    } elif else_t.token_type == TokenType.RBRACE {
+                        depth = depth - 1;
+                        if depth == 0 {
+                            consume(ctx);
+                            break;
+                        }
+                    }
+                    consume(ctx);
+                }
+            }
+        }
         
         node.node_type = str("If");
         node.data.if_node.condition = condition;
@@ -1598,6 +1681,7 @@ test {
     mut ctx19: ParserContext;
     ctx19.tokens = addr_of(tokens19);
     ctx19.pos = 0;
+    ctx19.is_axec = false;
     mut stmt19: ASTNode = parse_statement_helper(addr_of(ctx19));
     assert equals_c(stmt19.node_type, "Break"), "Expected Break node";
 
@@ -1606,6 +1690,7 @@ test {
     mut ctx20: ParserContext;
     ctx20.tokens = addr_of(tokens20);
     ctx20.pos = 0;
+    ctx20.is_axec = false;
     mut stmt20: ASTNode = parse_statement_helper(addr_of(ctx20));
     assert equals_c(stmt20.node_type, "Return"), "Expected Return node";
     assert str_contains_c(stmt20.data.return_node.expression, "42"), "Expected return expression to contain '42'";
@@ -1615,6 +1700,7 @@ test {
     mut ctx21: ParserContext;
     ctx21.tokens = addr_of(tokens21);
     ctx21.pos = 0;
+    ctx21.is_axec = false;
     mut stmt21: ASTNode = parse_statement_helper(addr_of(ctx21));
     assert equals_c(stmt21.node_type, "Assert"), "Expected Assert node";
     assert str_len(stmt21.data.assert_node.condition) > 0, "Expected assert condition";
@@ -1625,8 +1711,16 @@ test {
     mut ctx22: ParserContext;
     ctx22.tokens = addr_of(tokens22);
     ctx22.pos = 0;
+    ctx22.is_axec = false;
     mut stmt22: ASTNode = parse_statement_helper(addr_of(ctx22));
     assert equals_c(stmt22.node_type, "Unsafe"), "Expected Unsafe node";
 
-    println "\nAll tests completed!";
+    println "\nTest 23: parse_statement_helper with if-elif-else";
+    mut tokens23: list(Token) = lex(str("if x > 0 { println x; } elif x < 0 { println x; } else { println x; }"));
+    mut ctx23: ParserContext;
+    ctx23.tokens = addr_of(tokens23);
+    ctx23.pos = 0;
+    ctx23.is_axec = false;
+    mut stmt23: ASTNode = parse_statement_helper(addr_of(ctx23));
+    assert equals_c(stmt23.node_type, "If"), "Expected If node with elif and else";
 }
