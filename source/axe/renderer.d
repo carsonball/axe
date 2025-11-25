@@ -705,9 +705,9 @@ string generateC(ASTNode ast)
             }
         }
 
-        cCode ~= "#define len_ptr(x) ((x)->len)\n";  // For pointer to list
-        cCode ~= "#define len_v(x) ((&(x))->len)\n";  // For list value
-        cCode ~= "#define len(x) len_v(x)\n";  // Default to value semantics
+        cCode ~= "#define len_ptr(x) ((x)->len)\n"; // For pointer to list
+        cCode ~= "#define len_v(x) ((&(x))->len)\n"; // For list value
+        cCode ~= "#define len(x) len_v(x)\n"; // Default to value semantics
 
         foreach (child; ast.children)
         {
@@ -732,7 +732,7 @@ string generateC(ASTNode ast)
         }
 
         g_listElementTypes.clear();
-        
+
         /// Recursively scan for list types in all declarations
         void scanForListTypes(ASTNode node)
         {
@@ -751,13 +751,13 @@ string generateC(ASTNode ast)
                     }
                 }
             }
-            
+
             foreach (childNode; node.children)
             {
                 scanForListTypes(childNode);
             }
         }
-        
+
         foreach (child; ast.children)
         {
             scanForListTypes(child);
@@ -998,7 +998,7 @@ string generateC(ASTNode ast)
                 cCode ~= "    int len;\n";
                 cCode ~= "    int capacity;\n";
                 cCode ~= "} __list_" ~ elementType ~ "_t;\n\n";
-                
+
                 // List initialization function
                 cCode ~= "static inline __list_" ~ elementType ~ "_t __list_" ~ elementType ~ "_init(void) {\n";
                 cCode ~= "    __list_" ~ elementType ~ "_t list;\n";
@@ -1007,7 +1007,7 @@ string generateC(ASTNode ast)
                 cCode ~= "    list.capacity = 0;\n";
                 cCode ~= "    return list;\n";
                 cCode ~= "}\n\n";
-                
+
                 // List push function with automatic growth
                 cCode ~= "static inline void __list_" ~ elementType ~ "_push(__list_" ~ elementType ~ "_t* list, " ~ elementType ~ " item) {\n";
                 cCode ~= "    if (list->len >= list->capacity) {\n";
@@ -3227,7 +3227,7 @@ private string replaceKeywordOutsideStrings(string input, string keyword, string
 string processTypeForCast(string axeType)
 {
     axeType = axeType.strip();
-    
+
     // Handle ref prefix
     bool isRef = false;
     if (axeType.startsWith("ref "))
@@ -3235,7 +3235,7 @@ string processTypeForCast(string axeType)
         isRef = true;
         axeType = axeType[4 .. $].strip();
     }
-    
+
     // Handle list(T) syntax
     if (axeType.startsWith("list(") && axeType.endsWith(")"))
     {
@@ -3245,7 +3245,7 @@ string processTypeForCast(string axeType)
             .replace(" ", "_") ~ "_t";
         return isRef ? listTypeName ~ "*" : listTypeName;
     }
-    
+
     // Map basic types
     string cType = mapAxeTypeToC(axeType);
     return isRef ? cType ~ "*" : cType;
@@ -3271,10 +3271,10 @@ string processExpression(string expr, string context = "")
         string fullMatch = match[0];
         string castType = match[1].strip();
         string castValue = match[2].strip();
-        
+
         // Process the type to handle 'ref list(string)' -> '__list_std__string__string_t*'
         string cType = processTypeForCast(castType);
-        
+
         string replacement = "(" ~ cType ~ ")(" ~ castValue ~ ")";
         expr = expr.replace(fullMatch, replacement);
     }
@@ -3285,7 +3285,7 @@ string processExpression(string expr, string context = "")
         string fullMatch = match[0];
         string lenArg = match[1].strip();
         bool isPointer = false;
-        
+
         if (lenArg.canFind("->"))
         {
             isPointer = true;
@@ -3300,7 +3300,7 @@ string processExpression(string expr, string context = "")
                 if (bracketPos >= 0)
                     fieldName = fieldName[0 .. bracketPos];
                 fieldName = fieldName.strip();
-                
+
                 foreach (modelName; g_modelNames.byValue)
                 {
                     string fullFieldKey = modelName ~ "." ~ fieldName;
@@ -3319,13 +3319,13 @@ string processExpression(string expr, string context = "")
             if (bracketPos >= 0)
                 baseVar = baseVar[0 .. bracketPos];
             baseVar = baseVar.strip();
-            
+
             if (baseVar in g_isPointerVar && g_isPointerVar[baseVar] == "true")
             {
                 isPointer = true;
             }
         }
-        
+
         string replacement = isPointer ? ("len_ptr(" ~ lenArg ~ ")") : ("len_v(" ~ lenArg ~ ")");
         expr = expr.replace(fullMatch, replacement);
     }
@@ -3340,13 +3340,13 @@ string processExpression(string expr, string context = "")
                 insideString = !insideString;
             else if (expr[idx] == '\'' && (idx == 0 || expr[idx - 1] != '\\'))
                 insideChar = !insideChar;
-            
+
             if (!insideString && !insideChar && idx + 4 <= expr.length && expr[idx .. idx + 4] == "list")
             {
                 if (idx > 0)
                 {
                     char prevChar = expr[idx - 1];
-                    if ((prevChar >= 'a' && prevChar <= 'z') || 
+                    if ((prevChar >= 'a' && prevChar <= 'z') ||
                         (prevChar >= 'A' && prevChar <= 'Z') ||
                         (prevChar >= '0' && prevChar <= '9') ||
                         prevChar == '_')
@@ -3355,7 +3355,7 @@ string processExpression(string expr, string context = "")
                         continue;
                     }
                 }
-                
+
                 size_t j = idx + 4;
                 while (j < expr.length && (expr[j] == ' ' || expr[j] == '\t'))
                     j++;
@@ -3691,13 +3691,13 @@ string processExpression(string expr, string context = "")
                 size_t j = i + 1;
                 while (j < expr.length && (expr[j] == ' ' || expr[j] == '\t'))
                     j++;
-                
+
                 if (j + axeType.length <= expr.length && expr[j .. j + axeType.length] == axeType)
                 {
                     size_t k = j + axeType.length;
                     while (k < expr.length && (expr[k] == ' ' || expr[k] == '\t'))
                         k++;
-                    
+
                     if (k < expr.length && expr[k] == ')')
                     {
                         result ~= "(" ~ cType ~ ")";
@@ -4028,10 +4028,10 @@ string processExpression(string expr, string context = "")
             else if (!inString && !inCharLiteral && i + 4 <= expr.length && expr[i .. i + 3] == "ref" && expr[i + 3] == ' ')
             {
                 bool isWordBoundary = (i == 0 || !((expr[i - 1] >= 'a' && expr[i - 1] <= 'z') ||
-                                                     (expr[i - 1] >= 'A' && expr[i - 1] <= 'Z') ||
-                                                     (expr[i - 1] >= '0' && expr[i - 1] <= '9') ||
-                                                     expr[i - 1] == '_'));
-                
+                        (expr[i - 1] >= 'A' && expr[i - 1] <= 'Z') ||
+                        (expr[i - 1] >= '0' && expr[i - 1] <= '9') ||
+                        expr[i - 1] == '_'));
+
                 if (isWordBoundary)
                 {
                     i += 4;
