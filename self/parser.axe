@@ -1864,7 +1864,6 @@ def parse_statement_helper(ctx: ref ParserContext): ASTNode {
     }
     
     // TODO: Implement remaining token types:
-    // - Member access (DOT)
     // - Array access (LBRACKET)
     // - Increment/Decrement
     
