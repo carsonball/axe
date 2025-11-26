@@ -1,0 +1,10 @@
+model SomeModel {
+    x: i32;
+    y: i32;
+}
+
+def main() {
+    val md: SomeModel = new SomeModel();
+    md.x = 1;
+    md.y = 2;
+}
