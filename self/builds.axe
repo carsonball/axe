@@ -21,33 +21,33 @@ use std.os;
 /// Compile an Axe source file to an executable
 def compile_file(filename: string, is_axec: bool): bool {
     println concat(str("Compiling: "), filename);
-    println str("1 | IO");
+    println "\n1 | IO";
 
     val source: string = read_file(filename);
     if str_len(source) == 0 {
-        println str("Error: Could not read source file");
+        println "Error: Could not read source file";
         return false;
     }
     
-    println str("2 | Lex");
+    println "2 | Lex";
     val tokens: list(Token) = lex(source);
     if len(tokens) == 0 {
-        println str("Error: No tokens generated");
+        println "Error: No tokens generated";
         return false;
     }
     
-    println str("3 | Parse");
+    println "3 | Parse";
     mut ast: ASTNode = parse(addr_of(tokens), is_axec, true, str(""));
     if len(ast.children) == 0 {
-        println str("Error: Failed to parse");
+        println "Error: Failed to parse";
         return false;
     }
     
-    println str("4 | Imports (TODO)");
-    println str("5 | Collect Decls (TODO)");
-    println str("6 | Collect Models (TODO)");
-    println str("7 | Validate Calls (TODO)");
-    println str("8 | Lowering");
+    println "4 | Imports (TODO)";
+    println "5 | Collect Decls (TODO)";
+    println "6 | Collect Models (TODO)";
+    println "7 | Validate Calls (TODO)";
+    println "8 | Lowering";
 
     initialize_renderer();
     
@@ -214,6 +214,6 @@ test {
     model_ast.node_type = str("Model");
     model_ast.data.model_node.name = str("TestModel");
     model_ast.children = nil;
-    
+
     collect_model_names(addr_of(model_ast));
 }
