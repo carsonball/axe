@@ -1761,6 +1761,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         if next_token.token_type == TokenType.LPAREN {
             consume(ctx);            
             mut paren_depth: i32 = 1;
+            mut args_str: string = str("");
             loop {
                 if ctx.pos >= len(ctx.tokens) {
                     break;
@@ -1768,12 +1769,27 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 val t: Token = peek(ctx);
                 if t.token_type == TokenType.LPAREN {
                     paren_depth = paren_depth + 1;
+                    args_str = concat(args_str, str("("));
                 } elif t.token_type == TokenType.RPAREN {
                     paren_depth = paren_depth - 1;
                     if paren_depth == 0 {
                         consume(ctx);
                         break;
                     }
+                    args_str = concat(args_str, str(")"));
+                } elif t.token_type == TokenType.STR {
+                    args_str = concat(args_str, str("\""));
+                    args_str = concat(args_str, t.value);
+                    args_str = concat(args_str, str("\""));
+                } elif t.token_type == TokenType.CHAR {
+                    args_str = concat(args_str, str("'"));
+                    args_str = concat(args_str, t.value);
+                    args_str = concat(args_str, str("'"));
+                } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                    // normalize to single space
+                    args_str = concat(args_str, str(" "));
+                } else {
+                    args_str = concat(args_str, t.value);
                 }
                 consume(ctx);
             }
@@ -1786,6 +1802,13 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             
             node.node_type = str("FunctionCall");
             node.data.func_call.function_name = ident_name;
+            // Store full argument list as a single string for now
+            mut args_list: list(string);
+            val trimmed_args: string = strip(args_str);
+            if str_len(trimmed_args) > 0 {
+                append(args_list, trimmed_args);
+            }
+            node.data.func_call.args = addr_of(args_list);
             return node;
         }
         
@@ -1921,7 +1944,6 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         
         if next_token.token_type == TokenType.DOT {
-            // Member access: object.member or object.member = value
             consume(ctx); // Skip '.'
             skip_whitespace(ctx);
             
@@ -1932,6 +1954,61 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             val member_token: Token = consume(ctx);
             val member_name: string = member_token.value;
             skip_whitespace(ctx);
+
+            if expect(ctx, TokenType.LPAREN) {
+                consume(ctx); // skip '('
+                mut paren_depth2: i32 = 1;
+                mut args_str2: string = str("");
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t2: Token = peek(ctx);
+                    if t2.token_type == TokenType.LPAREN {
+                        paren_depth2 = paren_depth2 + 1;
+                        args_str2 = concat(args_str2, str("("));
+                    } elif t2.token_type == TokenType.RPAREN {
+                        paren_depth2 = paren_depth2 - 1;
+                        if paren_depth2 == 0 {
+                            consume(ctx);
+                            break;
+                        }
+                        args_str2 = concat(args_str2, str(")"));
+                    } elif t2.token_type == TokenType.STR {
+                        args_str2 = concat(args_str2, str("\""));
+                        args_str2 = concat(args_str2, t2.value);
+                        args_str2 = concat(args_str2, str("\""));
+                    } elif t2.token_type == TokenType.CHAR {
+                        args_str2 = concat(args_str2, str("'"));
+                        args_str2 = concat(args_str2, t2.value);
+                        args_str2 = concat(args_str2, str("'"));
+                    } elif t2.token_type == TokenType.WHITESPACE or t2.token_type == TokenType.NEWLINE {
+                        args_str2 = concat(args_str2, str(" "));
+                    } else {
+                        args_str2 = concat(args_str2, t2.value);
+                    }
+                    consume(ctx);
+                }
+
+                skip_whitespace(ctx);
+                if expect(ctx, TokenType.SEMICOLON) {
+                    consume(ctx);
+                }
+
+                node.node_type = str("FunctionCall");
+                mut full_name: string = ident_name;
+                full_name = concat(full_name, str("."));
+                full_name = concat(full_name, member_name);
+                node.data.func_call.function_name = full_name;
+
+                mut args_list2: list(string);
+                val trimmed2: string = strip(args_str2);
+                if str_len(trimmed2) > 0 {
+                    append(args_list2, trimmed2);
+                }
+                node.data.func_call.args = addr_of(args_list2);
+                return node;
+            }
             
             if expect(ctx, TokenType.OPERATOR) {
                 val op_token: Token = peek(ctx);

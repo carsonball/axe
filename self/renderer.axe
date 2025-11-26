@@ -617,8 +617,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     result = concat(result, str(", "));
                 }
                 
-                val processed_arg: string = process_expression(args.data[arg_idx]);
-                result = concat(result, processed_arg);
+                result = concat(result, args.data[arg_idx]);
                 arg_idx++;
             }
         }
