@@ -108,10 +108,13 @@ def is_whitespace(ch: char): bool {
 }
 
 def is_ident_char(ch: char): bool {
-    return (ch >= '0' and ch <= '9') or
-           (ch >= 'a' and ch <= 'z') or
-           (ch >= 'A' and ch <= 'Z') or
-           ch == '_';
+    if is_alphanum(ch) != 0 {
+        return true;
+    }
+    if ch == '_' {
+        return true;
+    }
+    return false;
 }
 
 def check_boundary(source: string, pos: i32, source_len: i32): bool {

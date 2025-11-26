@@ -66,6 +66,21 @@ pub def parse(tokens: ref list(Token), is_axec: bool, check_entry_point: bool, c
     ctx.check_entry_point = check_entry_point;
     ctx.current_module = current_module;
     
+    println "=== DEBUG TOKENS ===";
+    mut i: i32 = 0;
+    loop {
+        if i >= len(ctx.tokens) {
+            break;
+        }
+        val t: Token = ctx.tokens.data[i];
+        println i;
+        println t.token_type;
+        println t.value;
+        i = i + 1;
+    }
+    println "=== END TOKENS ===";
+
+
     mut ast: ASTNode;
     ast.node_type = str("Program");
     
