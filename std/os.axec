@@ -494,12 +494,12 @@ pub def list_files_recursive(path: string, arena: ref Arena): ref StringList {
 /// Get the user's home directory
 pub def get_user_home_dir(): string {
     mut out: string = str("");
-    raw {
-        char *value = getenv("USERPROFILE");
-        if (!value) {
-            value = getenv("HOME");
+    unsafe {
+        mut value: ref char = C.getenv("USERPROFILE");
+        if !value {
+            value = C.getenv("HOME");
         }
-        if (value) {
+        if value {
             out.data = value;
         }
     }
