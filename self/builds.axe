@@ -55,6 +55,7 @@ def compile_file(filename: string, is_axec: bool): bool {
     mut base_dir: string = str(".");
     val lenf: i32 = str_len(filename);
     mut idx: i32 = lenf - 1;
+
     loop {
         if idx < 0 {
             break;
