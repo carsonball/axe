@@ -1,0 +1,5 @@
+def main() {
+    unsafe {
+        C.printf("It works!");
+    }
+}
