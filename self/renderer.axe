@@ -389,12 +389,42 @@ pub def generate_c(ast: ref ASTNode): string {
     
     if equals_c(node_type, "Declaration") {
         val var_name: string = ast.data.declaration.name;
-        val type_name: string = ast.data.declaration.type_name;
+        mut type_name: string = ast.data.declaration.type_name;
         val is_mutable: bool = ast.data.declaration.is_mutable;
         val initializer: string = ast.data.declaration.initializer;
         
-        val mapped_type: string = map_type(type_name);
-        
+        mut mapped_type: string = map_type(type_name);
+
+        if str_len(type_name) == 0 {
+            mut trimmed_init: string = strip(initializer);
+            if has_prefix(trimmed_init, str("new ")) {
+                trimmed_init = substring_se(trimmed_init, 4, str_len(trimmed_init));
+                trimmed_init = strip(trimmed_init);
+
+                mut end_pos: i32 = -1;
+                mut i: i32 = 0;
+                loop {
+                    if i >= str_len(trimmed_init) {
+                        break;
+                    }
+                    val ch: char = get_char(trimmed_init, i);
+                    if ch == '(' or ch == ' ' or ch == '\t' {
+                        end_pos = i;
+                        break;
+                    }
+                    i = i + 1;
+                }
+                if end_pos < 0 {
+                    end_pos = str_len(trimmed_init);
+                }
+                val inferred_name: string = strip(substring_se(trimmed_init, 0, end_pos));
+                if str_len(inferred_name) > 0 {
+                    type_name = inferred_name;
+                    mapped_type = map_type(type_name);
+                }
+            }
+        }
+
         if is_mutable {
             result = concat(result, mapped_type);
             result = concat(result, str(" "));
@@ -408,7 +438,9 @@ pub def generate_c(ast: ref ASTNode): string {
         
         if str_len(initializer) > 0 {
             mut trimmed: string = strip(initializer);
-            if !has_prefix(trimmed, str("new ")) {
+            if has_prefix(trimmed, str("new ")) {
+                result = concat(result, str(" = {0}"));
+            } else {
                 result = concat(result, str(" = "));
                 result = concat(result, trimmed);
             }
