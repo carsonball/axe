@@ -1,5 +1,12 @@
+def hello() {
+    unsafe {
+        C.printf("Sup");
+    }
+}
+
 def main() {
     unsafe {
         C.printf("It works!");
     }
+    hello();
 }
