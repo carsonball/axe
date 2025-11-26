@@ -998,26 +998,72 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         return func;
     }
     consume(ctx);
-    
-    mut depth: i32 = 1;
+
+    mut params: list(string);
+    mut current_param: string = str("");
+    mut paren_depth_params: i32 = 0;
+
     loop {
         if ctx.pos >= len(ctx.tokens) {
             break;
         }
-        
-        val current_tok: Token = ctx.tokens.data[ctx.pos];
-        if current_tok.token_type == TokenType.LPAREN {
-            depth = depth + 1;
-        } elif current_tok.token_type == TokenType.RPAREN {
-            depth = depth - 1;
-            if depth == 0 {
-                ctx.pos++;
-                break;
+
+        val t: Token = ctx.tokens.data[ctx.pos];
+
+        if t.token_type == TokenType.RPAREN and paren_depth_params == 0 {
+            mut trimmed: string = strip(current_param);
+            if str_len(trimmed) > 0 {
+                append(params, trimmed);
+            }
+            ctx.pos++;
+            break;
+        }
+
+        if t.token_type == TokenType.LPAREN {
+            paren_depth_params = paren_depth_params + 1;
+            current_param = concat(current_param, t.value);
+            consume(ctx);
+            continue;
+        }
+
+        if t.token_type == TokenType.RPAREN {
+            paren_depth_params = paren_depth_params - 1;
+            current_param = concat(current_param, t.value);
+            consume(ctx);
+            continue;
+        }
+
+        if t.token_type == TokenType.COMMA and paren_depth_params == 0 {
+            mut trimmed_param: string = strip(current_param);
+            if str_len(trimmed_param) > 0 {
+                append(params, trimmed_param);
+            }
+            current_param = str("");
+            consume(ctx);
+            continue;
+        }
+
+        if t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+            consume(ctx);
+            continue;
+        }
+
+        current_param = concat(current_param, t.value);
+        consume(ctx);
+    }
+
+    // Store parameters on function node (if any)
+    if len(params) > 0 {
+        unsafe {
+            val params_size: usize = C.sizeof(list(string));
+            val heap_params: ref list(string) = cast[ref list(string)](C.malloc(params_size));
+            if heap_params != nil {
+                C.memcpy(heap_params, addr_of(params), params_size);
+                func.data.function.params = heap_params;
             }
         }
-        ctx.pos++;
     }
-    
+
     skip_whitespace(ctx);
     if expect(ctx, TokenType.COLON) {
         consume(ctx);
