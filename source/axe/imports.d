@@ -1484,7 +1484,35 @@ string escapeRegexLiteral(string value)
 import std.regex : Regex;
 
 private static Regex!char[string] g_regexCache;
+private static Regex!char[string] g_modelMethodExactRegexCache;
+private static Regex!char[string] g_modelMethodDotCallRegexCache;
 private bool[string] g_stringCheckCache;
+
+private Regex!char getModelMethodExactRegex(string oldName)
+{
+    import std.regex : regex;
+
+    string cacheKey = "model_exact_" ~ oldName;
+    if (cacheKey !in g_modelMethodExactRegexCache)
+    {
+        string modelMethod = convertToModelMethodPattern(oldName);
+        g_modelMethodExactRegexCache[cacheKey] = regex("^" ~ modelMethod ~ "$");
+    }
+    return g_modelMethodExactRegexCache[cacheKey];
+}
+
+private Regex!char getModelMethodDotCallRegex(string oldName)
+{
+    import std.regex : regex;
+
+    string cacheKey = "model_dot_" ~ oldName;
+    if (cacheKey !in g_modelMethodDotCallRegexCache)
+    {
+        string modelMethod = convertToModelMethodPattern(oldName);
+        g_modelMethodDotCallRegexCache[cacheKey] = regex("\\b" ~ modelMethod ~ "\\s*\\(");
+    }
+    return g_modelMethodDotCallRegexCache[cacheKey];
+}
 
 string replaceStandaloneCall(string text, string oldName, string newName)
 {
@@ -1545,10 +1573,9 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 if (oldName.canFind("_"))
                 {
-                    import std.regex : regex, matchFirst;
+                    import std.regex : matchFirst;
 
-                    string modelMethod = convertToModelMethodPattern(oldName);
-                    auto pattern = regex("^" ~ modelMethod ~ "$");
+                    auto pattern = getModelMethodExactRegex(oldName);
                     if (matchFirst(callNode.functionName, pattern))
                     {
                         callNode.functionName = newName;
@@ -1647,12 +1674,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
 
-            import std.regex : regex, replaceAll;
+            import std.regex : replaceAll;
 
             if (returnNode.expression.canFind(".") && oldName.canFind("_"))
             {
-                string modelMethod = convertToModelMethodPattern(oldName);
-                auto dotPattern = regex("\\b" ~ modelMethod ~ "\\s*\\(");
+                auto dotPattern = getModelMethodDotCallRegex(oldName);
                 string newExpr = replaceAll(returnNode.expression, dotPattern, newName ~ "(");
                 if (newExpr != returnNode.expression)
                 {
@@ -1702,13 +1728,12 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
 
             // Also check for dot notation with regex: Model.method( or Model . method(
             // Use word boundary to ensure we don't match floating point literals like 0.5
-            import std.regex : regex, replaceAll;
+            import std.regex : replaceAll;
 
             if (declNode.initializer.canFind(".") && oldName.canFind("_"))
             {
-                string modelMethod = convertToModelMethodPattern(oldName);
-                auto dotPattern = regex("\\b" ~ modelMethod ~ "\\s*\\(");
-                debugWriteln("    DEBUG: Trying regex pattern '\\b", modelMethod, "\\s*\\(' on '",
+                auto dotPattern = getModelMethodDotCallRegex(oldName);
+                debugWriteln("    DEBUG: Trying cached regex pattern for '", oldName, "' on '",
                     declNode.initializer, "'");
                 string regexInit = replaceAll(declNode.initializer, dotPattern, newName ~ "(");
                 if (regexInit != declNode.initializer)
@@ -1737,12 +1762,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
 
-            import std.regex : regex, replaceAll;
+            import std.regex : replaceAll;
 
             if (assignNode.expression.canFind(".") && oldName.canFind("_"))
             {
-                string modelMethod = convertToModelMethodPattern(oldName);
-                auto dotPattern = regex("\\b" ~ modelMethod ~ "\\s*\\(");
+                auto dotPattern = getModelMethodDotCallRegex(oldName);
                 string newExpr = replaceAll(assignNode.expression, dotPattern, newName ~ "(");
                 if (newExpr != assignNode.expression)
                 {
@@ -1826,12 +1850,11 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
                 }
             }
 
-            import std.regex : regex, replaceAll;
+            import std.regex : replaceAll;
 
             if (assertNode.condition.canFind(".") && oldName.canFind("_"))
             {
-                string modelMethod = convertToModelMethodPattern(oldName);
-                auto dotPattern = regex("\\b" ~ modelMethod ~ "\\s*\\(");
+                auto dotPattern = getModelMethodDotCallRegex(oldName);
                 string newCond = replaceAll(assertNode.condition, dotPattern, newName ~ "(");
                 if (newCond != assertNode.condition)
                 {

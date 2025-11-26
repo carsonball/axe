@@ -6,6 +6,7 @@ use std.os;
 use std.lists;
 use std.string;
 use lexer;
+use builds;
 
 def main() {
     val arena: Arena = Arena.create(1024);
@@ -39,14 +40,11 @@ def main() {
         quit(1);
     }
     
-    val source_code: string = read_file(source_file);
+    val ok: bool = compile_file(source_file, false);
     
-    print("1 | Lex... ");
+    if !ok {
+        quit(1);
+    }
 
-    mut tokens: list(Token) = lex(source_code);
-
-    println("Done");
-    println($"Tokenized {len(tokens)} tokens");
-    
     quit(0);
 }
