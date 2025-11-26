@@ -479,179 +479,15 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             }
             val type_token: Token = consume(ctx);
             append(type_names, type_token.value);
+            // Support pointer types like "char*" by optionally consuming a STAR
             skip_whitespace(ctx);
-            
-            // Expect '=>'
-            if !expect(ctx, TokenType.OPERATOR) {
-                enforce_raw(false, "ERROR: Expected '=>' in overload mapping");
-                return;
-            }
-            val op_token: Token = consume(ctx);
-            if !equals_c(op_token.value, "=>") {
-                enforce_raw(false, "ERROR: Expected '=>' in overload mapping");
-                return;
-            }
-            skip_whitespace(ctx);
-            
-            if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected target function name in overload mapping");
-                return;
-            }
-            val target_token: Token = consume(ctx);
-            append(target_funcs, target_token.value);
-            skip_whitespace(ctx);
-            
-            if !expect(ctx, TokenType.SEMICOLON) {
-                enforce_raw(false, "ERROR: Expected ';' after overload mapping");
-                return;
-            }
-            consume(ctx);
-        }
-        
-        if !expect(ctx, TokenType.RBRACE) {
-            enforce_raw(false, "ERROR: Expected '}' after overload mappings");
-            return;
-        }
-        consume(ctx);
-        skip_whitespace(ctx);
-        
-        // Parse call expression: (expr)
-        if !expect(ctx, TokenType.LPAREN) {
-            enforce_raw(false, "ERROR: Expected '(' with call expression after overload block");
-            return;
-        }
-        consume(ctx);
-        
-        mut call_expr: string = str("");
-        loop {
-            if ctx.pos >= len(ctx.tokens) {
-                break;
-            }
-            if expect(ctx, TokenType.RPAREN) {
-                break;
-            }
-            
-            val t: Token = consume(ctx);
-            if t.token_type == TokenType.STR {
-                call_expr = concat(call_expr, str("\""));
-                call_expr = concat(call_expr, t.value);
-                call_expr = concat(call_expr, str("\""));
-            } elif t.token_type == TokenType.CHAR {
-                call_expr = concat(call_expr, str("'"));
-                call_expr = concat(call_expr, t.value);
-                call_expr = concat(call_expr, str("'"));
-            } else {
-                call_expr = concat(call_expr, t.value);
-            }
-        }
-        
-        if !expect(ctx, TokenType.RPAREN) {
-            enforce_raw(false, "ERROR: Expected ')' after overload call expression");
-            return;
-        }
-        consume(ctx);
-        skip_whitespace(ctx);
-        
-        if !expect(ctx, TokenType.SEMICOLON) {
-            enforce_raw(false, "ERROR: Expected ';' after overload definition");
-            return;
-        }
-        consume(ctx);
-        
-        mut overload_node: ASTNode;
-        overload_node.node_type = str("Overload");
-        overload_node.data.overload_node.name = overload_name.value;
-        overload_node.data.overload_node.param_name = param_name;
-        overload_node.data.overload_node.call_expr = call_expr;
-        
-        unsafe {
-            val type_list_size: usize = C.sizeof(list(string));
-            val heap_type_list: ref list(string) = cast[ref list(string)](C.malloc(type_list_size));
-            if heap_type_list != nil {
-                C.memcpy(heap_type_list, addr_of(type_names), type_list_size);
-                overload_node.data.overload_node.type_names = heap_type_list;
-            }
-            
-            val func_list_size: usize = C.sizeof(list(string));
-            val heap_func_list: ref list(string) = cast[ref list(string)](C.malloc(func_list_size));
-            if heap_func_list != nil {
-                C.memcpy(heap_func_list, addr_of(target_funcs), func_list_size);
-                overload_node.data.overload_node.target_functions = heap_func_list;
-            }
-        }
-        
-        add_child_to_ast(ast, overload_node);
-        return;
-    }
-    
-    if token_type == TokenType.OVERLOAD {
-        consume(ctx); // Skip 'overload'
-        skip_whitespace(ctx);
-        
-        if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected overload name after 'overload'");
-            return;
-        }
-        val overload_name: Token = consume(ctx);
-        skip_whitespace(ctx);
-        
-        if !expect(ctx, TokenType.LPAREN) {
-            enforce_raw(false, "ERROR: Expected '(' after overload name");
-            return;
-        }
-        consume(ctx);
-        skip_whitespace(ctx);
-        
-        if !expect(ctx, TokenType.IDENTIFIER) {
-            enforce_raw(false, "ERROR: Expected parameter name in overload");
-            return;
-        }
-        val param_name_token: Token = consume(ctx);
-        val param_name: string = param_name_token.value;
-        skip_whitespace(ctx);
-        
-        if expect(ctx, TokenType.COLON) {
-            consume(ctx);
-            skip_whitespace(ctx);
-            if expect(ctx, TokenType.IDENTIFIER) {
+            if expect(ctx, TokenType.STAR) {
                 consume(ctx);
+                // Append '*' to the last stored type name
+                val last_idx: i32 = len(type_names) - 1;
+                type_names.data[last_idx] = concat(type_names.data[last_idx], str("*"));
                 skip_whitespace(ctx);
             }
-        }
-        
-        if !expect(ctx, TokenType.RPAREN) {
-            enforce_raw(false, "ERROR: Expected ')' after overload parameter");
-            return;
-        }
-        consume(ctx);
-        skip_whitespace(ctx);
-        
-        if !expect(ctx, TokenType.LBRACE) {
-            enforce_raw(false, "ERROR: Expected '{' after overload header");
-            return;
-        }
-        consume(ctx);
-        
-        // Parse type mappings: type => function;
-        mut type_names: list(string);
-        mut target_funcs: list(string);
-        
-        loop {
-            skip_whitespace(ctx);
-            if ctx.pos >= len(ctx.tokens) {
-                break;
-            }
-            if expect(ctx, TokenType.RBRACE) {
-                break;
-            }
-            
-            if !expect(ctx, TokenType.IDENTIFIER) {
-                enforce_raw(false, "ERROR: Expected type name in overload mapping");
-                return;
-            }
-            val type_token: Token = consume(ctx);
-            append(type_names, type_token.value);
-            skip_whitespace(ctx);
             
             // Expect '=>'
             if !expect(ctx, TokenType.OPERATOR) {
@@ -674,7 +510,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.SEMICOLON) {
-                enforce_raw(false, "ERROR: Expected ';' after overload mapping");
+                mut err: string = str("ERROR: Expected ';' after overload mapping, instead got ");
+                err = concat(err, ctx.tokens.data[ctx.pos].value);
+                enforce_raw(false, err.data);
                 return;
             }
             consume(ctx);

@@ -36,8 +36,8 @@ pub model ASTNode {
             name: string;
             param_name: string;
             call_expr: string;
-            type_names: list(string);
-            target_functions: list(string);
+            type_names: ref list(string);
+            target_functions: ref list(string);
         };
         
         declaration: model {

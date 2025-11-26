@@ -277,8 +277,72 @@ pub def generate_c(ast: ref ASTNode): string {
     if ast == nil {
         return result;
     }
-    
     val node_type: string = ast.node_type;
+
+    if equals_c(node_type, "Overload") {
+        val name: string = ast.data.overload_node.name;
+        mut param_name: string = ast.data.overload_node.param_name;
+        mut call_expr: string = ast.data.overload_node.call_expr;
+
+        if str_len(param_name) == 0 {
+            param_name = str("x");
+        }
+        if str_len(call_expr) == 0 {
+            call_expr = param_name;
+        }
+
+        val type_names_ref: ref list(string) = ast.data.overload_node.type_names;
+        val targets_ref: ref list(string) = ast.data.overload_node.target_functions;
+
+        // If lists are missing or empty, nothing to emit
+        if type_names_ref == nil or targets_ref == nil {
+            return result;
+        }
+
+        val count: i32 = len(deref(type_names_ref));
+        if count == 0 or count != len(deref(targets_ref)) {
+            return result;
+        }
+
+        // Begin macro definition
+        result = concat(result, str("#define "));
+        result = concat(result, name);
+        result = concat(result, str("("));
+        result = concat(result, param_name);
+        result = concat(result, str(") _Generic(("));
+        result = concat(result, call_expr);
+        result = concat(result, str("), \\\n"));
+
+        mut i_ov: i32 = 0;
+        loop {
+            if i_ov >= count {
+                break;
+            }
+
+            val axe_type: string = type_names_ref.data[i_ov];
+            val target_name: string = targets_ref.data[i_ov];
+            val mapped_type: string = map_axe_type_to_c(axe_type);
+
+            result = concat(result, str("    "));
+            result = concat(result, mapped_type);
+            result = concat(result, str(": "));
+            result = concat(result, target_name);
+
+            if i_ov < count - 1 {
+                result = concat(result, str(", \\\n"));
+            } else {
+                result = concat(result, str(" \\\n"));
+            }
+
+            i_ov = i_ov + 1;
+        }
+
+        result = concat(result, str("    )("));
+        result = concat(result, call_expr);
+        result = concat(result, str(")\n"));
+
+        return result;
+    }
     
     if equals_c(node_type, "Program") {
         result = concat(result, str("#define nil ((void*)0)\n"));
@@ -291,14 +355,34 @@ pub def generate_c(ast: ref ASTNode): string {
         
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
+            
+            // First, hoist overload macros so user code can use them
             mut i: i32 = 0;
             loop {
                 if i >= len(deref(children)) {
                     break;
                 }
-                val child_code: string = generate_c(addr_of(children.data[i]));
-                result = concat(result, child_code);
-                i++;
+                val child: ref ASTNode = addr_of(children.data[i]);
+                if equals_c(child.node_type, "Overload") {
+                    val ov_code: string = generate_c(child);
+                    result = concat(result, ov_code);
+                    result = concat(result, str("\n"));
+                }
+                i = i + 1;
+            }
+
+            // Then render all other top-level nodes (functions, models, etc.)
+            i = 0;
+            loop {
+                if i >= len(deref(children)) {
+                    break;
+                }
+                val child2: ref ASTNode = addr_of(children.data[i]);
+                if !equals_c(child2.node_type, "Overload") {
+                    val child_code: string = generate_c(child2);
+                    result = concat(result, child_code);
+                }
+                i = i + 1;
             }
         }
     }
