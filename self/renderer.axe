@@ -295,6 +295,70 @@ def process_expression(expr: string): string {
     return result;
 }
 
+/// Generate a C function prototype from a Function AST node
+def generate_function_prototype(ast: ref ASTNode): string {
+    mut result: string = str("");
+
+    if ast == nil {
+        return result;
+    }
+
+    val func_name_raw: string = ast.data.function.name;
+
+    // Do not emit a prototype for main
+    if equals_c(func_name_raw, "main") {
+        return result;
+    }
+
+    mut func_name: string = func_name_raw;
+    mut return_type: string = ast.data.function.return_type;
+
+    if str_len(return_type) == 0 {
+        return_type = str("void");
+    }
+
+    val mapped_return_type: string = map_type(return_type);
+
+    result = concat(result, mapped_return_type);
+    result = concat(result, str(" "));
+    result = concat(result, func_name);
+    result = concat(result, str("("));
+
+    val params: ref list(string) = ast.data.function.params;
+    if params != nil {
+        mut param_idx: i32 = 0;
+        loop {
+            if param_idx >= len(deref(params)) {
+                break;
+            }
+
+            if param_idx > 0 {
+                result = concat(result, str(", "));
+            }
+
+            val param: string = params.data[param_idx];
+            val colon_pos: i32 = find_char_from(param, ':', 0);
+
+            if colon_pos >= 0 {
+                val param_name: string = strip(substring_se(param, 0, colon_pos));
+                val param_type: string = strip(substr(param, colon_pos + 1, str_len(param) - colon_pos - 1));
+                val processed_type: string = process_parameter_type(param_type);
+
+                result = concat(result, processed_type);
+                result = concat(result, str(" "));
+                result = concat(result, param_name);
+            } else {
+                result = concat(result, param);
+            }
+
+            param_idx = param_idx + 1;
+        }
+    }
+
+    result = concat(result, str(");\n"));
+    return result;
+}
+
 /// Generate C code from AST
 pub def generate_c(ast: ref ASTNode): string {
     mut result: string = str("");
@@ -382,6 +446,24 @@ pub def generate_c(ast: ref ASTNode): string {
 
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
+
+            // Emit function prototypes for hoisting so functions can be called
+            // before their definitions, matching the D renderer behaviour.
+            mut i_proto: i32 = 0;
+            loop {
+                if i_proto >= len(deref(children)) {
+                    break;
+                }
+                val proto_child: ref ASTNode = addr_of(children.data[i_proto]);
+                if equals_c(proto_child.node_type, "Function") {
+                    val proto_code: string = generate_function_prototype(proto_child);
+                    if str_len(proto_code) > 0 {
+                        result = concat(result, proto_code);
+                    }
+                }
+                i_proto = i_proto + 1;
+            }
+            result = concat(result, str("\n"));
             
             mut i: i32 = 0;
             loop {

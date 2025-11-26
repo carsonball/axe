@@ -978,17 +978,17 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     
     skip_whitespace(ctx);
 
-    // Handle function names that were split by the lexer into two IDENTs
-    // when there is an implicit underscore, e.g. 'print' 'char' '(' for
-    // a source name 'print_char('. If we see IDENT IDENT followed by a
-    // '(' token (by value), merge the two identifiers with an underscore
-    // for the function name.
     if ctx.pos + 1 < len(ctx.tokens) {
         if ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER and
            equals_c(ctx.tokens.data[ctx.pos + 1].value, "(") {
             mut merged: string = func_name;
-            merged = concat(merged, str("_"));
-            merged = concat(merged, ctx.tokens.data[ctx.pos].value);
+            val next_ident: string = ctx.tokens.data[ctx.pos].value;
+
+            if str_len(next_ident) > 0 and get_char(next_ident, 0) != '_' {
+                merged = concat(merged, str("_"));
+            }
+
+            merged = concat(merged, next_ident);
             func_name = merged;
             func.data.function.name = merged;
             ctx.pos++;
@@ -1888,9 +1888,28 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     // Handle IDENTIFIER (function calls, assignments, etc.)
     if token_type == TokenType.IDENTIFIER {
         val ident_token: Token = consume(ctx);
-        val ident_name: string = ident_token.value;
+        mut ident_name: string = ident_token.value;
         skip_whitespace(ctx);
-        
+
+        if ctx.pos + 1 < len(ctx.tokens) {
+            val look1: Token = ctx.tokens.data[ctx.pos];
+            val look2: Token = ctx.tokens.data[ctx.pos + 1];
+
+            if look1.token_type == TokenType.IDENTIFIER and equals_c(look2.value, "(") {
+                mut merged_call: string = ident_name;
+                val next_ident_call: string = look1.value;
+
+                if str_len(next_ident_call) > 0 and get_char(next_ident_call, 0) != '_' {
+                    merged_call = concat(merged_call, str("_"));
+                }
+
+                merged_call = concat(merged_call, next_ident_call);
+                ident_name = merged_call;
+                ctx.pos = ctx.pos + 1;
+                skip_whitespace(ctx);
+            }
+        }
+
         if ctx.pos >= len(ctx.tokens) {
             return node;
         }
