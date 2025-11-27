@@ -464,7 +464,37 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         ctx.pos++;
         skip_whitespace(ctx);
 
-        if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+        if ctx.pos >= len(ctx.tokens) {
+            mut err: string = str("ERROR: Expected model name after 'model'");
+            enforce(false, error.create(err.data));
+            return;
+        }
+
+        // If we see `model {` with no name at top level, treat it as an
+        // anonymous model block and skip its body instead of just erroring.
+        if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            ctx.pos++; // Skip '{'
+            mut depth_model: i32 = 1;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t_br: Token = ctx.tokens.data[ctx.pos];
+                if t_br.token_type == TokenType.LBRACE {
+                    depth_model = depth_model + 1;
+                } elif t_br.token_type == TokenType.RBRACE {
+                    depth_model = depth_model - 1;
+                    if depth_model == 0 {
+                        ctx.pos++; // consume final '}'
+                        break;
+                    }
+                }
+                ctx.pos++;
+            }
+            return;
+        }
+
+        if ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
             mut err: string = str("ERROR: Expected model name after 'model', instead got: ");
             err = concat(err, ctx.tokens.data[ctx.pos].value);
             enforce(false, error.create(err.data));
@@ -557,7 +587,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                     // Parse base type
                     mut field_type: string = parse_type(ctx);
 
-                    // Special handling for `field_name: union { ... }`
+                    // Special handling for `field_name: union { ... }` including anonymous models
                     if str_len(field_type) == 5 and compare(field_type, str("union")) == 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
                         // Record this as a union field
                         append(field_names, field_name);
@@ -603,17 +633,95 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                             ctx.pos++; // Skip ':'
 
                             skip_whitespace(ctx);
-                            mut member_type: string = parse_type(ctx);
+                            mut member_base_type: string = parse_type(ctx);
 
-                            // Consume optional semicolon after union member
-                            skip_whitespace(ctx);
-                            if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
-                                ctx.pos++;
+                            // Anonymous model inside union: `member_name: model { ... }`
+                            if str_len(member_base_type) == 5 and compare(member_base_type, str("model")) == 0 and ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+                                // Record the anonymous model as a union member of type "model"
+                                append(union_member_parents, field_name);
+                                append(union_member_names, member_name);
+                                append(union_member_types, member_base_type);
+
+                                ctx.pos++; // Skip '{' of anonymous model
+
+                                mut brace_depth: i32 = 0;
+                                loop {
+                                    if ctx.pos >= len(ctx.tokens) {
+                                        break;
+                                    }
+
+                                    val t_nested: Token = ctx.tokens.data[ctx.pos];
+
+                                    if t_nested.token_type == TokenType.WHITESPACE or t_nested.token_type == TokenType.NEWLINE or t_nested.token_type == TokenType.SEMICOLON or t_nested.token_type == TokenType.COMMENT {
+                                        ctx.pos++;
+                                        continue;
+                                    }
+
+                                    if t_nested.token_type == TokenType.RBRACE {
+                                        if brace_depth == 0 {
+                                            ctx.pos++; // consume closing '}' of anonymous model
+                                            break;
+                                        }
+                                        brace_depth = brace_depth - 1;
+                                        ctx.pos++;
+                                        continue;
+                                    }
+
+                                    if t_nested.token_type == TokenType.LBRACE {
+                                        brace_depth = brace_depth + 1;
+                                        ctx.pos++;
+                                        continue;
+                                    }
+
+                                    if t_nested.token_type != TokenType.IDENTIFIER {
+                                        ctx.pos++;
+                                        continue;
+                                    }
+
+                                    // Nested field inside anonymous model
+                                    val nested_name: string = t_nested.value;
+                                    ctx.pos++;
+
+                                    skip_whitespace(ctx);
+                                    if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.COLON {
+                                        continue;
+                                    }
+                                    ctx.pos++; // Skip ':'
+
+                                    skip_whitespace(ctx);
+                                    mut nested_type: string = parse_type(ctx);
+
+                                    // Optional semicolon
+                                    skip_whitespace(ctx);
+                                    if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                                        ctx.pos++;
+                                    }
+
+                                    // Parent of nested fields is the anonymous model member name
+                                    append(union_member_parents, member_name);
+                                    append(union_member_names, nested_name);
+                                    append(union_member_types, nested_type);
+                                }
+
+                                // Optional semicolon after anonymous model member
+                                skip_whitespace(ctx);
+                                if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                                    ctx.pos++;
+                                }
+                            } else {
+                                // Normal union member (non-anonymous-model)
+                                mut member_type: string = member_base_type;
+
+                                // Consume optional semicolon after union member
+                                skip_whitespace(ctx);
+                                if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
+                                    ctx.pos++;
+                                }
+
+                                append(union_member_parents, field_name);
+                                append(union_member_names, member_name);
+                                append(union_member_types, member_type);
                             }
-
-                            append(union_member_parents, field_name);
-                            append(union_member_names, member_name);
-                            append(union_member_types, member_type);
                         }
 
                         // After union block, optional semicolon at model level
