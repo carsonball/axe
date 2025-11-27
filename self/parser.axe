@@ -24,6 +24,8 @@ mut g_type_aliases: StringStringMap;
 mut g_imported_modules: StringBoolMap;
 mut g_list_of_types: StringStringMap;
 mut g_var_mutability: StringBoolMap;
+mut g_macro_names: list(string);
+mut g_macro_defs: list(MacroDef);
 
 /// Initialize the state-related globals
 pub def initialize_all() {
@@ -32,6 +34,55 @@ pub def initialize_all() {
     g_imported_modules = deref(StringBoolMap.create(ref_of(arena), 128));
     g_list_of_types = deref(StringStringMap.create(ref_of(arena), 128));
     g_var_mutability = deref(StringBoolMap.create(ref_of(arena), 128));
+    g_macro_names.len = 0;
+    g_macro_defs.len = 0;
+}
+
+def macros_add(name: string, defn: MacroDef) {
+    mut i: i32 = 0;
+    loop {
+        if i >= len(g_macro_names) {
+            break;
+        }
+        if compare(g_macro_names.data[i], name) == 0 {
+            g_macro_defs.data[i] = defn;
+            return;
+        }
+        i = i + 1;
+    }
+
+    append(g_macro_names, name);
+    append(g_macro_defs, defn);
+}
+
+def macros_contains(name: string): bool {
+    mut i: i32 = 0;
+    loop {
+        if i >= len(g_macro_names) {
+            break;
+        }
+        if compare(g_macro_names.data[i], name) == 0 {
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
+def macros_get(name: string): MacroDef {
+    mut i: i32 = 0;
+    loop {
+        if i >= len(g_macro_names) {
+            break;
+        }
+        if compare(g_macro_names.data[i], name) == 0 {
+            return g_macro_defs.data[i];
+        }
+        i = i + 1;
+    }
+
+    mut empty: MacroDef;
+    return empty;
 }
 
 /// Register a variable's mutability (true for mut, false for val)
@@ -739,54 +790,130 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     if token_type == TokenType.MACRO {
         ctx.pos++;  // Skip 'macro'
         skip_whitespace(ctx);
-        
-        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
-            ctx.pos++;
+
+        if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
+            enforce_raw(false, "ERROR: Expected macro name after 'macro'");
+            return;
         }
-        
+
+        val name_tok: Token = ctx.tokens.data[ctx.pos];
+        val macro_name: string = name_tok.value;
+        ctx.pos++;
+
         skip_whitespace(ctx);
-        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
-            ctx.pos++;
-            mut depth: i32 = 1;
-            loop {
-                if ctx.pos >= len(ctx.tokens) {
-                    break;
-                }
-                if ctx.tokens.data[ctx.pos].token_type == TokenType.LPAREN {
-                    depth = depth + 1;
-                }
-                if ctx.tokens.data[ctx.pos].token_type == TokenType.RPAREN {
-                    depth = depth - 1;
-                    if depth == 0 {
-                        ctx.pos++;
-                        break;
-                    }
-                }
-                ctx.pos++;
+
+        mut params: list(string);
+        mut param_types: list(string);
+
+        if !expect(ctx, TokenType.LPAREN) {
+            enforce_raw(false, "ERROR: Expected '(' after macro name");
+            return;
+        }
+        consume(ctx); // '('
+
+        loop {
+            skip_whitespace(ctx);
+            if expect(ctx, TokenType.RPAREN) {
+                consume(ctx);
+                break;
+            }
+
+            if !expect(ctx, TokenType.IDENTIFIER) {
+                enforce_raw(false, "ERROR: Expected parameter name in macro definition");
+                return;
+            }
+
+            val param_tok: Token = consume(ctx);
+            val param_name: string = param_tok.value;
+
+            skip_whitespace(ctx);
+
+            if !expect(ctx, TokenType.COLON) {
+                enforce_raw(false, "ERROR: Expected ':' after macro parameter name");
+                return;
+            }
+            consume(ctx);
+
+            skip_whitespace(ctx);
+
+            if !expect(ctx, TokenType.IDENTIFIER) {
+                enforce_raw(false, "ERROR: Expected type after ':' in macro parameter");
+                return;
+            }
+
+            val type_tok: Token = consume(ctx);
+            val param_type: string = type_tok.value;
+
+            append(params, param_name);
+            append(param_types, param_type);
+
+            skip_whitespace(ctx);
+
+            if expect(ctx, TokenType.COMMA) {
+                consume(ctx);
+                continue;
             }
         }
-        
+
         skip_whitespace(ctx);
-        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
-            ctx.pos++;
-            mut depth: i32 = 1;
-            loop {
-                if ctx.pos >= len(ctx.tokens) {
+
+        if !expect(ctx, TokenType.LBRACE) {
+            enforce_raw(false, "ERROR: Expected '{' after macro header");
+            return;
+        }
+        consume(ctx); // '{'
+
+        mut body_tokens: list(Token);
+        mut brace_depth: i32 = 1;
+
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+
+            val t: Token = ctx.tokens.data[ctx.pos];
+
+            if t.token_type == TokenType.LBRACE {
+                brace_depth = brace_depth + 1;
+                append(body_tokens, t);
+                ctx.pos++;
+                continue;
+            }
+
+            if t.token_type == TokenType.RBRACE {
+                brace_depth = brace_depth - 1;
+                if brace_depth == 0 {
+                    ctx.pos++;
                     break;
                 }
-                if ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
-                    depth = depth + 1;
-                }
-                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
-                    depth = depth - 1;
-                    if depth == 0 {
-                        ctx.pos++;
-                        break;
-                    }
-                }
+                append(body_tokens, t);
                 ctx.pos++;
+                continue;
             }
+
+            append(body_tokens, t);
+            ctx.pos++;
         }
+
+        if brace_depth != 0 {
+            enforce_raw(false, "ERROR: Expected '}' after macro body");
+            return;
+        }
+
+        mut macro_node: ASTNode;
+        macro_node.node_type = str("Macro");
+        macro_node.data.macro_node.name = macro_name;
+        macro_node.data.macro_node.params = addr_of(params);
+        macro_node.data.macro_node.param_types = addr_of(param_types);
+        macro_node.data.macro_node.body_tokens = addr_of(body_tokens);
+
+        add_child_to_ast(ast, macro_node);
+
+        mut defn: MacroDef;
+        defn.params = addr_of(params);
+        defn.body = addr_of(body_tokens);
+        macros_add(macro_name, defn);
+
         return;
     }
     

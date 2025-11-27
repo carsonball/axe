@@ -1874,9 +1874,18 @@ string generateC(ASTNode ast)
         {
             if (isListOfType)
             {
-                string elementType = g_listOfTypes[declNode.name];
-                cCode ~= decl ~ " = __list_" ~ elementType ~ "_init();\n";
-                debugWriteln("DEBUG renderer: Initialized list struct '", declNode.name, "' with init function");
+                if (g_inTopLevel)
+                {
+                    cCode ~= decl ~ " = {0};\n";
+                    debugWriteln("DEBUG renderer: Zero-initialized top-level list variable '", declNode.name, "'");
+                }
+                else
+                {
+                    string elementType = g_listOfTypes[declNode.name];
+                    cCode ~= decl ~ " = __list_" ~ elementType ~ "_init();\n";
+                    debugWriteln("DEBUG renderer: Initialized list struct '", declNode.name,
+                        "' with init function");
+                }
             }
             else
             {
