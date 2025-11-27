@@ -480,7 +480,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
         return;
     }
-    
+
     if token_type == TokenType.TEST {
         ctx.pos++;  // Skip 'test'
         skip_whitespace(ctx);
