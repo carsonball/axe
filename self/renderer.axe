@@ -476,8 +476,19 @@ pub def generate_c(ast: ref ASTNode): string {
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
 
-            // Emit function prototypes for hoisting so functions can be called
-            // before their definitions, matching the D renderer behaviour.
+            mut i_models: i32 = 0;
+            loop {
+                if i_models >= len(deref(children)) {
+                    break;
+                }
+                val m_child: ref ASTNode = addr_of(children.data[i_models]);
+                if equals_c(m_child.node_type, "Model") or equals_c(m_child.node_type, "Enum") {
+                    val m_code: string = generate_c(m_child);
+                    result = concat(result, m_code);
+                }
+                i_models = i_models + 1;
+            }
+
             mut i_proto: i32 = 0;
             loop {
                 if i_proto >= len(deref(children)) {
@@ -493,7 +504,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_proto = i_proto + 1;
             }
             result = concat(result, str("\n"));
-            
+
             mut i: i32 = 0;
             loop {
                 if i >= len(deref(children)) {
@@ -530,7 +541,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val child2: ref ASTNode = addr_of(children.data[i]);
-                if !equals_c(child2.node_type, "Overload") {
+                if !equals_c(child2.node_type, "Overload") and !equals_c(child2.node_type, "Function") and !equals_c(child2.node_type, "Model") and !equals_c(child2.node_type, "Enum") {
                     val child_code: string = generate_c(child2);
                     result = concat(result, child_code);
                 }
