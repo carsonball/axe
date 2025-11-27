@@ -1,5 +1,5 @@
 macro add(x: untyped, y: untyped) {
-    def some_function() {
+    def some_function(): i32 {
         return x + y;
     }
 }
@@ -14,6 +14,6 @@ test {
     val x: i32 = 1;
     assert x == 1, "Should be true.";
     unsafe {
-        C.printf("%d", some_other_function());
+        C.printf("%d", some_function());
     }
 }
