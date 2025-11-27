@@ -79,14 +79,14 @@ This will create the `axe` executable.
 ### Hello World
 
 ```
-use std/string;
+use std.string;
 
 def greet(name: string): void {
     println "Hello, ", name.data, ".";
 }
 
 def main() {
-    greet(string.create("Axe"));
+    greet(str("Axe"));
 }
 ```
 
