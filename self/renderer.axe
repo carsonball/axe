@@ -125,7 +125,7 @@ def build_function_prefixes(ast: ref ASTNode) {
             }
         }
 
-        i = i + 1;
+        i++;
     }
 }
 
