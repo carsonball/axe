@@ -1900,8 +1900,18 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
                 // Skip whitespace
             } else {
-                expr = concat(expr, t.value);
-                expr = concat(expr, str(" "));
+                if (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("and")) == 0)
+                   or t.token_type == TokenType.AND {
+                    expr = concat(expr, str("&&"));
+                    expr = concat(expr, str(" "));
+                } elif (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("or")) == 0)
+                       or t.token_type == TokenType.OR {
+                    expr = concat(expr, str("||"));
+                    expr = concat(expr, str(" "));
+                } else {
+                    expr = concat(expr, t.value);
+                    expr = concat(expr, str(" "));
+                }
             }
             consume(ctx);
         }
@@ -2006,7 +2016,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     if token_type == TokenType.IF {
         consume(ctx);
         skip_whitespace(ctx);
-        
+
+        // Parse condition expression up to '{'
         mut condition: string = str("");
         loop {
             if ctx.pos >= len(ctx.tokens) {
@@ -2036,125 +2047,130 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         continue;
                     }
                 }
-
-                condition = concat(condition, t.value);
-                condition = concat(condition, str(" "));
+                if (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("and")) == 0)
+                   or t.token_type == TokenType.AND {
+                    condition = concat(condition, str("&&"));
+                    condition = concat(condition, str(" "));
+                } elif (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("or")) == 0)
+                       or t.token_type == TokenType.OR {
+                    condition = concat(condition, str("||"));
+                    condition = concat(condition, str(" "));
+                } else {
+                    condition = concat(condition, t.value);
+                    condition = concat(condition, str(" "));
+                }
             }
             consume(ctx);
         }
-        
+
         if !expect(ctx, TokenType.LBRACE) {
             enforce_raw(false, "ERROR: Expected '{' after if condition");
             return node;
         }
-        consume(ctx);
-        
-        mut depth: i32 = 1;
+        consume(ctx); // skip '{'
+
+        // Parse if-body statements into a list of children
+        mut if_children: list(ASTNode);
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.LBRACE {
-                depth = depth + 1;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    consume(ctx);
-                    break;
-                }
-            }
-            consume(ctx);
-        }
-        
-        // Handle elif clauses
-        skip_whitespace(ctx);
-        loop {
-            if ctx.pos >= len(ctx.tokens) {
-                break;
-            }
-            val t: Token = peek(ctx);
-            if t.token_type != TokenType.ELIF {
-                break;
-            }
-            
-            consume(ctx);
+
             skip_whitespace(ctx);
-            
-            loop {
-                if ctx.pos >= len(ctx.tokens) {
-                    break;
-                }
-                val elif_t: Token = peek(ctx);
-                if elif_t.token_type == TokenType.LBRACE {
-                    break;
-                }
-                consume(ctx);
+            if ctx.pos >= len(ctx.tokens) {
+                break;
             }
-            
+
+            val t_body: Token = peek(ctx);
+            if t_body.token_type == TokenType.RBRACE {
+                consume(ctx); // end of if-body
+                break;
+            }
+
+            mut stmt: ASTNode = parse_statement_helper(ctx, addr_of(ctx.current_scope));
+            if str_len(stmt.node_type) > 0 {
+                append(if_children, stmt);
+            }
+        }
+
+        // Optional else clause (we still ignore elif for now)
+        mut else_children: list(ASTNode);
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.ELSE {
+            ctx.pos = ctx.pos + 1; // consume 'else'
+            skip_whitespace(ctx);
+
             if !expect(ctx, TokenType.LBRACE) {
-                enforce_raw(false, "ERROR: Expected '{' after elif condition");
+                enforce_raw(false, "ERROR: Expected '{' after else");
                 return node;
             }
-            consume(ctx);
-            
-            depth = 1;
+            consume(ctx); // skip '{'
+
             loop {
                 if ctx.pos >= len(ctx.tokens) {
                     break;
                 }
-                val elif_body_t: Token = peek(ctx);
-                if elif_body_t.token_type == TokenType.LBRACE {
-                    depth = depth + 1;
-                } elif elif_body_t.token_type == TokenType.RBRACE {
-                    depth = depth - 1;
-                    if depth == 0 {
-                        consume(ctx);
-                        break;
-                    }
-                }
-                consume(ctx);
-            }
-            
-            skip_whitespace(ctx);
-        }
-        
-        // Handle else clause
-        skip_whitespace(ctx);
-        if ctx.pos < len(ctx.tokens) {
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.ELSE {
-                consume(ctx);
+
                 skip_whitespace(ctx);
-                
-                if !expect(ctx, TokenType.LBRACE) {
-                    enforce_raw(false, "ERROR: Expected '{' after else");
-                    return node;
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
                 }
-                consume(ctx);
-                
-                depth = 1;
-                loop {
-                    if ctx.pos >= len(ctx.tokens) {
-                        break;
-                    }
-                    val else_t: Token = peek(ctx);
-                    if else_t.token_type == TokenType.LBRACE {
-                        depth = depth + 1;
-                    } elif else_t.token_type == TokenType.RBRACE {
-                        depth = depth - 1;
-                        if depth == 0 {
-                            consume(ctx);
-                            break;
-                        }
-                    }
-                    consume(ctx);
+
+                val t_else: Token = peek(ctx);
+                if t_else.token_type == TokenType.RBRACE {
+                    consume(ctx); // end of else-body
+                    break;
+                }
+
+                mut stmt2: ASTNode = parse_statement_helper(ctx, addr_of(ctx.current_scope));
+                if str_len(stmt2.node_type) > 0 {
+                    append(else_children, stmt2);
                 }
             }
         }
-        
+
+        // Build If AST node with children list containing then-body and
+        // (optionally) else-body nodes in order.
         node.node_type = str("If");
         node.data.if_node.condition = condition;
+
+        unsafe {
+            mut body_list: list(ASTNode);
+
+            // First, if-body statements
+            mut i_body: i32 = 0;
+            loop {
+                if i_body >= len(if_children) {
+                    break;
+                }
+                append(body_list, if_children.data[i_body]);
+                i_body = i_body + 1;
+            }
+
+            // Sentinel: an empty node marking boundary between if and else
+            if len(else_children) > 0 {
+                mut marker: ASTNode;
+                marker.node_type = str("ElseMarker");
+                append(body_list, marker);
+
+                mut i_else: i32 = 0;
+                loop {
+                    if i_else >= len(else_children) {
+                        break;
+                    }
+                    append(body_list, else_children.data[i_else]);
+                    i_else = i_else + 1;
+                }
+            }
+
+            val list_size_if: usize = C.sizeof(list(ASTNode));
+            val heap_list_if: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size_if));
+            if heap_list_if != nil {
+                C.memcpy(heap_list_if, addr_of(body_list), list_size_if);
+                node.children = heap_list_if;
+            }
+        }
+
         return node;
     }
     
@@ -3061,8 +3077,18 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
                     // I dont give a shit
                 } else {
-                    expr = concat(expr, t.value);
-                    expr = concat(expr, str(" "));
+                    if (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("and")) == 0)
+                       or t.token_type == TokenType.AND {
+                        expr = concat(expr, str("&&"));
+                        expr = concat(expr, str(" "));
+                    } elif (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("or")) == 0)
+                           or t.token_type == TokenType.OR {
+                        expr = concat(expr, str("||"));
+                        expr = concat(expr, str(" "));
+                    } else {
+                        expr = concat(expr, t.value);
+                        expr = concat(expr, str(" "));
+                    }
                 }
                 consume(ctx);
             }

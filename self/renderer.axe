@@ -363,6 +363,30 @@ def process_parameter_type(param_type: string): string {
 }
 
 /// Process an expression string for C interop and pointer sugar
+def is_token_char(c: char): bool {
+    if (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') {
+        return true;
+    }
+    if c >= '0' and c <= '9' {
+        return true;
+    }
+    if c == '_' or c == '.' {
+        return true;
+    }
+    return false;
+}
+
+/// Check if a character can start an identifier (letter or underscore)
+def is_ident_start(c: char): bool {
+    if (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') {
+        return true;
+    }
+    if c == '_' {
+        return true;
+    }
+    return false;
+}
+
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     mut has_pointer_sugar: bool = false;
@@ -391,7 +415,77 @@ def process_expression(expr: string): string {
     }
 
     if !has_pointer_sugar and !has_c_prefix {
-        return trimmed;
+        // Even when there is no pointer sugar or C. prefix, we still need to
+        // normalize spurious internal spaces that may have been introduced
+        // between pieces of what should be a single token. Examples that have
+        // shown up in generated C include:
+        //
+        //   "0 . 0"         -> "0.0"
+        //   "0 . 0000001"   -> "0.0000001"
+        //   "reduce _angle" -> "reduce_angle"
+        //
+        // To fix these without disturbing normal inter-token spacing, run the
+        // normalization pass below on the already-trimmed expression.
+
+        mut normalized_only: string = trimmed;
+
+        mut out_norm: string = str("");
+        mut jn: i32 = 0;
+        loop {
+            if jn >= str_len(normalized_only) {
+                break;
+            }
+            val chn: char = get_char(normalized_only, jn);
+
+            if chn == ' ' or chn == '\t' or chn == '\n' {
+                mut prev: char = '\0';
+                mut next: char = '\0';
+
+                mut kprev: i32 = jn - 1;
+                loop {
+                    if kprev < 0 {
+                        break;
+                    }
+                    val cprev: char = get_char(normalized_only, kprev);
+                    if cprev != ' ' and cprev != '\t' and cprev != '\n' {
+                        prev = cprev;
+                        break;
+                    }
+                    kprev = kprev - 1;
+                }
+
+                mut knext: i32 = jn + 1;
+                mut next_pos: i32 = -1;
+                loop {
+                    if knext >= str_len(normalized_only) {
+                        break;
+                    }
+                    val cnext: char = get_char(normalized_only, knext);
+                    if cnext != ' ' and cnext != '\t' and cnext != '\n' {
+                        next = cnext;
+                        next_pos = knext;
+                        break;
+                    }
+                    knext = knext + 1;
+                }
+
+                // Only drop the space if it is truly inside a single token,
+                // e.g. between digits or between identifier pieces. If the
+                // next non-space begins an identifier (letter or '_'), we
+                // keep the space so that `0.0 and` does not become `0.0and`.
+                if is_token_char(prev) and is_token_char(next) and !is_ident_start(next) {
+                    // Drop spaces inside tokens like "0 . 0" or "reduce _angle".
+                } else {
+                    out_norm = concat(out_norm, str(" "));
+                }
+            } else {
+                out_norm = concat_chr(out_norm, chn);
+            }
+
+            jn = jn + 1;
+        }
+
+        return strip(out_norm);
     }
 
     mut result: string = trimmed;
@@ -423,7 +517,63 @@ def process_expression(expr: string): string {
         result = substring_se(result, 2, str_len(result));
     }
 
-    return result;
+    // After pointer-sugar and C. stripping, run the same normalization pass
+    // used above to clean up spurious internal spaces within tokens such as
+    // "0 . 0" or "reduce _angle" while preserving spaces between tokens.
+    mut normalized: string = result;
+    mut out_final: string = str("");
+    mut jf: i32 = 0;
+    loop {
+        if jf >= str_len(normalized) {
+            break;
+        }
+        val chf: char = get_char(normalized, jf);
+
+        if chf == ' ' or chf == '\t' or chf == '\n' {
+            mut prev2: char = '\0';
+            mut next2: char = '\0';
+
+            mut kp: i32 = jf - 1;
+            loop {
+                if kp < 0 {
+                    break;
+                }
+                val cp: char = get_char(normalized, kp);
+                if cp != ' ' and cp != '\t' and cp != '\n' {
+                    prev2 = cp;
+                    break;
+                }
+                kp = kp - 1;
+            }
+
+            mut kn: i32 = jf + 1;
+            mut next_pos2: i32 = -1;
+            loop {
+                if kn >= str_len(normalized) {
+                    break;
+                }
+                val cn: char = get_char(normalized, kn);
+                if cn != ' ' and cn != '\t' and cn != '\n' {
+                    next2 = cn;
+                    next_pos2 = kn;
+                    break;
+                }
+                kn = kn + 1;
+            }
+
+            if is_token_char(prev2) and is_token_char(next2) and !is_ident_start(next2) {
+                // Drop the space between token characters.
+            } else {
+                out_final = concat(out_final, str(" "));
+            }
+        } else {
+            out_final = concat_chr(out_final, chf);
+        }
+
+        jf = jf + 1;
+    }
+
+    return strip(out_final);
 }
 
 /// Generate a C function prototype from a Function AST node
@@ -1386,10 +1536,12 @@ pub def generate_c(ast: ref ASTNode): string {
         val condition: string = ast.data.if_node.condition;
         mut trimmed_cond: string = strip(condition);
 
+        trimmed_cond = process_expression(trimmed_cond);
+
         result = concat(result, str("if ("));
         result = concat(result, trimmed_cond);
         result = concat(result, str(") {\n"));
-        
+
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
             mut i: i32 = 0;
@@ -1397,12 +1549,38 @@ pub def generate_c(ast: ref ASTNode): string {
                 if i >= len(deref(children)) {
                     break;
                 }
-                val child_code: string = generate_c(addr_of(children.data[i]));
+                val child_ref: ref ASTNode = addr_of(children.data[i]);
+                if equals_c(child_ref.node_type, "ElseMarker") {
+                    break;
+                }
+                val child_code: string = generate_c(child_ref);
                 result = concat(result, child_code);
-                i++;
+                i = i + 1;
             }
+
+            result = concat(result, str("}\n"));
+
+            if i < len(deref(children)) and equals_c(children.data[i].node_type, "ElseMarker") {
+                i = i + 1;
+                if i < len(deref(children)) {
+                    result = concat(result, str("else {\n"));
+                    loop {
+                        if i >= len(deref(children)) {
+                            break;
+                        }
+                        val else_child: ref ASTNode = addr_of(children.data[i]);
+                        val else_code: string = generate_c(else_child);
+                        result = concat(result, else_code);
+                        i = i + 1;
+                    }
+                    result = concat(result, str("}\n"));
+                }
+                return result;
+            }
+
+            return result;
         }
-        
+
         result = concat(result, str("}\n"));
         return result;
     }
