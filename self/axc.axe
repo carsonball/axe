@@ -43,13 +43,15 @@ def main() {
     if !has_suffix(source_file, str(".axe")) and !has_suffix(source_file, str(".axec")) {
         source_file = concat(source_file, str(".axe"));
     }
+
+    val is_axec: bool = has_suffix(source_file, str(".axec"));
     
     if !is_file(source_file) {
         println($"Error: File '{source_file}' not found");
         quit(1);
     }
     
-    val ok: bool = compile_file(source_file, false);
+    val ok: bool = compile_file(source_file, is_axec);
     
     Arena.destroy(addr_of(arena));
 
