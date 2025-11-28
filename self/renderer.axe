@@ -469,12 +469,14 @@ def process_expression(expr: string): string {
                     knext = knext + 1;
                 }
 
-                // Only drop the space if it is truly inside a single token,
-                // e.g. between digits or between identifier pieces. If the
-                // next non-space begins an identifier (letter or '_'), we
-                // keep the space so that `0.0 and` does not become `0.0and`.
-                if is_token_char(prev) and is_token_char(next) and !is_ident_start(next) {
-                    // Drop spaces inside tokens like "0 . 0" or "reduce _angle".
+                if is_token_char(prev) and is_token_char(next) {
+                    if next == '_' {
+                        // Merge space before underscore into the identifier.
+                    } elif !is_ident_start(next) {
+                        // Merge numeric / token fragments such as `0 . 0`.
+                    } else {
+                        out_norm = concat(out_norm, str(" "));
+                    }
                 } else {
                     out_norm = concat(out_norm, str(" "));
                 }
@@ -561,8 +563,14 @@ def process_expression(expr: string): string {
                 kn = kn + 1;
             }
 
-            if is_token_char(prev2) and is_token_char(next2) and !is_ident_start(next2) {
-                // Drop the space between token characters.
+            if is_token_char(prev2) and is_token_char(next2) {
+                if next2 == '_' {
+                    // Merge space before underscore into the identifier.
+                } elif !is_ident_start(next2) {
+                    // Drop the space between token characters (e.g. `0 . 0`).
+                } else {
+                    out_final = concat(out_final, str(" "));
+                }
             } else {
                 out_final = concat(out_final, str(" "));
             }
