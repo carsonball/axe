@@ -41,6 +41,7 @@ mut g_var_types: StringStringMap;
 
 /// Track discovered list element types used in generated code (for C list helpers)
 mut g_list_element_types: StringBoolMap;
+
 /// Ordered list of discovered element type strings (for deterministic emission)
 mut g_list_elements: ref StringList;
 
