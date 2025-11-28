@@ -2093,8 +2093,162 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
         }
 
-        // Optional else clause (we still ignore elif for now)
+        // Support elif/else chains by lowering
+        //   if cond1 { ... }
+        //   elif cond2 { ... }
+        //   else { ... }
+        // into nested If nodes in the else-branch.
+
         mut else_children: list(ASTNode);
+
+        skip_whitespace(ctx);
+        loop {
+            if ctx.pos >= len(ctx.tokens) {
+                break;
+            }
+
+            if ctx.tokens.data[ctx.pos].token_type != TokenType.ELIF {
+                break;
+            }
+
+            ctx.pos = ctx.pos + 1;
+            skip_whitespace(ctx);
+
+            mut elif_condition: string = str("");
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val t_el: Token = peek(ctx);
+                if t_el.token_type == TokenType.LBRACE {
+                    break;
+                }
+                if t_el.token_type != TokenType.WHITESPACE and t_el.token_type != TokenType.NEWLINE {
+                    if t_el.token_type == TokenType.VAL and ctx.pos + 1 < len(ctx.tokens) {
+                        val next_tok_el: Token = ctx.tokens.data[ctx.pos + 1];
+                        if next_tok_el.token_type == TokenType.IDENTIFIER {
+                            mut merged_el: string = t_el.value;
+                            merged_el = concat(merged_el, next_tok_el.value);
+                            elif_condition = concat(elif_condition, merged_el);
+                            elif_condition = concat(elif_condition, str(" "));
+                            consume(ctx);
+                            consume(ctx);
+                            continue;
+                        }
+                    }
+
+                    if (t_el.token_type == TokenType.IDENTIFIER and compare(t_el.value, str("and")) == 0)
+                       or t_el.token_type == TokenType.AND {
+                        elif_condition = concat(elif_condition, str("&&"));
+                        elif_condition = concat(elif_condition, str(" "));
+                    } elif (t_el.token_type == TokenType.IDENTIFIER and compare(t_el.value, str("or")) == 0)
+                           or t_el.token_type == TokenType.OR {
+                        elif_condition = concat(elif_condition, str("||"));
+                        elif_condition = concat(elif_condition, str(" "));
+                    } else {
+                        elif_condition = concat(elif_condition, t_el.value);
+                        elif_condition = concat(elif_condition, str(" "));
+                    }
+                }
+                consume(ctx);
+            }
+
+            if !expect(ctx, TokenType.LBRACE) {
+                enforce_raw(false, "ERROR: Expected '{' after elif condition");
+                return node;
+            }
+            consume(ctx); // skip '{'
+
+            mut elif_children: list(ASTNode);
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+
+                skip_whitespace(ctx);
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+
+                val t_eb: Token = peek(ctx);
+                if t_eb.token_type == TokenType.RBRACE {
+                    consume(ctx);
+                    break;
+                }
+
+                mut stmt_eb: ASTNode = parse_statement_helper(ctx, addr_of(ctx.current_scope));
+                if str_len(stmt_eb.node_type) > 0 {
+                    append(elif_children, stmt_eb);
+                }
+            }
+
+            // Wrap this elif as an If node we can use as an else-branch.
+            mut elif_node: ASTNode;
+            elif_node.node_type = str("If");
+            elif_node.data.if_node.condition = elif_condition;
+
+            unsafe {
+                mut body_list_el: list(ASTNode);
+
+                mut i_el: i32 = 0;
+                loop {
+                    if i_el >= len(elif_children) {
+                        break;
+                    }
+                    append(body_list_el, elif_children.data[i_el]);
+                    i_el = i_el + 1;
+                }
+
+                val sz_el: usize = C.sizeof(list(ASTNode));
+                val heap_el: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(sz_el));
+                if heap_el != nil {
+                    C.memcpy(heap_el, addr_of(body_list_el), sz_el);
+                    elif_node.children = heap_el;
+                }
+            }
+
+            // If we already have an else branch accumulated, attach it as
+            // the else of this new elif-node (nesting).
+            if len(else_children) > 0 {
+                unsafe {
+                    mut nested_body: list(ASTNode);
+                    mut j_el: i32 = 0;
+                    loop {
+                        if j_el >= len_v(deref(elif_node.children)) {
+                            break;
+                        }
+                        append(nested_body, elif_node.children.data[j_el]);
+                        j_el = j_el + 1;
+                    }
+
+                    mut marker2: ASTNode;
+                    marker2.node_type = str("ElseMarker");
+                    append(nested_body, marker2);
+
+                    mut k_el: i32 = 0;
+                    loop {
+                        if k_el >= len(else_children) {
+                            break;
+                        }
+                        append(nested_body, else_children.data[k_el]);
+                        k_el = k_el + 1;
+                    }
+
+                    val sz_nested: usize = C.sizeof(list(ASTNode));
+                    val heap_nested: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(sz_nested));
+                    if heap_nested != nil {
+                        C.memcpy(heap_nested, addr_of(nested_body), sz_nested);
+                        elif_node.children = heap_nested;
+                    }
+                }
+
+            }
+
+            append(else_children, elif_node);
+
+            skip_whitespace(ctx);
+        }
+
         skip_whitespace(ctx);
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.ELSE {
             ctx.pos = ctx.pos + 1; // consume 'else'
@@ -2116,8 +2270,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     break;
                 }
 
-                val t_else: Token = peek(ctx);
-                if t_else.token_type == TokenType.RBRACE {
+                val t_else2: Token = peek(ctx);
+                if t_else2.token_type == TokenType.RBRACE {
                     consume(ctx); // end of else-body
                     break;
                 }
