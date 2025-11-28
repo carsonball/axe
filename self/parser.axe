@@ -2321,7 +2321,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     if token_type == TokenType.FOR {
         consume(ctx);
         skip_whitespace(ctx);
-        
+
+        mut header: string = str("");
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
@@ -2330,35 +2331,99 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             if t.token_type == TokenType.LBRACE {
                 break;
             }
+            if t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                header = concat(header, t.value);
+                header = concat(header, str(" "));
+            }
             consume(ctx);
         }
-        
+
         if !expect(ctx, TokenType.LBRACE) {
             enforce_raw(false, "ERROR: Expected '{' after for header");
             return node;
         }
-        consume(ctx);
-        
-        mut depth: i32 = 1;
+        consume(ctx); // skip '{'
+
+        mut init: string = str("");
+        mut cond: string = str("");
+        mut incr: string = str("");
+        mut part_idx: i32 = 0;
+        mut current: string = str("");
+
+        mut i_hdr: i32 = 0;
+        loop {
+            if i_hdr >= str_len(header) {
+                break;
+            }
+            val ch_hdr: char = get_char(header, i_hdr);
+            if ch_hdr == ';' {
+                val trimmed: string = strip(current);
+                if str_len(trimmed) > 0 {
+                    if part_idx == 0 {
+                        init = trimmed;
+                    } elif part_idx == 1 {
+                        cond = trimmed;
+                    } else {
+                        incr = trimmed;
+                    }
+                }
+                part_idx = part_idx + 1;
+                current = str("");
+            } else {
+                current = concat_chr(current, ch_hdr);
+            }
+            i_hdr = i_hdr + 1;
+        }
+
+        val last_trimmed: string = strip(current);
+        if str_len(last_trimmed) > 0 {
+            if part_idx == 0 {
+                init = last_trimmed;
+            } elif part_idx == 1 {
+                cond = last_trimmed;
+            } else {
+                incr = last_trimmed;
+            }
+        }
+
+        mut fnode: ASTNode;
+        fnode.node_type = str("For");
+        fnode.data.for_loop.initialization = init;
+        fnode.data.for_loop.condition = cond;
+        fnode.data.for_loop.increment = incr;
+
+        mut body: list(ASTNode);
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
-            val t: Token = peek(ctx);
-            if t.token_type == TokenType.LBRACE {
-                depth = depth + 1;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    consume(ctx);
-                    break;
-                }
+
+            skip_whitespace(ctx);
+            if ctx.pos >= len(ctx.tokens) {
+                break;
             }
-            consume(ctx);
+
+            if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                consume(ctx); // skip '}'
+                break;
+            }
+
+            mut stmt: ASTNode = parse_statement_helper(ctx, addr_of(ctx.current_scope));
+            if str_len(stmt.node_type) > 0 {
+                append(body, stmt);
+            }
         }
-        
-        node.node_type = str("For");
-        return node;
+
+        unsafe {
+            val list_size: usize = C.sizeof(list(ASTNode));
+            val heap_list: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size));
+            if heap_list != nil {
+                C.memcpy(heap_list, addr_of(body), list_size);
+                fnode.children = heap_list;
+            }
+        }
+
+        return fnode;
     }
     
     // Handle PUT.

@@ -68,6 +68,53 @@ pub model string {
     }
 }
 
+/// Replace all non-overlapping occurrences of `from` in `s` with `to`.
+pub def replace_all(s: string, from: string, dest: string): string {
+    if str_len(from) == 0 {
+        return substring_se(s, 0, str_len(s));
+    }
+
+    mut result: string = str("");
+    mut i: i32 = 0;
+    mut n: i32 = cast[i32](str_len(s));
+    mut from_len: i32 = cast[i32](str_len(from));
+
+    loop {
+        if i >= n {
+            break;
+        }
+
+        mut j: i32 = 0;
+        mut match: bool = true;
+        loop {
+            if j >= from_len {
+                break;
+            }
+            if i + j >= n {
+                match = false;
+                break;
+            }
+            val ch_s: char = get_char(s, i + j);
+            val ch_f: char = get_char(from, j);
+            if ch_s != ch_f {
+                match = false;
+                break;
+            }
+            j = j + 1;
+        }
+
+        if match {
+            result = concat(result, dest);
+            i = i + from_len;
+        } else {
+            result = concat_chr(result, get_char(s, i));
+            i = i + 1;
+        }
+    }
+
+    return result;
+}
+
 /// Convert some i32 to a string.
 pub def i32_to_string(value: i32): string {
     unsafe {

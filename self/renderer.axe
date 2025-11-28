@@ -475,6 +475,8 @@ def process_expression(expr: string): string {
                     } elif (prev >= '0' and prev <= '9' and next == '.') or
                           (prev == '.' and next >= '0' and next <= '9') {
                         // Merge numeric fragments around the decimal point.
+                    } elif (prev == '+' and next == '=') or (prev == '-' and next == '=') {
+                        // Merge `+ =` or `- =` into `+=` / `-=` to avoid split operators in generated C.
                     } elif !is_ident_start(next) {
                         // Merge other token fragments such as `0 . 0`.
                     } else {
@@ -572,6 +574,8 @@ def process_expression(expr: string): string {
                 } elif (prev2 >= '0' and prev2 <= '9' and next2 == '.') or
                       (prev2 == '.' and next2 >= '0' and next2 <= '9') {
                     // Merge numeric fragments around the decimal point.
+                } elif (prev2 == '+' and next2 == '=') or (prev2 == '-' and next2 == '=') {
+                    // Merge `+ =` or `- =` into `+=` / `-=`.
                 } elif !is_ident_start(next2) {
                     // Drop the space between token characters (e.g. `0 . 0`).
                 } else {
@@ -1559,6 +1563,54 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
         
+        result = concat(result, str("}\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "For") {
+        val init_raw: string = ast.data.for_loop.initialization;
+        val cond_raw: string = ast.data.for_loop.condition;
+        val incr_raw: string = ast.data.for_loop.increment;
+
+        mut init: string = strip(init_raw);
+        mut cond: string = strip(cond_raw);
+        mut incr: string = strip(incr_raw);
+
+        if has_prefix(init, str("mut ")) {
+            init = strip(substr(init, 4, str_len(init) - 4));
+        }
+
+        mut header: string = str("int32_t ");
+        header = concat(header, init);
+        header = concat(header, str("; "));
+        header = concat(header, cond);
+        header = concat(header, str("; "));
+        header = concat(header, incr);
+
+        header = replace_all(header, str("+ ="), str("+="));
+        header = replace_all(header, str("- ="), str("-="));
+        header = replace_all(header, str("+  ="), str("+="));
+        header = replace_all(header, str("-  ="), str("-="));
+
+        val header_norm: string = process_expression(header);
+
+        result = concat(result, str("for ("));
+        result = concat(result, header_norm);
+        result = concat(result, str(") {\n"));
+
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i_for: i32 = 0;
+            loop {
+                if i_for >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr_of(children.data[i_for]));
+                result = concat(result, child_code);
+                i_for = i_for + 1;
+            }
+        }
+
         result = concat(result, str("}\n"));
         return result;
     }
