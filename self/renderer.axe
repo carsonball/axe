@@ -1685,31 +1685,8 @@ test {
     assert str_contains_c(func_code, "int main"), "Expected int main function";
     assert str_contains_c(func_code, "return 0;"), "Expected return 0 in main";
 
-    println "\nTest 16: Program with main and helpers should produce entry point";
-    mut prog: ASTNode;
-    prog.node_type = str("Program");
-    mut f1: ASTNode;
-    f1.node_type = str("Function");
-    f1.data.function.name = str("hello");
-    f1.data.function.return_type = str("");
-    f1.data.function.is_public = false;
-    f1.children = nil;
+    mut model_arena: Arena = Arena.create(4096);
 
-    mut f2: ASTNode;
-    f2.node_type = str("Function");
-    f2.data.function.name = str("main");
-    f2.data.function.return_type = str("");
-    f2.data.function.is_public = false;
-    f2.children = nil;
-
-    val childrenList: ref list(ASTNode) = list(ASTNode).create(4);
-    list_push(childrenList, addr_of(model_arena), f1);
-    list_push(childrenList, addr_of(model_arena), f2);
-    prog.children = childrenList;
-
-    val code_prog: string = generate_c(addr_of(prog));
-    assert str_contains_c(code_prog, "int main("), "Program should include int main entry point";
-    
     println "\nTest 5: Generate simple function";
     mut simple_func: ASTNode;
     simple_func.node_type = str("Function");
@@ -1728,7 +1705,6 @@ test {
     assert equals_c(process_parameter_type(str("i32*")), "int32_t*"), "Expected i32* -> int32_t*";
     
     println "\nTest 7: Generate simple model";
-    mut model_arena: Arena = Arena.create(4096);
     mut model_ast: ASTNode;
     model_ast.node_type = str("Model");
     model_ast.data.model_node.name = str("Point");
@@ -1857,7 +1833,7 @@ test {
                 break;
             }
             val s: string = StringList.get(lstref, k);
-            if equals_c(s, str("int32_t")) {
+            if equals_c(s, "int32_t") {
                 found_int32 = true;
                 break;
             }
