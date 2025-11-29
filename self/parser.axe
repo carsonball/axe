@@ -3145,12 +3145,6 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     println "\n[DEBUG]   member_name:";
                     print member_name;
 
-                    if !is_variable_declared(ident_name) {
-                        mut err: string = str("ERROR: Undeclared variable: ");
-                        err = concat(err, ident_name);
-                        enforce_raw(false, err.data);
-                        return node;
-                    }
                     if !is_variable_mutable(ident_name) {
                         mut err: string = str("ERROR: Cannot assign to member '");
                         err = concat(err, member_name);
