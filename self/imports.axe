@@ -157,7 +157,7 @@ def make_module_path(base_dir: string, use_module: string): string {
             mut tmp2: string = substring_se(use_module, j, j + 1);
             path_mod = concat(path_mod, tmp2);
         }
-        j = j + 1;
+        j++;
     }
 
     val rel3: string = concat(path_mod, str(".axe"));
