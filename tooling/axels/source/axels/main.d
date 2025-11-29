@@ -765,6 +765,13 @@ SymbolInfo analyzeSymbol(string word, string fullText, size_t line0, size_t char
             info.context = "parameter";
             return info;
         }
+
+        if (word.length >= 2 && word[0] >= 'A' && word[0] <= 'Z' && word[1] >= 'a' && word[1] <= 'z')
+        {
+            info.kind = SymbolKind.Model;
+            info.context = "type-like";
+            return info;
+        }
     }
 
     info.kind = SymbolKind.Variable;
@@ -795,13 +802,11 @@ string getDocStringAboveLine(string[] lines, size_t defLine)
     return parts.join("\n");
 }
 
-/// Determine whether the position is inside a string literal or a comment
+/// Determine whether the position is inside a comment (line or block)
 bool positionInStringOrComment(string text, size_t line0, size_t char0)
 {
     auto lines = text.splitLines();
     bool inBlock = false;
-    bool inString = false;
-    char quote = '\0';
 
     for (size_t ln = 0; ln <= line0 && ln < lines.length; ++ln)
     {
@@ -811,16 +816,6 @@ bool positionInStringOrComment(string text, size_t line0, size_t char0)
         for (size_t j = 0; j < limit && j < line.length; ++j)
         {
             char c = line[j];
-            char prev = (j > 0) ? line[j - 1] : '\0';
-            if (inString)
-            {
-                if (c == quote && prev != '\\')
-                {
-                    inString = false;
-                    quote = '\0';
-                }
-                continue;
-            }
             if (inBlock)
             {
                 if (c == '*' && j + 1 < line.length && line[j + 1] == '/')
@@ -832,13 +827,6 @@ bool positionInStringOrComment(string text, size_t line0, size_t char0)
             }
             if (inLineComment)
             {
-                continue;
-            }
-
-            if ((c == '"' || c == '\'') && prev != '\\')
-            {
-                inString = true;
-                quote = c;
                 continue;
             }
 
@@ -902,7 +890,7 @@ string getHoverText(SymbolInfo info)
     case SymbolKind.Builtin:
         return "**`" ~ info.name ~ "`** *(builtin)*\n\nBuilt-in function or type";
     case SymbolKind.Model:
-        return "**`model " ~ info.name ~ "`** *(model)*\n\nModel (struct) definition";
+        return "**`model " ~ info.name ~ "`** *(model)*\n\nModel definition or reference";
     case SymbolKind.Property:
         return "**`" ~ info.name ~ "`** *(property)*\n\nProperty or method access";
     case SymbolKind.Unknown:
