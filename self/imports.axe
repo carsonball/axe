@@ -416,7 +416,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
         mut child: ASTNode = children.data[i];
 
         if equals_c(child.node_type, "Use") {
-            i = i + 1;
+            i++;
             continue;
         }
 
@@ -439,10 +439,10 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                     break;
                 }
                 prefix_types_in_node(addr_of(pchildren.data[pi]), module_prefix, exported);
-                pi = pi + 1;
+                pi++;
             }
         }
-        i = i + 1;
+        i++;
     }
 }
 
