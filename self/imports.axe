@@ -207,11 +207,11 @@ def prefix_enum_node(node: ref ASTNode, module_prefix: string) {
     node.data.enum_node.name = pref;
 }
 
-def build_exported_name_map(imported: ref ASTNode): ref StringBoolMap {
+def build_exported_name_map(imported: ref ASTNode): StringBoolMap {
     mut arena: Arena = Arena.create(1024);
     mut m: StringBoolMap = deref(StringBoolMap.create(addr_of(arena), 128));
     if imported.children == nil {
-        return addr_of(m);
+        return m;
     }
 
     val children: ref list(ASTNode) = imported.children;
@@ -231,7 +231,7 @@ def build_exported_name_map(imported: ref ASTNode): ref StringBoolMap {
         i = i + 1;
     }
 
-    return addr_of(m);
+    return m;
 }
 
 def prefix_type_name(type_name: string, module_prefix: string, exported: ref StringBoolMap): string {
@@ -260,7 +260,7 @@ def prefix_type_name(type_name: string, module_prefix: string, exported: ref Str
         return concat(prefix_type_name(base, module_prefix, exported), str("[999]"));
     }
 
-    if StringBoolMap.contains(addr_of(exported), t) {
+    if StringBoolMap.contains(exported, t) {
         if !has_prefix(t, concat(module_prefix, str("__"))) {
             return concat(concat(module_prefix, str("__")), t);
         }
@@ -406,7 +406,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
     }
 
     val children: ref list(ASTNode) = imported.children;
-    val exported: ref StringBoolMap = build_exported_name_map(imported);
+    mut exported: StringBoolMap = build_exported_name_map(imported);
     mut i: i32 = 0;
     loop {
         if i >= len(deref(children)) {
@@ -422,10 +422,10 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
 
         if equals_c(child.node_type, "Function") {
             prefix_function_node(addr_of(child), module_prefix);
-            prefix_types_in_node(addr_of(child), module_prefix, exported);
+            prefix_types_in_node(addr_of(child), module_prefix, addr_of(exported));
         } elif equals_c(child.node_type, "Model") {
             prefix_model_node(addr_of(child), module_prefix);
-            prefix_types_in_node(addr_of(child), module_prefix, exported);
+            prefix_types_in_node(addr_of(child), module_prefix, addr_of(exported));
         } elif equals_c(child.node_type, "Enum") {
             prefix_enum_node(addr_of(child), module_prefix);
         }
@@ -438,7 +438,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                 if pi >= len(deref(pchildren)) {
                     break;
                 }
-                prefix_types_in_node(addr_of(pchildren.data[pi]), module_prefix, exported);
+                prefix_types_in_node(addr_of(pchildren.data[pi]), module_prefix, addr_of(exported));
                 pi++;
             }
         }
