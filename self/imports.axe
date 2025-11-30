@@ -330,6 +330,28 @@ def prefix_type_name(type_name: string, module_prefix: string, exported: ref Str
         return concat(prefix_type_name(base, module_prefix, exported), str("[999]"));
     }
 
+    if find_char_from(t, '_', 0) >= 0 {
+        val len_t: i32 = str_len(t);
+        mut has_double_underscore: bool = false;
+        mut i: i32 = 0;
+        loop {
+            if i + 1 >= len_t {
+                break;
+            }
+            val c1: char = get_char(t, i);
+            val c2: char = get_char(t, i + 1);
+            if c1 == '_' and c2 == '_' {
+                has_double_underscore = true;
+                break;
+            }
+            i++;
+        }
+
+        if has_double_underscore {
+            return t;
+        }
+    }
+
     if StringBoolMap.contains(exported, t) {
         if !has_prefix(t, concat(module_prefix, str("__"))) {
             return concat(concat(module_prefix, str("__")), t);
