@@ -139,9 +139,17 @@ def map_type(axe_type: string): string {
 
 /// Get canonical model C name from g_model_names
 def canonical_model_c_name(name: string): string {
+    println "[DBG-MODEL] canonical_model_c_name lookup:";
+    println name;
+
     if StringStringMap.contains(addr_of(g_model_names), name) {
-        return StringStringMap.get(addr_of(g_model_names), name);
+        val mapped: string = StringStringMap.get(addr_of(g_model_names), name);
+        println "[DBG-MODEL]   found canonical name:";
+        println mapped;
+        return mapped;
     }
+
+    println "[DBG-MODEL]   no canonical name found";
     return str("");
 }
 
@@ -234,6 +242,8 @@ def sanitize_list_element_name(c_elem: string): string {
         }
         i = i + 1;
     }
+    println "[DBG-ENUM] rewrite_enum_member_refs output:";
+    println out;
     return out;
 }
 
@@ -437,62 +447,47 @@ def c_prefix_end_index(s: string): i32 {
 }
 
 def rewrite_enum_member_refs(s: string): string {
-    mut out: string = str("");
-    mut i: i32 = 0;
-    loop {
-        if i >= str_len(s) {
-            break;
-        }
-        val ch: char = get_char(s, i);
-        if is_ident_start(ch) {
-            mut start: i32 = i;
-            mut j: i32 = i;
-            loop {
-                if j >= str_len(s) {
-                    break;
-                }
-                val cj: char = get_char(s, j);
-                if !is_token_char(cj) {
-                    break;
-                }
-                j = j + 1;
-            }
-            val ident: string = substring_se(s, start, j);
-            if j + 1 < str_len(s) and get_char(s, j) == '.' and is_ident_start(get_char(s, j + 1)) {
-                mut mstart: i32 = j + 1;
-                mut m: i32 = mstart;
-                loop {
-                    if m >= str_len(s) {
-                        break;
-                    }
-                    val cm: char = get_char(s, m);
-                    if !is_token_char(cm) {
-                        break;
-                    }
-                    m = m + 1;
-                }
-                val member: string = substring_se(s, mstart, m);
+    mut trimmed: string = strip(s);
 
-                val enum_c_name: string = canonical_model_c_name(ident);
-                if str_len(enum_c_name) > 0 and StringBoolMap.contains(addr_of(g_enum_names), enum_c_name) {
-                    mut repl: string = enum_c_name;
-                    repl = concat(repl, str("_"));
-                    repl = concat(repl, member);
-                    out = concat(out, repl);
-                    i = m;
-                    continue;
-                }
-            }
+    println "[DBG-ENUM] rewrite_enum_member_refs input:";
+    println trimmed;
 
-            out = concat(out, ident);
-            i = j;
-            continue;
-        }
-
-        out = concat_chr(out, ch);
-        i = i + 1;
+    if str_len(trimmed) == 0 {
+        return s;
     }
-    return out;
+
+    val dot_pos: i32 = find_char_from(trimmed, '.', 0);
+    if dot_pos <= 0 or dot_pos + 1 >= str_len(trimmed) {
+        println "[DBG-ENUM]   no dot pattern found";
+        return s;
+    }
+
+    val left_raw: string = strip(substring_se(trimmed, 0, dot_pos));
+    val right_raw: string = strip(substring_se(trimmed, dot_pos + 1, str_len(trimmed)));
+
+    if str_len(left_raw) == 0 or str_len(right_raw) == 0 {
+        println "[DBG-ENUM]   empty left/right after split";
+        return s;
+    }
+
+    println "[DBG-ENUM]   candidate enum/member:";
+    println left_raw;
+    println right_raw;
+
+    val enum_c_name: string = canonical_model_c_name(left_raw);
+    if str_len(enum_c_name) == 0 {
+        println "[DBG-ENUM]   canonical lookup failed";
+        return s;
+    }
+
+    mut repl: string = enum_c_name;
+    repl = concat(repl, str("_"));
+    repl = concat(repl, right_raw);
+
+    println "[DBG-ENUM]   rewritten to:";
+    println repl;
+
+    return repl;
 }
 
 def process_expression(expr: string): string {
@@ -619,7 +614,9 @@ def process_expression(expr: string): string {
         val norm_no_sugar: string = strip(out_norm);
         println "[DBG-EXPR] no-sugar final:";
         println norm_no_sugar;
-        return norm_no_sugar;
+
+        val enum_fixed_no_sugar: string = rewrite_enum_member_refs(norm_no_sugar);
+        return strip(enum_fixed_no_sugar);
     }
 
     mut result: string = trimmed;
@@ -940,12 +937,10 @@ pub def generate_c(ast: ref ASTNode): string {
 
                     mut arena_local: Arena = Arena.create(256);
 
-                    if str_len(base) > 0 and !StringStringMap.contains(addr_of(g_model_names), base) {
+                    if str_len(base) > 0 {
                         StringStringMap.set(addr_of(g_model_names), addr_of(arena_local), base, cname);
                     }
-                    if !StringStringMap.contains(addr_of(g_model_names), cname) {
-                        StringStringMap.set(addr_of(g_model_names), addr_of(arena_local), cname, cname);
-                    }
+                    StringStringMap.set(addr_of(g_model_names), addr_of(arena_local), cname, cname);
                 }
                 mi++;
             }
@@ -1660,6 +1655,11 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
+        val enum_model_name: string = canonical_model_c_name(type_name);
+        if str_len(enum_model_name) > 0 and StringBoolMap.contains(addr_of(g_enum_names), enum_model_name) {
+            mapped_type = enum_model_name;
+        }
+
         if is_mutable {
             result = concat(result, mapped_type);
             result = concat(result, str(" "));
@@ -1851,6 +1851,94 @@ pub def generate_c(ast: ref ASTNode): string {
 
         mut out_lhs: string = fixed_var;
         mut out_rhs: string = processed_expr;
+        mut ri: i32 = 0;
+
+        loop {
+            if ri >= str_len(processed_expr) {
+                break;
+            }
+            val ws0: char = get_char(processed_expr, ri);
+            if ws0 != ' ' and ws0 != '\t' and ws0 != '\n' {
+                break;
+            }
+            ri = ri + 1;
+        }
+
+        if ri < str_len(processed_expr) and is_ident_start(get_char(processed_expr, ri)) {
+            mut istart: i32 = ri;
+            mut j: i32 = ri + 1;
+            loop {
+                if j >= str_len(processed_expr) {
+                    break;
+                }
+                val cj: char = get_char(processed_expr, j);
+                if !((cj >= 'a' and cj <= 'z') or (cj >= 'A' and cj <= 'Z') or (cj >= '0' and cj <= '9') or cj == '_') {
+                    break;
+                }
+                j = j + 1;
+            }
+
+            val enum_ident: string = substring_se(processed_expr, istart, j);
+
+            mut k: i32 = j;
+            loop {
+                if k >= str_len(processed_expr) {
+                    break;
+                }
+                val ws1: char = get_char(processed_expr, k);
+                if ws1 != ' ' and ws1 != '\t' and ws1 != '\n' {
+                    break;
+                }
+                k = k + 1;
+            }
+
+            if k < str_len(processed_expr) and get_char(processed_expr, k) == '.' {
+                k = k + 1;
+                loop {
+                    if k >= str_len(processed_expr) {
+                        break;
+                    }
+                    val ws2: char = get_char(processed_expr, k);
+                    if ws2 != ' ' and ws2 != '\t' and ws2 != '\n' {
+                        break;
+                    }
+                    k = k + 1;
+                }
+
+                if k < str_len(processed_expr) and is_ident_start(get_char(processed_expr, k)) {
+                    mut mstart: i32 = k;
+                    mut m: i32 = k + 1;
+                    loop {
+                        if m >= str_len(processed_expr) {
+                            break;
+                        }
+                        val cm: char = get_char(processed_expr, m);
+                        if !((cm >= 'a' and cm <= 'z') or (cm >= 'A' and cm <= 'Z') or (cm >= '0' and cm <= '9') or cm == '_') {
+                            break;
+                        }
+                        m = m + 1;
+                    }
+
+                    val member: string = substring_se(processed_expr, mstart, m);
+                    val enum_c_name2: string = canonical_model_c_name(enum_ident);
+
+                    if str_len(enum_c_name2) > 0 {
+                        mut rebuilt: string = str("");
+                        if ri > 0 {
+                            rebuilt = substring_se(processed_expr, 0, ri);
+                        }
+                        rebuilt = concat(rebuilt, enum_c_name2);
+                        rebuilt = concat(rebuilt, str("_"));
+                        rebuilt = concat(rebuilt, member);
+                        if m < str_len(processed_expr) {
+                            val suffix: string = substring_se(processed_expr, m, str_len(processed_expr));
+                            rebuilt = concat(rebuilt, suffix);
+                        }
+                        out_rhs = rebuilt;
+                    }
+                }
+            }
+        }
 
         if has_prefix(processed_expr, str("->")) {
             val eq_pos: i32 = find_char_from(processed_expr, '=', 0);
