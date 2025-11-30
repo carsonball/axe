@@ -544,7 +544,6 @@ bool handleMachineArgs(string[] args)
         }
         else
         {
-            writeln("9 | Setting module name");
             setCurrentModuleName(moduleName);
             string cCode = "";
             if (args.canFind("--release"))
@@ -556,10 +555,10 @@ bool handleMachineArgs(string[] args)
             {
                 cCode = generateC(ast);
             }
-            writeln("10 | Emitting C code");
+            writeln("9 | Emitting C code");
             string ext = isAxec ? ".axec" : ".axe";
             std.file.write(replace(name, ext, ".c"), cCode);
-            writeln("10 | Checking parallelism");
+            writeln("10| Checking parallelism");
             bool needsOpenMP = hasParallelBlocks(ast) || hasParallelismImport() || name.canFind(
                 "parallelism.axec");
             bool makeDll = args.canFind("-dll");
@@ -748,7 +747,7 @@ bool handleMachineArgs(string[] args)
                 clangCmd ~= ["-o", replace(name, ext, ".exe")];
             }
 
-            writeln("11 | Lowering to LLVM/ASM");
+            writeln("11| Lowering to LLVM/ASM");
             auto e = execute(clangCmd);
             if (e[0] != 0)
             {
