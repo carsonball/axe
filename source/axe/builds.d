@@ -718,7 +718,7 @@ bool handleMachineArgs(string[] args)
                 }
             }
 
-            writeln("10 | Collecting external headers");
+            writeln("11| Collecting external headers");
             string[] externalHeaders;
             collectExternalHeaders(ast, externalHeaders);
             foreach (header; externalHeaders)
@@ -747,7 +747,7 @@ bool handleMachineArgs(string[] args)
                 clangCmd ~= ["-o", replace(name, ext, ".exe")];
             }
 
-            writeln("11| Lowering to LLVM/ASM");
+            writeln("12| Lowering to LLVM/ASM");
             auto e = execute(clangCmd);
             if (e[0] != 0)
             {

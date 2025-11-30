@@ -444,6 +444,15 @@ static class RendererConfiguration
 string generateC(ASTNode ast)
 {
     string cCode;
+    string[string] __typeMapCache;
+    string cachedMapAxeTypeToC(string t)
+    {
+        if (auto v = t in __typeMapCache)
+            return *v;
+        auto r = mapAxeTypeToC(t);
+        __typeMapCache[t] = r;
+        return r;
+    }
     string[string] variables;
     string currentFunction = "";
     string[] functionParams;
@@ -794,7 +803,7 @@ string generateC(ASTNode ast)
                     if (bracketPos > 0)
                     {
                         string elementType = declNode.typeName[0 .. bracketPos];
-                        string mappedElementType = mapAxeTypeToC(elementType);
+                        string mappedElementType = cachedMapAxeTypeToC(elementType);
                         g_listElementTypes[mappedElementType] = true;
                         debugWriteln("DEBUG: Scanned list type in declaration: ", mappedElementType);
                     }
@@ -829,7 +838,7 @@ string generateC(ASTNode ast)
                     {
                         elementType = elementType[4 .. $].strip();
                     }
-                    string cElementType = mapAxeTypeToC(elementType);
+                    string cElementType = cachedMapAxeTypeToC(elementType);
                     g_listElementTypes[cElementType] = true;
                 }
             }
@@ -848,7 +857,7 @@ string generateC(ASTNode ast)
                         {
                             elementType = elementType[4 .. $].strip();
                         }
-                        string cElementType = mapAxeTypeToC(elementType);
+                        string cElementType = cachedMapAxeTypeToC(elementType);
                         g_listElementTypes[cElementType] = true;
                     }
 
@@ -864,7 +873,7 @@ string generateC(ASTNode ast)
                                 {
                                     innerElementType = innerElementType[4 .. $].strip();
                                 }
-                                string innerCElementType = mapAxeTypeToC(innerElementType);
+                                string innerCElementType = cachedMapAxeTypeToC(innerElementType);
                                 g_listElementTypes[innerCElementType] = true;
                             }
 
@@ -880,7 +889,7 @@ string generateC(ASTNode ast)
                                         {
                                             nestedElementType = nestedElementType[4 .. $].strip();
                                         }
-                                        string nestedCElementType = mapAxeTypeToC(nestedElementType);
+                                        string nestedCElementType = cachedMapAxeTypeToC(nestedElementType);
                                         g_listElementTypes[nestedCElementType] = true;
                                     }
                                 }
@@ -941,7 +950,7 @@ string generateC(ASTNode ast)
                     if (baseAxeType.length == 0)
                         continue;
 
-                    string mapped = mapAxeTypeToC(baseAxeType);
+                    string mapped = cachedMapAxeTypeToC(baseAxeType);
 
                     if (mapped in modelMap && mapped != cName)
                     {
@@ -1335,7 +1344,7 @@ string generateC(ASTNode ast)
                 foreach (info; paramInfos)
                 {
                     g_varType[info.name] = info.type;
-                    string mappedType = mapAxeTypeToC(info.type);
+                    string mappedType = cachedMapAxeTypeToC(info.type);
                     if (info.type.canFind("*") || mappedType.canFind("*"))
                     {
                         g_refDepths[info.name] = 1;
@@ -1675,7 +1684,7 @@ string generateC(ASTNode ast)
     case "ArrayDeclaration":
         auto arrayNode = cast(ArrayDeclarationNode) ast;
         debugWriteln("DEBUG ArrayDeclaration: elementType='", arrayNode.elementType, "' name='", arrayNode.name, "'");
-        string mappedElementType = mapAxeTypeToC(arrayNode.elementType);
+        string mappedElementType = cachedMapAxeTypeToC(arrayNode.elementType);
         debugWriteln("DEBUG ArrayDeclaration: mappedElementType='", mappedElementType, "'");
         string arrayType = arrayNode.isMutable ? mappedElementType : "const " ~ mappedElementType;
 
@@ -1748,7 +1757,7 @@ string generateC(ASTNode ast)
             if (bracketPos999 > 0)
             {
                 string elementType = declNode.typeName[0 .. bracketPos999];
-                string mappedElementType = mapAxeTypeToC(elementType);
+                string mappedElementType = cachedMapAxeTypeToC(elementType);
                 g_listOfTypes[declNode.name] = mappedElementType;
                 g_listElementTypes[mappedElementType] = true;
                 listStructName = "__list_" ~ mappedElementType.replace("*", "_ptr").replace(" ", "_") ~ "_t";
@@ -1766,11 +1775,11 @@ string generateC(ASTNode ast)
             {
                 arrayPart = declNode.typeName[bracketPos .. $];
                 string rawBaseType = declNode.typeName[0 .. bracketPos].strip();
-                baseType = mapAxeTypeToC(rawBaseType);
+                baseType = cachedMapAxeTypeToC(rawBaseType);
             }
             else
             {
-                baseType = mapAxeTypeToC(declNode.typeName);
+                baseType = cachedMapAxeTypeToC(declNode.typeName);
             }
         }
         else
@@ -2198,7 +2207,7 @@ string generateC(ASTNode ast)
         foreach (i, varName; parallelLocalNode.privateVars)
         {
             string typeStr = parallelLocalNode.privateTypes[i];
-            string cType = mapAxeTypeToC(typeStr);
+            string cType = cachedMapAxeTypeToC(typeStr);
 
             cCode ~= cType ~ " " ~ varName ~ ";\n";
         }
@@ -2451,7 +2460,7 @@ string generateC(ASTNode ast)
 
             foreach (i, typeName; overloadNode.typeNames)
             {
-                string mappedType = mapAxeTypeToC(typeName);
+                string mappedType = cachedMapAxeTypeToC(typeName);
                 string baseName = overloadNode.targetFunctions[i];
                 string cTargetName = baseName;
 
@@ -2595,11 +2604,11 @@ string generateC(ASTNode ast)
                                 {
                                     nestedArrayPart = nestedField.type[nestedBracketPos .. $];
                                     string nestedRawBaseType = nestedField.type[0 .. nestedBracketPos].strip();
-                                    nestedType = mapAxeTypeToC(nestedRawBaseType);
+                                    nestedType = cachedMapAxeTypeToC(nestedRawBaseType);
                                 }
                                 else
                                 {
-                                    nestedType = mapAxeTypeToC(nestedField.type);
+                                    nestedType = cachedMapAxeTypeToC(nestedField.type);
                                 }
                             }
 
@@ -2642,11 +2651,11 @@ string generateC(ASTNode ast)
                             {
                                 innerArrayPart = inner.type[innerBracketPos .. $];
                                 string innerRawBaseType = inner.type[0 .. innerBracketPos].strip();
-                                innerType = mapAxeTypeToC(innerRawBaseType);
+                                innerType = cachedMapAxeTypeToC(innerRawBaseType);
                             }
                             else
                             {
-                                innerType = mapAxeTypeToC(inner.type);
+                                innerType = cachedMapAxeTypeToC(inner.type);
                             }
                         }
 
@@ -2698,11 +2707,11 @@ string generateC(ASTNode ast)
                 {
                     arrayPart = field.type[bracketPos .. $];
                     string rawBaseType = field.type[0 .. bracketPos].strip();
-                    fieldType = mapAxeTypeToC(rawBaseType);
+                    fieldType = cachedMapAxeTypeToC(rawBaseType);
                 }
                 else
                 {
-                    fieldType = mapAxeTypeToC(field.type);
+                    fieldType = cachedMapAxeTypeToC(field.type);
                 }
             }
 
@@ -2901,7 +2910,7 @@ string generateC(ASTNode ast)
 
         /*        
         string returnType = externNode.returnType.length > 0 ? 
-            mapAxeTypeToC(externNode.returnType) : "void";
+            cachedMapAxeTypeToC(externNode.returnType) : "void";
         
         string[] cParams;
         foreach (param; externNode.params)
@@ -2912,7 +2921,7 @@ string generateC(ASTNode ast)
             {
                 string paramName = param[0 .. colonPos].strip();
                 string paramType = param[colonPos + 1 .. $].strip();
-                string cType = mapAxeTypeToC(paramType);
+                string cType = cachedMapAxeTypeToC(paramType);
                 cParams ~= cType ~ " " ~ paramName;
             }
         }
