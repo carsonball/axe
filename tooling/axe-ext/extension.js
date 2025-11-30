@@ -127,7 +127,6 @@ function activate(context) {
 
     startPromise.then(() => {
         outputChannel.appendLine('✓ Language client started and ready!');
-        outputChannel.appendLine('✓ Hover and completion should now work.');
         outputChannel.appendLine('Try opening a .axe file and pressing Ctrl+Space for completions.');
         console.log('[axe-ext] Language client started successfully');
     }).catch((err) => {
@@ -319,7 +318,33 @@ To restart the server, run command: "Axe: Restart Language Server"`;
         outputChannel.show(true);
     });
 
-    context.subscriptions.push(showDebug, restartServer, testCompletion, testHover);
+    const testDocumentSymbols = vscode.commands.registerCommand('axe.lsp.testDocumentSymbols', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return vscode.window.showErrorMessage('No active editor');
+
+        outputChannel.appendLine('\n=== Testing Document Symbols ===');
+        try {
+            const symbols = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', editor.document.uri);
+            if (!symbols || symbols.length === 0) {
+                outputChannel.appendLine('✗ No document symbols returned');
+                vscode.window.showInformationMessage('Axe LSP: no document symbols returned (check output)');
+            } else {
+                outputChannel.appendLine(`✓ Got ${symbols.length} symbol(s)`);
+                symbols.slice(0, 50).forEach(s => {
+                    try {
+                        outputChannel.appendLine(`  - ${s.name} (${s.kind})`);
+                    } catch (e) {
+                        outputChannel.appendLine(`  - [symbol] ${JSON.stringify(s)}`);
+                    }
+                });
+            }
+        } catch (err) {
+            outputChannel.appendLine('✗ Error executing documentSymbolProvider: ' + err);
+        }
+        outputChannel.show(true);
+    });
+
+    context.subscriptions.push(showDebug, restartServer, testCompletion, testHover, testDocumentSymbols);
 }
 
 function deactivate() {

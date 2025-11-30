@@ -54,6 +54,7 @@ echo 'Content-Length: 52\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"initialize"}' 
 - `textDocument/completion` - Code completion
 - `textDocument/definition` - Go to definition (stub)
 - `textDocument/diagnostic` - Diagnostics (stub)
+- `textDocument/documentSymbol` - Document outline / symbols (now supported)
 
 ## Roadmap
 

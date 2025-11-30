@@ -349,7 +349,7 @@ void handleInitialize(LspRequest req)
         string response = `{"jsonrpc":"2.0","id":` ~ req.id.toString() ~
             `,"result":{"capabilities":` ~
             `{"textDocumentSync":1,"hoverProvider":true,"definitionProvider":true,` ~
-            `"completionProvider":{"triggerCharacters":["."]}}}}`;
+            `"completionProvider":{"triggerCharacters":["."]},"documentSymbolProvider":true}}}`;
         debugLog("Sending initialize response");
         debugLog("Response: ", response);
         writeMessage(response);
@@ -1085,6 +1085,197 @@ void handleCompletion(LspRequest req)
     sendResponse(req.id, result);
 }
 
+/// Handle documentSymbol request
+void handleDocumentSymbol(LspRequest req)
+{
+    debugLog("Handling documentSymbol request");
+
+    auto params = req.params;
+    if (params.type != JSONType.object)
+    {
+        debugLog("documentSymbol: params not an object");
+        JSONValue[] emptyArr;
+        sendResponse(req.id, JSONValue(emptyArr));
+        return;
+    }
+
+    auto pObj = params.object;
+    if (!("textDocument" in pObj))
+    {
+        debugLog("documentSymbol: missing textDocument");
+        JSONValue[] emptyArr;
+        sendResponse(req.id, JSONValue(emptyArr));
+        return;
+    }
+
+    auto td = pObj["textDocument"].object;
+    string uri = td["uri"].str;
+
+    auto it = uri in g_openDocs;
+    string text;
+    if (it is null)
+    {
+        try
+        {
+            text = readText(uriToPath(uri));
+        }
+        catch (Exception)
+        {
+            JSONValue[] emptyArr;
+            sendResponse(req.id, JSONValue(emptyArr));
+            return;
+        }
+    }
+    else
+    {
+        text = *it;
+    }
+
+    JSONValue[] results;
+
+    auto lines = text.splitLines();
+    foreach (idx, ln; lines)
+    {
+        auto t = ln.strip();
+        if (t.length == 0) continue;
+
+        if (t.startsWith("def ") || t.startsWith("pub def "))
+        {
+            string name;
+            size_t pos;
+            if (auto p = ln.indexOf("def") >= 0)
+            {
+                pos = cast(size_t) ln.indexOf("def");
+                size_t start = pos + 3;
+                while (start < ln.length && ln[start] == ' ') ++start;
+                size_t end = start;
+                while (end < ln.length && wordChars.canFind(ln[end])) ++end;
+                name = ln[start .. end];
+
+                JSONValue symbol;
+                symbol["name"] = name.length > 0 ? name : t;
+                symbol["kind"] = 12L;
+
+                JSONValue range;
+                JSONValue sPos;
+                JSONValue ePos;
+                sPos["line"] = cast(long) idx;
+                sPos["character"] = cast(long) pos;
+                ePos["line"] = cast(long) idx;
+                ePos["character"] = cast(long) (pos + name.length);
+                range["start"] = sPos;
+                range["end"] = ePos;
+
+                symbol["range"] = range;
+                symbol["selectionRange"] = range;
+
+                results ~= symbol;
+            }
+        }
+
+        else if (t.startsWith("model "))
+        {
+            size_t pos = cast(size_t) ln.indexOf("model");
+            size_t start = pos + 5;
+            while (start < ln.length && ln[start] == ' ') ++start;
+            size_t end = start;
+            while (end < ln.length && wordChars.canFind(ln[end])) ++end;
+            string name = ln[start .. end];
+
+            JSONValue symbol;
+            symbol["name"] = name.length > 0 ? name : t;
+            symbol["kind"] = 5L;
+
+            JSONValue range;
+            JSONValue sPos;
+            JSONValue ePos;
+            sPos["line"] = cast(long) idx;
+            sPos["character"] = cast(long) pos;
+            ePos["line"] = cast(long) idx;
+            ePos["character"] = cast(long) (pos + name.length);
+            range["start"] = sPos;
+            range["end"] = ePos;
+
+            symbol["range"] = range;
+            symbol["selectionRange"] = range;
+
+            results ~= symbol;
+        }
+
+        else if (t.startsWith("enum "))
+        {
+            size_t pos = cast(size_t) ln.indexOf("enum");
+            size_t start = pos + 4;
+            while (start < ln.length && ln[start] == ' ') ++start;
+            size_t end = start;
+            while (end < ln.length && wordChars.canFind(ln[end])) ++end;
+            string name = ln[start .. end];
+
+            JSONValue symbol;
+            symbol["name"] = name.length > 0 ? name : t;
+            symbol["kind"] = 10L; // Enum
+
+            JSONValue range;
+            JSONValue sPos;
+            JSONValue ePos;
+            sPos["line"] = cast(long) idx;
+            sPos["character"] = cast(long) pos;
+            ePos["line"] = cast(long) idx;
+            ePos["character"] = cast(long) (pos + name.length);
+            range["start"] = sPos;
+            range["end"] = ePos;
+
+            symbol["range"] = range;
+            symbol["selectionRange"] = range;
+
+            results ~= symbol;
+        }
+
+        else if (t.startsWith("val ") || t.startsWith("mut "))
+        {
+            size_t pos = 0;
+            if (auto p = ln.indexOf("val") >= 0)
+                pos = cast(size_t) ln.indexOf("val");
+            else if (auto p2 = ln.indexOf("mut") >= 0)
+                pos = cast(size_t) ln.indexOf("mut");
+
+            size_t start = pos;
+            string name;
+            size_t after = pos;
+            if (ln.canFind("val ")) after = cast(size_t) ln.indexOf("val") + 3;
+            else if (ln.canFind("mut ")) after = cast(size_t) ln.indexOf("mut") + 3;
+            while (after < ln.length && ln[after] == ' ') ++after;
+            size_t end = after;
+            while (end < ln.length && wordChars.canFind(ln[end])) ++end;
+            name = ln[after .. end];
+
+            if (name.length > 0)
+            {
+                JSONValue symbol;
+                symbol["name"] = name;
+                symbol["kind"] = 13L;
+                JSONValue range;
+                JSONValue sPos;
+                JSONValue ePos;
+                sPos["line"] = cast(long) idx;
+                sPos["character"] = cast(long) pos;
+                ePos["line"] = cast(long) idx;
+                ePos["character"] = cast(long) (pos + name.length);
+                range["start"] = sPos;
+                range["end"] = ePos;
+
+                symbol["range"] = range;
+                symbol["selectionRange"] = range;
+
+                results ~= symbol;
+            }
+        }
+    }
+
+    sendResponse(req.id, JSONValue(results));
+    debugLog("documentSymbol: returned ", results.length, " symbols for ", uri);
+}
+
 /// Search for a function definition for `word` inside a single file's text
 bool findDefinitionInText(string text, string word, out size_t foundLine, out size_t foundChar)
 {
@@ -1321,6 +1512,9 @@ void dispatch(LspRequest req)
         break;
     case "textDocument/completion":
         handleCompletion(req);
+        break;
+    case "textDocument/documentSymbol":
+        handleDocumentSymbol(req);
         break;
     default:
         debugLog("Unknown method: ", req.method);
