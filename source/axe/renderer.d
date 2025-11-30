@@ -1801,7 +1801,7 @@ string generateC(ASTNode ast)
         if (declNode.initializer.length == 0 && declNode.typeName.length > 0)
         {
             dchar first = declNode.typeName[0];
-            if (first >= 'A' && first <= 'Z')
+            if (first >= 'A' && first <= 'Z' && !declNode.typeName.endsWith("[999]"))
             {
                 decl ~= " = {}";
             }
