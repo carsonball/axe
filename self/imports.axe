@@ -315,6 +315,7 @@ def prefix_type_name(type_name: string, module_prefix: string, exported: ref Str
         val rest: string = strip(substr(t, 4, str_len(t) - 4));
         return concat(str("ref "), prefix_type_name(rest, module_prefix, exported));
     }
+    
     if has_prefix(t, str("mut ")) {
         val rest: string = strip(substr(t, 4, str_len(t) - 4));
         return concat(str("mut "), prefix_type_name(rest, module_prefix, exported));
