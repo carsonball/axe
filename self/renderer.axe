@@ -247,6 +247,155 @@ def sanitize_list_element_name(c_elem: string): string {
     return out;
 }
 
+/// Rewrite Axe-style cast expressions of the form
+///   `cast [ T ] ( expr )`
+/// into  C-style casts using the mapped C type, e.g.:
+///   `(int32_t)(expr)`
+def rewrite_casts(expr: string): string {
+    mut out: string = str("");
+    mut i: i32 = 0;
+    mut in_string: bool = false;
+
+    loop {
+        if i >= str_len(expr) {
+            break;
+        }
+
+        val ch: char = get_char(expr, i);
+
+        if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
+            in_string = !in_string;
+            out = concat_chr(out, ch);
+            i = i + 1;
+            continue;
+        }
+
+        if !in_string and is_ident_start(ch) {
+            mut ident: string = str("");
+            mut j: i32 = i;
+            loop {
+                if j >= str_len(expr) {
+                    break;
+                }
+                val cj: char = get_char(expr, j);
+                if !is_token_char(cj) {
+                    break;
+                }
+                ident = concat_chr(ident, cj);
+                j = j + 1;
+            }
+
+            if str_len(ident) == 4 and get_char(ident, 0) == 'c' and get_char(ident, 1) == 'a' and get_char(ident, 2) == 's' and get_char(ident, 3) == 't' {
+                mut k: i32 = j;
+                loop {
+                    if k >= str_len(expr) {
+                        break;
+                    }
+                    val ws: char = get_char(expr, k);
+                    if ws != ' ' and ws != '\t' and ws != '\n' {
+                        break;
+                    }
+                    k = k + 1;
+                }
+
+                if k < str_len(expr) and get_char(expr, k) == '[' {
+                    mut t_start: i32 = k + 1;
+                    mut t_end: i32 = -1;
+                    mut in_str_type: bool = false;
+                    mut p: i32 = t_start;
+                    loop {
+                        if p >= str_len(expr) {
+                            break;
+                        }
+                        val ct: char = get_char(expr, p);
+                        if ct == '"' and (p == 0 or get_char(expr, p - 1) != '\\') {
+                            in_str_type = !in_str_type;
+                        }
+                        if !in_str_type and ct == ']' {
+                            t_end = p;
+                            break;
+                        }
+                        p = p + 1;
+                    }
+
+                    if t_end > t_start {
+                        val type_raw: string = strip(substring_se(expr, t_start, t_end));
+
+                        mut a: i32 = t_end + 1;
+                        loop {
+                            if a >= str_len(expr) {
+                                break;
+                            }
+                            val wa: char = get_char(expr, a);
+                            if wa != ' ' and wa != '\t' and wa != '\n' {
+                                break;
+                            }
+                            a = a + 1;
+                        }
+
+                        if a < str_len(expr) and get_char(expr, a) == '(' {
+                            mut depth: i32 = 0;
+                            mut in_str_paren: bool = false;
+                            mut q: i32 = a;
+                            mut end_paren: i32 = -1;
+                            loop {
+                                if q >= str_len(expr) {
+                                    break;
+                                }
+                                val cp: char = get_char(expr, q);
+                                if cp == '"' and (q == 0 or get_char(expr, q - 1) != '\\') {
+                                    in_str_paren = !in_str_paren;
+                                }
+                                if !in_str_paren {
+                                    if cp == '(' {
+                                        depth = depth + 1;
+                                    } elif cp == ')' {
+                                        depth = depth - 1;
+                                        if depth == 0 {
+                                            end_paren = q;
+                                            break;
+                                        }
+                                    }
+                                }
+                                q = q + 1;
+                            }
+
+                            if end_paren >= 0 {
+                                val mapped_type: string = map_axe_type_to_c(type_raw);
+                                mut repl: string = str("(");
+
+                                repl = concat(repl, mapped_type);
+                                repl = concat(repl, str(")"));
+
+                                val inner_full: string = substring_se(expr, a, end_paren + 1);
+                                repl = concat(repl, inner_full);
+
+                                out = concat(out, repl);
+                                i = end_paren + 1;
+
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                out = concat(out, ident);
+                i = j;
+                continue;
+            }
+
+            out = concat(out, ident);
+            i = j;
+            continue;
+        }
+
+        out = concat_chr(out, ch);
+        i = i + 1;
+    }
+
+    return out;
+}
+
 /// Add a list element type to tracking structures (map + ordered list)
 def add_list_element(c_elem: string) {
     if str_len(c_elem) == 0 {
@@ -626,6 +775,8 @@ def process_expression(expr: string): string {
     mut has_pointer_sugar: bool = false;
     mut in_string: bool = false;
     mut i: i32 = 0;
+
+    trimmed = rewrite_casts(trimmed);
 
     loop {
         if i >= str_len(trimmed) {
