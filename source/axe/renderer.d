@@ -13,6 +13,7 @@ import axe.gstate;
 import axe.imports;
 import std.string;
 import std.array;
+import std.regex;
 import std.exception;
 import std.algorithm;
 import std.file;
@@ -63,6 +64,13 @@ private bool g_inTopLevel = false;
 private string g_currentModuleName = "";
 private bool[string] g_localFunctions;
 private string[string] g_globalVarPrefixes;
+
+private static immutable auto refCastPattern = regex(r"\(\s*ref\s*(\w+)\s*\)");
+private static immutable auto dimPattern = regex(r"\[([^\]]+)\]");
+private static immutable auto globalMatchRegex = regex(r":\s*:\s*([A-Za-z_][A-Za-z0-9_]*)");
+private static immutable auto cPrefixRegex = regex(r"\bC\s*\.\s*");
+private static immutable auto castPattern = regex(r"\bcast\s*\[\s*([^\]]+)\s*\]\s*\(\s*([^)]+)\s*\)");
+private static immutable auto lenPattern = regex(r"\blen\s*\(\s*([^)]+)\s*\)");
 
 void setCurrentModuleName(string moduleName)
 {
@@ -246,7 +254,6 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
             {
                 info.dimensions = cast(int) paramType.count('[');
 
-                auto dimPattern = regex(r"\[([^\]]+)\]");
                 foreach (match; matchAll(paramType, dimPattern))
                 {
                     info.dimNames ~= match[1].strip();
@@ -483,7 +490,9 @@ string generateC(ASTNode ast)
         string[][string] platformExternalHeaders;
         collectExternalImports(ast, globalExternalHeaders, platformExternalHeaders);
 
-        // First pass: collect all overload names so we don't treat them as functions
+        import std.array : appender;
+        auto headerApp = appender!string();
+
         bool[string] overloadNames;
 
         foreach (child; ast.children)
@@ -630,66 +639,68 @@ string generateC(ASTNode ast)
             }
         }
 
-        cCode ~= "#define nil ((void*)0)\n";
-        cCode ~= "#include <stdio.h>\n";
-        cCode ~= "#include <stdbool.h>\n";
-        cCode ~= "#include <stdlib.h>\n";
-        cCode ~= "#include <string.h>\n";
-        cCode ~= "#include <stdint.h>\n";
-        cCode ~= "\n";
+        headerApp.put("#define nil ((void*)0)\n");
+        headerApp.put("#include <stdio.h>\n");
+        headerApp.put("#include <stdbool.h>\n");
+        headerApp.put("#include <stdlib.h>\n");
+        headerApp.put("#include <string.h>\n");
+        headerApp.put("#include <stdint.h>\n");
+        headerApp.put("\n");
 
         version (Windows)
         {
-            cCode ~= `#ifndef NOMINMAX
+            headerApp.put(`#ifndef NOMINMAX
                       #define NOMINMAX
                       #endif
                       #define NOGDI
-                      #define WIN32_LEAN_AND_MEAN`;
-            cCode ~= "\n#include <windows.h>\n";
+                      #define WIN32_LEAN_AND_MEAN`);
+            headerApp.put("\n#include <windows.h>\n");
         }
 
-        cCode ~= "#ifndef _WIN32\n";
-        cCode ~= "#include <sys/stat.h>\n";
-        cCode ~= "#include <sys/types.h>\n";
-        cCode ~= "#include <sys/time.h>\n";
-        cCode ~= "#else\n";
-        cCode ~= "#include <sys/stat.h>\n";
-        cCode ~= "#include <sys/types.h>\n";
-        cCode ~= "#include <io.h>\n";
-        cCode ~= "#include <direct.h>\n";
-        cCode ~= "#endif\n";
+        headerApp.put("#ifndef _WIN32\n");
+        headerApp.put("#include <sys/stat.h>\n");
+        headerApp.put("#include <sys/types.h>\n");
+        headerApp.put("#include <sys/time.h>\n");
+        headerApp.put("#else\n");
+        headerApp.put("#include <sys/stat.h>\n");
+        headerApp.put("#include <sys/types.h>\n");
+        headerApp.put("#include <io.h>\n");
+        headerApp.put("#include <direct.h>\n");
+        headerApp.put("#endif\n");
 
         foreach (header; globalExternalHeaders)
         {
-            cCode ~= "#include <" ~ header ~ ">\n";
+            headerApp.put("#include <" ~ header ~ ">\n");
         }
 
         if (hasImportedModule("std/net") || hasImportedModule("net.axec"))
         {
-            cCode ~= "#include <curl/curl.h>\n";
+            headerApp.put("#include <curl/curl.h>\n");
         }
 
         if (hasImportedModule("std/json") || hasImportedModule("json.axec"))
         {
-            cCode ~= "#include <yyjson.h>\n";
+            headerApp.put("#include <yyjson.h>\n");
         }
 
         foreach (platformName, headers; platformExternalHeaders)
         {
             if (platformName == "windows")
-                cCode ~= "#ifdef _WIN32\n";
+                headerApp.put("#ifdef _WIN32\n");
             else if (platformName == "posix")
-                cCode ~= "#ifndef _WIN32\n";
+                headerApp.put("#ifndef _WIN32\n");
             else
                 continue;
 
             foreach (header; headers)
             {
-                cCode ~= "#include <" ~ header ~ ">\n";
+                headerApp.put("#include <" ~ header ~ ">\n");
             }
 
-            cCode ~= "#endif\n";
+            headerApp.put("#endif\n");
         }
+
+        cCode ~= headerApp.data;
 
         cCode ~= "\n";
         cCode ~= "int __axe_argc = 0;\n";
@@ -3398,7 +3409,7 @@ string processExpression(string expr, string context = "")
     // there is a local with the same name. Rewrite ::name (with optional
     // whitespace between the colons) to the fully-qualified C symbol
     // before any other processing.
-    auto globalMatches = matchAll(expr, regex(r":\s*:\s*([A-Za-z_][A-Za-z0-9_]*)"));
+    auto globalMatches = matchAll(expr, globalMatchRegex);
     foreach (m; globalMatches)
     {
         string fullMatch = m[0];
@@ -3437,10 +3448,10 @@ string processExpression(string expr, string context = "")
         }
     }
 
-    expr = expr.replaceAll(regex(r"\bC\s*\.\s*"), "");
+    expr = expr.replaceAll(cPrefixRegex, "");
 
     // Handle cast[Type](value) syntax -> (Type)(value)
-    auto castMatches = matchAll(expr, regex(r"\bcast\s*\[\s*([^\]]+)\s*\]\s*\(\s*([^)]+)\s*\)"));
+    auto castMatches = matchAll(expr, castPattern);
     foreach (match; castMatches)
     {
         string fullMatch = match[0];
@@ -3454,7 +3465,7 @@ string processExpression(string expr, string context = "")
         expr = expr.replace(fullMatch, replacement);
     }
 
-    auto lenMatches = matchAll(expr, regex(r"\blen\s*\(\s*([^)]+)\s*\)"));
+    auto lenMatches = matchAll(expr, lenPattern);
     foreach (match; lenMatches)
     {
         string fullMatch = match[0];
@@ -3892,10 +3903,10 @@ string processExpression(string expr, string context = "")
         expr = result;
     }
 
+
     {
         import std.regex : matchAll;
 
-        auto refCastPattern = regex(r"\(\s*ref\s*(\w+)\s*\)");
         auto matches = matchAll(expr, refCastPattern);
         foreach (match; matches)
         {
