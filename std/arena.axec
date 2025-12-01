@@ -30,7 +30,7 @@ pub model Arena {
     /// Destroys the arena and frees its memory.
     pub def destroy(arena: ref Arena) {
         unsafe {
-            C.free((ref void)arena*.buffer);
+            C.free(cast[ref void](arena*.buffer));
             arena*.buffer = 0;
             arena*.offset = 0;
             arena*.capacity = 0;
@@ -46,7 +46,7 @@ pub model Arena {
                 panic(error.create("Arena out of memory!\n"));
                 return nil;
             }
-            result = (ref void)(arena*.buffer + arena*.offset);
+            result = cast[ref void](arena*.buffer + arena*.offset);
             arena*.offset = arena*.offset + size;
             arena*.offset = (arena*.offset + 7) & ~7;
         }
@@ -64,7 +64,7 @@ pub model Arena {
     pub def reset(arena: ref Arena) {
         unsafe {
             arena*.offset = 0;
-            C.memset((ref void)arena*.buffer, 0, arena*.capacity);
+            C.memset(cast[ref void](arena*.buffer), 0, arena*.capacity);
         }
     }
 
