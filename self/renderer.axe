@@ -348,7 +348,7 @@ def rewrite_method_calls(expr: string): string {
                     } else {
                         full_name = base;
                     }
-                    full_name = concat(full_name, str("_"));
+                    full_name = concat(full_name, str("__"));
                     full_name = concat(full_name, method);
                     out = concat(out, full_name);
                     i = m;

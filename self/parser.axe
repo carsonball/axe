@@ -549,7 +549,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
 
                         val orig_name: string = method_node.data.function.name;
                         mut full_name: string = model_name;
-                        full_name = concat(full_name, str("_"));
+                        full_name = concat(full_name, str("__"));
                         full_name = concat(full_name, orig_name);
                         method_node.data.function.name = full_name;
 
@@ -566,7 +566,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 if str_len(method_node2.node_type) > 0 {
                     val orig_name2: string = method_node2.data.function.name;
                     mut full_name2: string = model_name;
-                    full_name2 = concat(full_name2, str("_"));
+                    full_name2 = concat(full_name2, str("__"));
                     full_name2 = concat(full_name2, orig_name2);
                     method_node2.data.function.name = full_name2;
                     add_child_to_ast(ast, method_node2);
