@@ -2072,6 +2072,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         continue;
                     }
                 }
+
                 if (t.token_type == TokenType.IDENTIFIER and compare(t.value, str("and")) == 0)
                    or t.token_type == TokenType.AND {
                     condition = concat(condition, str("&&"));
@@ -2080,6 +2081,14 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                        or t.token_type == TokenType.OR {
                     condition = concat(condition, str("||"));
                     condition = concat(condition, str(" "));
+                } elif t.token_type == TokenType.STR {
+                    condition = concat(condition, str("\""));
+                    condition = concat(condition, t.value);
+                    condition = concat(condition, str("\" "));
+                } elif t.token_type == TokenType.CHAR {
+                    condition = concat(condition, str("'"));
+                    condition = concat(condition, t.value);
+                    condition = concat(condition, str("' "));
                 } else {
                     condition = concat(condition, t.value);
                     condition = concat(condition, str(" "));

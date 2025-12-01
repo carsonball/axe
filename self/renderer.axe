@@ -816,6 +816,14 @@ def process_expression(expr: string): string {
         println expr;
         println "[DBG-EXPR] no-sugar/no-C trimmed:";
         println trimmed;
+
+        val single_quote_pos: i32 = find_char_from(trimmed, '\'', 0);
+        if single_quote_pos >= 0 {
+            val calls_fixed_chars: string = rewrite_function_calls(trimmed);
+            val enum_fixed_chars: string = rewrite_enum_member_refs(calls_fixed_chars);
+            return strip(enum_fixed_chars);
+        }
+
         // Even when there is no pointer sugar or C. prefix, we still need to
         // normalize spurious internal spaces that may have been introduced
         // between pieces of what should be a single token. Examples that have
@@ -829,9 +837,9 @@ def process_expression(expr: string): string {
         // normalization pass below on the already-trimmed expression.
 
         mut normalized_only: string = trimmed;
-
         mut out_norm: string = str("");
         mut jn: i32 = 0;
+        
         loop {
             if jn >= str_len(normalized_only) {
                 break;
