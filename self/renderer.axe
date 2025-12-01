@@ -2152,43 +2152,6 @@ pub def generate_c(ast: ref ASTNode): string {
                                 }
                                 pi = pi + 1;
                             }
-
-                            if close_p > open_p {
-                                mut semi_idx: i32 = -1;
-                                mut sj: i32 = str_len(last_line) - 1;
-                                loop {
-                                    if sj < 0 {
-                                        break;
-                                    }
-                                    if get_char(last_line, sj) == ';' {
-                                        semi_idx = sj;
-                                        break;
-                                    }
-                                    sj = sj - 1;
-                                }
-
-                                if semi_idx > 0 {
-                                    mut close_idx: i32 = semi_idx - 1;
-                                    loop {
-                                        if close_idx < 0 {
-                                            break;
-                                        }
-                                        val cc: char = get_char(last_line, close_idx);
-                                        if cc == ' ' or cc == '\t' or cc == '\n' {
-                                            close_idx = close_idx - 1;
-                                            continue;
-                                        }
-                                        break;
-                                    }
-
-                                    if close_idx >= 0 and get_char(last_line, close_idx) == ')' {
-                                        mut tmp: string = str("");
-                                        tmp = concat(tmp, substring_se(last_line, 0, close_idx));
-                                        tmp = concat(tmp, substring_se(last_line, close_idx + 1, str_len(last_line)));
-                                        line_fixed = tmp;
-                                    }
-                                }
-                            }
                         }
                     }
 
@@ -2222,43 +2185,6 @@ pub def generate_c(ast: ref ASTNode): string {
                                 break;
                             }
                             pi2 = pi2 + 1;
-                        }
-
-                        if close_p2 > open_p2 {
-                            mut semi_idx2: i32 = -1;
-                            mut sj2: i32 = str_len(line) - 1;
-                            loop {
-                                if sj2 < 0 {
-                                    break;
-                                }
-                                if get_char(line, sj2) == ';' {
-                                    semi_idx2 = sj2;
-                                    break;
-                                }
-                                sj2 = sj2 - 1;
-                            }
-
-                            if semi_idx2 > 0 {
-                                mut close_idx2: i32 = semi_idx2 - 1;
-                                loop {
-                                    if close_idx2 < 0 {
-                                        break;
-                                    }
-                                    val cc2: char = get_char(line, close_idx2);
-                                    if cc2 == ' ' or cc2 == '\t' or cc2 == '\n' {
-                                        close_idx2 = close_idx2 - 1;
-                                        continue;
-                                    }
-                                    break;
-                                }
-
-                                if close_idx2 >= 0 and get_char(line, close_idx2) == ')' {
-                                    mut tmp2: string = str("");
-                                    tmp2 = concat(tmp2, substring_se(line, 0, close_idx2));
-                                    tmp2 = concat(tmp2, substring_se(line, close_idx2 + 1, str_len(line)));
-                                    line_fixed2 = tmp2;
-                                }
-                            }
                         }
                     }
                 }
