@@ -1741,11 +1741,11 @@ pub def generate_c(ast: ref ASTNode): string {
         }
 
         val count: i32 = len(deref(type_names_ref));
+
         if count == 0 or count != len(deref(targets_ref)) {
             return result;
         }
 
-        // Begin macro definition
         result = concat(result, str("#define "));
         result = concat(result, name);
         result = concat(result, str("("));
