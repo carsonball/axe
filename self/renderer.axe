@@ -371,7 +371,7 @@ def rewrite_method_calls(expr: string): string {
                             inner_sep = mi;
                             break;
                         }
-                        mi = mi + 1;
+                        mi++;
                     }
 
                     if inner_sep > 0 {
