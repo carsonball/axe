@@ -1968,6 +1968,14 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
+        // Record the declared Axe type for this variable so that later
+        // MemberAccess nodes can determine whether the base object should
+        // use '.' or '->' in generated C.
+        if str_len(var_name) > 0 and str_len(type_name) > 0 {
+            mut arena: Arena = Arena.create(256);
+            StringStringMap.set(addr_of(g_var_types), addr_of(arena), var_name, type_name);
+        }
+
         val enum_model_name: string = canonical_model_c_name(type_name);
         if str_len(enum_model_name) > 0 and StringBoolMap.contains(addr_of(g_enum_names), enum_model_name) {
             mapped_type = enum_model_name;
@@ -2303,23 +2311,36 @@ pub def generate_c(ast: ref ASTNode): string {
         println "\n[DBG-MEM]   raw value:";
         println value;
 
-        mut lhs: string = object_name;
+        mut access_op: string = str(".");
+        mut is_pointer: bool = false;
+        val trimmed_obj: string = strip(object_name);
+        val arrow_pos: i32 = find_char_from(trimmed_obj, '-', 0);
+        if arrow_pos >= 0 and find_char_from(trimmed_obj, '>', arrow_pos) >= 0 {
+            is_pointer = true;
+        } else {
+            if StringStringMap.contains(addr_of(g_var_types), trimmed_obj) {
+                val raw_type: string = StringStringMap.get(addr_of(g_var_types), trimmed_obj);
+                mut t: string = strip(raw_type);
 
-        lhs = concat(lhs, str("."));
-        lhs = concat(lhs, member_name);
+                if has_prefix(t, str("mut ")) {
+                    t = strip(substr(t, 4, str_len(t) - 4));
+                }
 
-        val processed_lhs: string = process_expression(lhs);
-
-        mut final_lhs: string = processed_lhs;
-        if has_prefix(final_lhs, str("->")) and str_len(object_name) > 0 {
-            mut base: string = strip(object_name);
-            if str_len(base) > 0 and get_char(base, str_len(base) - 1) == '*' {
-                base = strip(substring_se(base, 0, str_len(base) - 1));
+                if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
+                    is_pointer = true;
+                }
             }
-            final_lhs = concat(base, final_lhs);
         }
 
-        result = concat(result, final_lhs);
+        if is_pointer {
+            access_op = str("->");
+        }
+
+        mut lhs: string = trimmed_obj;
+        lhs = concat(lhs, access_op);
+        lhs = concat(lhs, member_name);
+
+        result = concat(result, lhs);
 
         if str_len(strip(value)) > 0 {
             val processed_value: string = strip(value);
