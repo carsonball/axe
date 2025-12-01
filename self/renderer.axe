@@ -376,11 +376,11 @@ def rewrite_method_calls(expr: string): string {
 
                     if inner_sep > 0 {
                         val inner_model: string = substring_se(method, 0, inner_sep);
-
                         mut base_tail: string = base;
                         mut bsep: i32 = -1;
                         mut bi: i32 = 0;
                         val blen: i32 = str_len(base);
+
                         loop {
                             if bi + 1 >= blen {
                                 break;
