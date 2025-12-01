@@ -2133,7 +2133,24 @@ pub def generate_c(ast: ref ASTNode): string {
 
                     val trimmed_last: string = strip(last_line);
                     if has_suffix(trimmed_last, str(");")) {
-                        val eq_pos: i32 = find_char_from(last_line, '=', 0);
+                        mut eq_pos: i32 = -1;
+                        mut in_string_eq: bool = false;
+                        mut ei: i32 = 0;
+                        loop {
+                            if ei >= str_len(last_line) {
+                                break;
+                            }
+                            val ec: char = get_char(last_line, ei);
+                            if ec == '"' and (ei == 0 or get_char(last_line, ei - 1) != '\\') {
+                                in_string_eq = !in_string_eq;
+                            }
+                            if ec == '=' and !in_string_eq {
+                                eq_pos = ei;
+                                break;
+                            }
+                            ei = ei + 1;
+                        }
+
                         if eq_pos >= 0 {
                             mut open_p: i32 = 0;
                             mut close_p: i32 = 0;
@@ -2152,6 +2169,43 @@ pub def generate_c(ast: ref ASTNode): string {
                                 }
                                 pi = pi + 1;
                             }
+
+                            if close_p == open_p + 1 {
+                                mut semi_idx: i32 = -1;
+                                mut sj: i32 = str_len(last_line) - 1;
+                                loop {
+                                    if sj < 0 {
+                                        break;
+                                    }
+                                    if get_char(last_line, sj) == ';' {
+                                        semi_idx = sj;
+                                        break;
+                                    }
+                                    sj = sj - 1;
+                                }
+
+                                if semi_idx > 0 {
+                                    mut close_idx: i32 = semi_idx - 1;
+                                    loop {
+                                        if close_idx < 0 {
+                                            break;
+                                        }
+                                        val cc: char = get_char(last_line, close_idx);
+                                        if cc == ' ' or cc == '\t' or cc == '\n' {
+                                            close_idx = close_idx - 1;
+                                            continue;
+                                        }
+                                        break;
+                                    }
+
+                                    if close_idx >= 0 and get_char(last_line, close_idx) == ')' {
+                                        mut tmp: string = str("");
+                                        tmp = concat(tmp, substring_se(last_line, 0, close_idx));
+                                        tmp = concat(tmp, substring_se(last_line, close_idx + 1, str_len(last_line)));
+                                        line_fixed = tmp;
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -2167,7 +2221,24 @@ pub def generate_c(ast: ref ASTNode): string {
 
                 val trimmed: string = strip(line);
                 if has_suffix(trimmed, str(");")) {
-                    val eq_pos2: i32 = find_char_from(line, '=', 0);
+                    mut eq_pos2: i32 = -1;
+                    mut in_string_eq2: bool = false;
+                    mut ei2: i32 = 0;
+                    loop {
+                        if ei2 >= str_len(line) {
+                            break;
+                        }
+                        val ec2: char = get_char(line, ei2);
+                        if ec2 == '"' and (ei2 == 0 or get_char(line, ei2 - 1) != '\\') {
+                            in_string_eq2 = !in_string_eq2;
+                        }
+                        if ec2 == '=' and !in_string_eq2 {
+                            eq_pos2 = ei2;
+                            break;
+                        }
+                        ei2 = ei2 + 1;
+                    }
+
                     if eq_pos2 >= 0 {
                         mut open_p2: i32 = 0;
                         mut close_p2: i32 = 0;
@@ -2185,6 +2256,43 @@ pub def generate_c(ast: ref ASTNode): string {
                                 break;
                             }
                             pi2 = pi2 + 1;
+                        }
+
+                        if close_p2 == open_p2 + 1 {
+                            mut semi_idx2: i32 = -1;
+                            mut sj2: i32 = str_len(line) - 1;
+                            loop {
+                                if sj2 < 0 {
+                                    break;
+                                }
+                                if get_char(line, sj2) == ';' {
+                                    semi_idx2 = sj2;
+                                    break;
+                                }
+                                sj2 = sj2 - 1;
+                            }
+
+                            if semi_idx2 > 0 {
+                                mut close_idx2: i32 = semi_idx2 - 1;
+                                loop {
+                                    if close_idx2 < 0 {
+                                        break;
+                                    }
+                                    val cc2: char = get_char(line, close_idx2);
+                                    if cc2 == ' ' or cc2 == '\t' or cc2 == '\n' {
+                                        close_idx2 = close_idx2 - 1;
+                                        continue;
+                                    }
+                                    break;
+                                }
+
+                                if close_idx2 >= 0 and get_char(line, close_idx2) == ')' {
+                                    mut tmp2: string = str("");
+                                    tmp2 = concat(tmp2, substring_se(line, 0, close_idx2));
+                                    tmp2 = concat(tmp2, substring_se(line, close_idx2 + 1, str_len(line)));
+                                    line_fixed2 = tmp2;
+                                }
+                            }
                         }
                     }
                 }
