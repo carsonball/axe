@@ -6,8 +6,8 @@ use lexer (Token);
 
 /// Macro definition modelure
 pub model MacroDef {
-    params: list(string);
-    body: list(Token);
+    params: ref list(string);
+    body: ref list(Token);
 }
 
 /// Parser context - holds state during parsing

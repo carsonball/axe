@@ -4223,6 +4223,85 @@ pub def generate_c(ast: ref ASTNode): string {
         return result;
     }
     
+    if equals_c(node_type, "IncDec") {
+        val variable: string = ast.data.inc_dec.variable;
+        val is_increment: bool = ast.data.inc_dec.is_increment;
+        
+        result = concat(result, variable);
+        if is_increment {
+            result = concat(result, str("++"));
+        } else {
+            result = concat(result, str("--"));
+        }
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "MemberIncDec") {
+        val object_name: string = ast.data.member_inc_dec.object_name;
+        val member_name: string = ast.data.member_inc_dec.member_name;
+        val is_increment: bool = ast.data.member_inc_dec.is_increment;
+        mut access_op: string = str(".");
+        val trimmed_obj: string = strip(object_name);
+
+        if StringStringMap.contains(addr(g_var_types), trimmed_obj) {
+            val raw_type: string = StringStringMap.get(addr(g_var_types), trimmed_obj);
+            mut t: string = strip(raw_type);
+            if has_prefix(t, str("mut ")) {
+                t = strip(substr(t, 4, str_len(t) - 4));
+            }
+            if has_prefix(t, str("ref ")) or has_suffix(t, str("*")) {
+                access_op = str("->");
+            }
+        }
+        
+        result = concat(result, trimmed_obj);
+        result = concat(result, access_op);
+        result = concat(result, member_name);
+        if is_increment {
+            result = concat(result, str("++"));
+        } else {
+            result = concat(result, str("--"));
+        }
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "PtrMemberIncDec") {
+        val ptr_object: string = ast.data.member_inc_dec.object_name;
+        val ptr_member: string = ast.data.member_inc_dec.member_name;
+        val ptr_is_inc: bool = ast.data.member_inc_dec.is_increment;
+        
+        result = concat(result, strip(ptr_object));
+        result = concat(result, str("->"));
+        result = concat(result, ptr_member);
+        if ptr_is_inc {
+            result = concat(result, str("++"));
+        } else {
+            result = concat(result, str("--"));
+        }
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
+    if equals_c(node_type, "PtrMemberAccess") {
+        val ptr_obj: string = ast.data.member_access.object_name;
+        val ptr_memb: string = ast.data.member_access.member_name;
+        val ptr_val: string = ast.data.member_access.value;
+        
+        result = concat(result, strip(ptr_obj));
+        result = concat(result, str("->"));
+        result = concat(result, ptr_memb);
+        
+        if str_len(strip(ptr_val)) > 0 {
+            result = concat(result, str(" = "));
+            val processed_ptr_val: string = process_expression(ptr_val);
+            result = concat(result, processed_ptr_val);
+        }
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
     return result;
 }
 
