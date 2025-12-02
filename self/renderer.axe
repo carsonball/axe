@@ -690,7 +690,7 @@ def rewrite_function_prefixes(expr: string): string {
 
         out = concat_chr(out, ch);
         if ch >= 'A' and ch <= 'Z' {
-            print "\n[DBG-RFXP-SKIP] Skipping uppercase char code ";
+            debug_print_raw "\n[DBG-RFXP-SKIP] Skipping uppercase char code ";
             print_i32(cast[i32](ch));
             print " (";
             print_char(ch);
@@ -1573,7 +1573,7 @@ def strip_all_c_prefixes(s: string): string {
 def rewrite_enum_member_refs(s: string): string {
     mut trimmed: string = strip(s);
 
-    println "\n[DBG-ENUM] rewrite_enum_member_refs input:";
+    debug_print_raw "\n[DBG-ENUM] rewrite_enum_member_refs input:";
     println trimmed;
 
     if str_len(trimmed) == 0 {
@@ -1582,7 +1582,7 @@ def rewrite_enum_member_refs(s: string): string {
 
     val dot_pos: i32 = find_char_from(trimmed, '.', 0);
     if dot_pos <= 0 or dot_pos + 1 >= str_len(trimmed) {
-        println "\n[DBG-ENUM]   no dot pattern found";
+        debug_print_raw "\n[DBG-ENUM]   no dot pattern found";
         return s;
     }
 
@@ -1590,17 +1590,17 @@ def rewrite_enum_member_refs(s: string): string {
     val right_raw: string = strip(substring_se(trimmed, dot_pos + 1, str_len(trimmed)));
 
     if str_len(left_raw) == 0 or str_len(right_raw) == 0 {
-        println "\n[DBG-ENUM]   empty left/right after split";
+        debug_print_raw "\n[DBG-ENUM]   empty left/right after split";
         return s;
     }
 
-    println "\n[DBG-ENUM]   candidate enum/member:";
-    println left_raw;
-    println right_raw;
+    debug_print_raw "\n[DBG-ENUM]   candidate enum/member:";
+    debug_print_str left_raw;
+    debug_print_str right_raw;
 
     val enum_c_name: string = canonical_model_c_name(left_raw);
     if str_len(enum_c_name) == 0 {
-        println "\n[DBG-ENUM]   canonical lookup failed";
+        debug_print_raw "\n[DBG-ENUM]   canonical lookup failed";
         return s;
     }
 
@@ -1608,8 +1608,8 @@ def rewrite_enum_member_refs(s: string): string {
     repl = concat(repl, str("_"));
     repl = concat(repl, right_raw);
 
-    println "\n[DBG-ENUM]   rewritten to:";
-    println repl;
+    debug_print_raw "\n[DBG-ENUM]   rewritten to:";
+    debug_print_str repl;
 
     return repl;
 }
@@ -1770,9 +1770,9 @@ def process_expression(expr: string): string {
     }
 
     if !has_pointer_sugar and !has_c_prefix {
-        println "\n[DBG-EXPR] no-sugar/no-C expr raw:";
+        debug_print_raw "\n[DBG-EXPR] no-sugar/no-C expr raw:";
         println expr;
-        println "\n[DBG-EXPR] no-sugar/no-C trimmed:";
+        debug_print_raw "\n[DBG-EXPR] no-sugar/no-C trimmed:";
         println trimmed;
 
         val single_quote_pos: i32 = find_char_from(trimmed, '\'', 0);
@@ -1860,7 +1860,7 @@ def process_expression(expr: string): string {
         }
 
         val norm_no_sugar: string = strip(out_norm);
-        println "\n[DBG-EXPR] no-sugar final:";
+        debug_print_raw "\n[DBG-EXPR] no-sugar final:";
         println norm_no_sugar;
 
         val methods_fixed: string = rewrite_method_calls(norm_no_sugar);
@@ -1871,9 +1871,9 @@ def process_expression(expr: string): string {
     }
 
     mut result: string = trimmed;
-    println "\n[DBG-EXPR] raw expr before sugar/C:";
+    debug_print_raw "\n[DBG-EXPR] raw expr before sugar/C:";
     println expr;
-    println "\n[DBG-EXPR] trimmed:";
+    debug_print_raw "\n[DBG-EXPR] trimmed:";
     println trimmed;
 
     if has_pointer_sugar {
@@ -1929,7 +1929,7 @@ def process_expression(expr: string): string {
     // used above to clean up spurious internal spaces within tokens such as
     // "0 . 0" or "reduce _angle" while preserving spaces between tokens.
     mut normalized: string = result;
-    println "\n[DBG-EXPR] after sugar/C before normalize:";
+    debug_print_raw "\n[DBG-EXPR] after sugar/C before normalize:";
     println normalized;
     mut out_final: string = str("");
     mut jf: i32 = 0;
@@ -3017,7 +3017,7 @@ pub def generate_c(ast: ref ASTNode): string {
     if equals_c(node_type, "Return") {
         result = concat(result, str("return "));
         mut expr: string = ast.data.return_node.expression;
-        println "\n[DEBUG] RENDERER raw return expr:";
+        debug_print_raw "\n[DEBUG] RENDERER raw return expr:";
         println expr;
 
         mut trimmed_ret: string = strip(expr);
@@ -3124,7 +3124,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
 
         if str_len(processed) == 0 {
-            println "\n[DBG-CALL] process_expression from Return:";
+            debug_print_raw "\n[DBG-CALL] process_expression from Return:";
             println expr;
             processed = process_expression(expr);
         }
@@ -3443,26 +3443,26 @@ pub def generate_c(ast: ref ASTNode): string {
         val variable: string = ast.data.assignment.variable;
         val expression: string = ast.data.assignment.expression;
         
-        println "\n[DBG-ASSIGN] Assignment node";
-        println "\n[DBG-ASSIGN]   raw variable:";
+        debug_print_raw "\n[DBG-ASSIGN] Assignment node";
+        debug_print_raw "\n[DBG-ASSIGN]   raw variable:";
         println variable;
-        println "\n[DBG-ASSIGN]   raw expression:";
+        debug_print_raw "\n[DBG-ASSIGN]   raw expression:";
         println expression;
 
-        println "\n[DBG-CALL] process_expression from Assignment.variable:";
+        debug_print_raw "\n[DBG-CALL] process_expression from Assignment.variable:";
         println variable;
         val processed_var: string = process_expression(variable);
-        println "\n[DBG-CALL] process_expression from Assignment.expression:";
+        debug_print_raw "\n[DBG-CALL] process_expression from Assignment.expression:";
         println expression;
         val processed_expr: string = process_expression(expression);
 
-        println "\n[DBG-ASSIGN]   processed variable:";
+        debug_print_raw "\n[DBG-ASSIGN]   processed variable:";
         println processed_var;
-        println "\n[DBG-ASSIGN]   processed expression:";
+        debug_print_raw "\n[DBG-ASSIGN]   processed expression:";
         println processed_expr;
         
         val pv: string = processed_var;
-        println "\n[DBG-ASSIGN]   pv before fix:";
+        debug_print_raw "\n[DBG-ASSIGN]   pv before fix:";
         println pv;
         mut fixed_var: string = str("");
         mut idx_av: i32 = 0;
@@ -3604,9 +3604,9 @@ pub def generate_c(ast: ref ASTNode): string {
                 out_lhs = concat(fixed_var, lhs_suffix);
                 out_rhs = strip(rhs_suffix);
 
-                println "\n[DBG-ASSIGN]   reconstructed LHS (arrow sugar):";
+                debug_print_raw "\n[DBG-ASSIGN]   reconstructed LHS (arrow sugar):";
                 println out_lhs;
-                println "\n[DBG-ASSIGN]   reconstructed RHS (arrow sugar):";
+                debug_print_raw "\n[DBG-ASSIGN]   reconstructed RHS (arrow sugar):";
                 println out_rhs;
             }
         }
@@ -3623,12 +3623,12 @@ pub def generate_c(ast: ref ASTNode): string {
         val member_name: string = ast.data.member_access.member_name;
         val value: string = ast.data.member_access.value;
         
-        println "\n[DBG-MEM] MemberAccess node";
-        println "\n[DBG-MEM]   object_name:";
+        debug_print_raw "\n[DBG-MEM] MemberAccess node";
+        debug_print_raw "\n[DBG-MEM]   object_name:";
         println object_name;
-        println "\n[DBG-MEM]   member_name:";
+        debug_print_raw "\n[DBG-MEM]   member_name:";
         println member_name;
-        println "\n[DBG-MEM]   raw value:";
+        debug_print_raw "\n[DBG-MEM]   raw value:";
         println value;
 
         mut access_op: string = str(".");
@@ -3665,7 +3665,7 @@ pub def generate_c(ast: ref ASTNode): string {
         mut trimmed_value: string = strip(value);
         if str_len(trimmed_value) > 0 {
             val processed_value: string = process_expression(trimmed_value);
-            println "\n[DEBUG]   processed value:";
+            debug_print_raw "\n[DEBUG]   processed value:";
             println processed_value;
             result = concat(result, str(" = "));
             result = concat(result, processed_value);
@@ -3678,16 +3678,16 @@ pub def generate_c(ast: ref ASTNode): string {
     if equals_c(node_type, "FunctionCall") {
         val func_name: string = ast.data.func_call.function_name;
 
-        println "\n[DBG-FUNCCALL] Looking up function:";
+        debug_print_raw "\n[DBG-FUNCCALL] Looking up function:";
         println func_name;
 
         mut emitted_name: string = func_name;
         if StringStringMap.contains(addr(g_function_prefixes), func_name) {
             emitted_name = StringStringMap.get(addr(g_function_prefixes), func_name);
-            println "\n[DBG-FUNCCALL]   Found prefix, emitting:";
+            debug_print_raw "\n[DBG-FUNCCALL]   Found prefix, emitting:";
             println emitted_name;
         } else {
-            println "\n[DBG-FUNCCALL]   No prefix found, emitting as-is";
+            debug_print_raw "\n[DBG-FUNCCALL]   No prefix found, emitting as-is";
         }
 
         result = concat(result, emitted_name);
@@ -3870,7 +3870,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val child_code: string = generate_c(addr(body.data[i_unsafe]));
-                println "\n[DBG-UNSAFE] Processing unsafe block child (index ";
+                debug_print_raw "\n[DBG-UNSAFE] Processing unsafe block child (index ";
                 print int_to_ascii(i_unsafe);
                 print ")\n";
                 println child_code;
@@ -3878,20 +3878,20 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_unsafe = i_unsafe + 1;
             }
         }
-        println "\n[DBG-UNSAFE] Before method call transformation:";
+        debug_print_raw "\n[DBG-UNSAFE] Before method call transformation:";
         println result;
         result = rewrite_method_calls(result);
-        println "\n[DBG-UNSAFE] After method call transformation:";
+        debug_print_raw "\n[DBG-UNSAFE] After method call transformation:";
         println result;
         result = rewrite_function_prefixes(result);
-        println "\n[DBG-UNSAFE] After function prefix transformation:";
+        debug_print_raw "\n[DBG-UNSAFE] After function prefix transformation:";
         println result;
         return result;
     }
 
     if equals_c(node_type, "RawC") {
         val raw_code: string = ast.data.raw_c.code;
-        println "\n[DBG-RAWC] RawC node emitting:";
+        debug_print_raw "\n[DBG-RAWC] RawC node emitting:";
         println raw_code;
         result = concat(result, raw_code);
         result = concat(result, str("\n"));
