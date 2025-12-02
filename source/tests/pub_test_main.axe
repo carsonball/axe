@@ -3,6 +3,6 @@ use pub_test_lib;
 def main() {
     pub_test_lib.public_func();
     
-    mut val m = PublicModel{};
+    mut m = PublicModel{};
     PublicModel.public_method();
 }
