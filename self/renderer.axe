@@ -252,76 +252,85 @@ def rewrite_pointer_member_accesses(expr: string): string {
     return out;
 }
 
-def build_function_prefixes(ast: ref ASTNode) {
-    StringStringMap.clear(addr(g_function_prefixes));
-
-    if ast == nil or ast.children == nil {
-        return;
-    }
-
-    val children: ref list(ASTNode) = ast.children;
-    mut i: i32 = 0;
+/// Register a single function name in g_function_prefixes
+def register_function_prefix(full_name: string) {
+    mut last_sep: i32 = -1;
+    mut j: i32 = 0;
+    val n: i32 = str_len(full_name);
     loop {
-        if i >= len(deref(children)) {
+        if j + 1 >= n {
             break;
         }
-        val child: ref ASTNode = addr(children.data[i]);
-        if equals_c(child.node_type, "Function") {
-            val full_name: string = child.data.function.name;
+        val c1: char = get_char(full_name, j);
+        val c2: char = get_char(full_name, j + 1);
+        if c1 == '_' and c2 == '_' {
+            last_sep = j;
+        }
+        j = j + 1;
+    }
 
-            mut last_sep: i32 = -1;
-            mut j: i32 = 0;
-            val n: i32 = str_len(full_name);
-            loop {
-                if j + 1 >= n {
-                    break;
-                }
-                val c1: char = get_char(full_name, j);
-                val c2: char = get_char(full_name, j + 1);
-                if c1 == '_' and c2 == '_' {
-                    last_sep = j;
-                }
-                j = j + 1;
+    if last_sep >= 0 and last_sep + 2 < n {
+        val short_name: string = substring_se(full_name, last_sep + 2, n);
+
+        if str_len(short_name) > 0 {
+            if !StringStringMap.contains(addr(g_function_prefixes), short_name) {
+                mut arena: Arena = Arena.create(1256);
+                StringStringMap.set(addr(g_function_prefixes), addr(arena), short_name, full_name);
             }
-
-            if last_sep >= 0 and last_sep + 2 < n {
-                val short_name: string = substring_se(full_name, last_sep + 2, n);
-
-                if str_len(short_name) > 0 {
-                    if !StringStringMap.contains(addr(g_function_prefixes), short_name) {
-                        mut arena: Arena = Arena.create(1256);
-                        StringStringMap.set(addr(g_function_prefixes), addr(arena), short_name, full_name);
-                    }
-                }
-                
-                mut second_last_sep: i32 = -1;
-                mut k: i32 = 0;
-                loop {
-                    if k >= last_sep {
-                        break;
-                    }
-                    val c1b: char = get_char(full_name, k);
-                    val c2b: char = get_char(full_name, k + 1);
-                    if c1b == '_' and c2b == '_' {
-                        second_last_sep = k;
-                    }
-                    k = k + 1;
-                }
-                
-                if second_last_sep >= 0 and second_last_sep + 2 < n {
-                    val partial_name: string = substring_se(full_name, second_last_sep + 2, n);
-                    if str_len(partial_name) > 0 {
-                        if !StringStringMap.contains(addr(g_function_prefixes), partial_name) {
-                            mut arena2: Arena = Arena.create(1256);
-                            StringStringMap.set(addr(g_function_prefixes), addr(arena2), partial_name, full_name);
-                        }
-                    }
+        }
+        
+        mut second_last_sep: i32 = -1;
+        mut k: i32 = 0;
+        loop {
+            if k >= last_sep {
+                break;
+            }
+            val c1b: char = get_char(full_name, k);
+            val c2b: char = get_char(full_name, k + 1);
+            if c1b == '_' and c2b == '_' {
+                second_last_sep = k;
+            }
+            k = k + 1;
+        }
+        
+        if second_last_sep >= 0 and second_last_sep + 2 < n {
+            val partial_name: string = substring_se(full_name, second_last_sep + 2, n);
+            if str_len(partial_name) > 0 {
+                if !StringStringMap.contains(addr(g_function_prefixes), partial_name) {
+                    mut arena2: Arena = Arena.create(1256);
+                    StringStringMap.set(addr(g_function_prefixes), addr(arena2), partial_name, full_name);
                 }
             }
         }
-
-        i++;
     }
+}
+
+/// Recursively collect function prefixes from an AST node
+def collect_function_prefixes(node: ref ASTNode) {
+    if node == nil {
+        return;
+    }
+    
+    if equals_c(node.node_type, "Function") {
+        register_function_prefix(node.data.function.name);
+    }
+    
+    if node.children != nil {
+        val children: ref list(ASTNode) = node.children;
+        mut i: i32 = 0;
+        loop {
+            if i >= len(deref(children)) {
+                break;
+            }
+            collect_function_prefixes(addr(children.data[i]));
+            i = i + 1;
+        }
+    }
+}
+
+def build_function_prefixes(ast: ref ASTNode) {
+    StringStringMap.clear(addr(g_function_prefixes));
+    collect_function_prefixes(ast);
 }
 
 /// Map Axe type to C type
@@ -334,17 +343,9 @@ def map_type(axe_type: string): string {
 
 /// Get canonical model C name from g_model_names
 def canonical_model_c_name(name: string): string {
-    println "\n[DBG-MODEL] canonical_model_c_name lookup:";
-    println name;
-
     if StringStringMap.contains(addr(g_model_names), name) {
-        val mapped: string = StringStringMap.get(addr(g_model_names), name);
-        println "\n[DBG-MODEL]   found canonical name:";
-        println mapped;
-        return mapped;
+        return StringStringMap.get(addr(g_model_names), name);
     }
-
-    println "\n[DBG-MODEL]   no canonical name found";
     return str("");
 }
 
@@ -437,8 +438,7 @@ def sanitize_list_element_name(c_elem: string): string {
         }
         i = i + 1;
     }
-    println "\n[DBG-ENUM] rewrite_enum_member_refs output:";
-    println out;    return out;
+    return out;
 }
 
 /// Collapse all duplicate segments in the specified string expression.
@@ -645,7 +645,9 @@ def rewrite_function_prefixes(expr: string): string {
             continue;
         }
 
-        if !in_string and is_ident_start(ch) {
+        val is_start: bool = is_ident_start(ch);
+
+        if !in_string and is_start {
             mut func_name: string = str("");
             mut j: i32 = i;
             loop {
@@ -687,6 +689,13 @@ def rewrite_function_prefixes(expr: string): string {
         }
 
         out = concat_chr(out, ch);
+        if ch >= 'A' and ch <= 'Z' {
+            print "\n[DBG-RFXP-SKIP] Skipping uppercase char code ";
+            print_i32(cast[i32](ch));
+            print " (";
+            print_char(ch);
+            println ")";
+        }
         i = i + 1;
     }
 
@@ -1334,10 +1343,15 @@ def process_interpolated_string(interp_content: string, return_struct: bool): st
 
 /// Process an expression string for C interop and pointer sugar
 def is_token_char(c: char): bool {
-    if (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') {
+    val c_code: i32 = cast[i32](c);
+    // 'a' = 97, 'z' = 122, 'A' = 65, 'Z' = 90, '0' = 48, '9' = 57
+    if c_code >= 97 and c_code <= 122 {
         return true;
     }
-    if c >= '0' and c <= '9' {
+    if c_code >= 65 and c_code <= 90 {
+        return true;
+    }
+    if c_code >= 48 and c_code <= 57 {
         return true;
     }
     if c == '_' {
@@ -1348,7 +1362,11 @@ def is_token_char(c: char): bool {
 
 /// Check if a character can start an identifier (letter or underscore)
 def is_ident_start(c: char): bool {
-    if (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') {
+    val c_code: i32 = cast[i32](c);
+    if c_code >= 97 and c_code <= 122 {
+        return true;
+    }
+    if c_code >= 65 and c_code <= 90 {
         return true;
     }
     if c == '_' {
@@ -1615,7 +1633,8 @@ def rewrite_function_calls(expr: string): string {
             continue;
         }
 
-        if !in_string and is_ident_start(ch) {
+        val is_id_start: bool = is_ident_start(ch);
+        if !in_string and is_id_start {
             mut ident: string = str("");
             mut j: i32 = i;
             loop {
@@ -2708,9 +2727,11 @@ pub def generate_c(ast: ref ASTNode): string {
         result = strip_all_c_prefixes(result);
         result = replace_all(result, str("C . "), str(""));
         result = replace_all(result, str("C."), str(""));
+        result = replace_all(result, str("C__"), str(""));
         result = collapse_duplicate_segments(result);
         result = rewrite_method_calls(result);
         result = rewrite_function_prefixes(result);
+        result = rewrite_sizeof_types(result);
         result = rewrite_pointer_member_accesses(result);
         result = normalize_numeric_dots(result);
     }
@@ -3657,9 +3678,16 @@ pub def generate_c(ast: ref ASTNode): string {
     if equals_c(node_type, "FunctionCall") {
         val func_name: string = ast.data.func_call.function_name;
 
+        println "\n[DBG-FUNCCALL] Looking up function:";
+        println func_name;
+
         mut emitted_name: string = func_name;
         if StringStringMap.contains(addr(g_function_prefixes), func_name) {
             emitted_name = StringStringMap.get(addr(g_function_prefixes), func_name);
+            println "\n[DBG-FUNCCALL]   Found prefix, emitting:";
+            println emitted_name;
+        } else {
+            println "\n[DBG-FUNCCALL]   No prefix found, emitting as-is";
         }
 
         result = concat(result, emitted_name);
@@ -3842,10 +3870,22 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val child_code: string = generate_c(addr(body.data[i_unsafe]));
+                println "\n[DBG-UNSAFE] Processing unsafe block child (index ";
+                print int_to_ascii(i_unsafe);
+                print ")\n";
+                println child_code;
                 result = concat(result, child_code);
                 i_unsafe = i_unsafe + 1;
             }
         }
+        println "\n[DBG-UNSAFE] Before method call transformation:";
+        println result;
+        result = rewrite_method_calls(result);
+        println "\n[DBG-UNSAFE] After method call transformation:";
+        println result;
+        result = rewrite_function_prefixes(result);
+        println "\n[DBG-UNSAFE] After function prefix transformation:";
+        println result;
         return result;
     }
 

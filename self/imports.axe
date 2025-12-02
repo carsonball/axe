@@ -189,12 +189,13 @@ def append_child(program: ref ASTNode, child: ASTNode) {
     }
 }
 
-def prefix_function_node(node: ref ASTNode, module_prefix: string) {
+def prefix_function_node(node: ref ASTNode, module_prefix: string, exported: ref StringBoolMap) {
     val name: string = node.data.function.name;
 
     if find_char_from(name, '_', 0) >= 0 {
         val len_name: i32 = str_len(name);
         mut has_double_underscore: bool = false;
+        mut first_underscore_idx: i32 = -1;
         mut i: i32 = 0;
         loop {
             if i + 1 >= len_name {
@@ -204,14 +205,17 @@ def prefix_function_node(node: ref ASTNode, module_prefix: string) {
             val c2: char = get_char(name, i + 1);
             if c1 == '_' and c2 == '_' {
                 has_double_underscore = true;
+                first_underscore_idx = i;
                 break;
             }
             i++;
         }
 
         if has_double_underscore {
-            // Already has a module-style prefix; leave as-is.
-            return;
+            val potential_model: string = substring_se(name, 0, first_underscore_idx);
+            if !StringBoolMap.contains(exported, potential_model) {
+                return;
+            }
         }
     }
 
@@ -543,7 +547,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                 i++;
                 continue;
             }
-            prefix_function_node(addr(child), module_prefix);
+            prefix_function_node(addr(child), module_prefix, addr(exported));
             prefix_types_in_node(addr(child), module_prefix, addr(exported));
         } elif equals_c(child.node_type, "Model") {
             prefix_model_node(addr(child), module_prefix);
