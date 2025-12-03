@@ -642,7 +642,7 @@ def rewrite_function_prefixes(expr: string): string {
         if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
             in_string = !in_string;
             out = concat_chr(out, ch);
-            i = i + 1;
+            i++;
             continue;
         }
 
@@ -660,7 +660,7 @@ def rewrite_function_prefixes(expr: string): string {
                     break;
                 }
                 func_name = concat_chr(func_name, cj);
-                j = j + 1;
+                j++;
             }
 
             mut k: i32 = j;
@@ -672,7 +672,7 @@ def rewrite_function_prefixes(expr: string): string {
                 if ws != ' ' and ws != '\t' and ws != '\n' {
                     break;
                 }
-                k = k + 1;
+                k++;
             }
 
             if k < str_len(expr) and get_char(expr, k) == '(' {
