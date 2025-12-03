@@ -4080,7 +4080,7 @@ pub def generate_c(ast: ref ASTNode): string {
     if equals_c(node_type, "RawC") {
         val raw_code: string = ast.data.raw_c.code;
         debug_print_raw "\n[DBG-RAWC] RawC node emitting:";
-        println raw_code;
+        debug_print_str raw_code;
         result = concat(result, raw_code);
         result = concat(result, str("\n"));
         return result;
@@ -4115,10 +4115,11 @@ pub def generate_c(ast: ref ASTNode): string {
 
                 val field_name: string = field_names.data[field_idx];
                 val field_type: string = field_types.data[field_idx];
-
                 mut field_key: string = model_name;
+
                 field_key = concat(field_key, str("."));
                 field_key = concat(field_key, field_name);
+                
                 StringStringMap.set(addr(g_field_types), addr(arena), field_key, field_type);
 
                 if str_len(field_type) == 5 and equals_c(field_type, "union") and union_parents != nil and union_names != nil and union_types != nil {
