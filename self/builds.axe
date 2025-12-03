@@ -217,7 +217,7 @@ def compile_file(filename: string, is_axec: bool): bool {
     val c_code: string = generate_c(addr(ast));
 
     if str_len(c_code) == 0 {
-        println str("Error: Failed to generate C code");
+        println "Error: Failed to generate C code";
         return false;
     }
 
@@ -241,11 +241,11 @@ def compile_file(filename: string, is_axec: bool): bool {
     
     val exit_code: i32 = exec(compile_cmd.data);
     if exit_code != 0 {
-        println str("Error: Compilation failed");
+        println "Error: Compilation failed";
         return false;
     }
     
-    println str("Compiled.");
+    println "Compiled.";
     return true;
 }
 
