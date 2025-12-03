@@ -1728,6 +1728,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     if !expect(ctx, TokenType.LBRACE) {
         mut msg: string = str("ERROR: Expected '{' after function declaration, instead got: ");
         msg = concat(msg, ctx.tokens.data[ctx.pos].value);
+        msg = concat(msg, str(" in function "));
+        msg = concat(msg, func_name);
         enforce_raw(false, msg.data);
         return func;
     }
