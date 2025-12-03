@@ -471,7 +471,7 @@ def rewrite_ref_member_access(expr: string): string {
         if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
             in_string = !in_string;
             out = concat_chr(out, ch);
-            i = i + 1;
+            i++;
             continue;
         }
 
@@ -487,7 +487,7 @@ def rewrite_ref_member_access(expr: string): string {
                     break;
                 }
                 ident = concat_chr(ident, cj);
-                j = j + 1;
+                j++;
             }
 
             mut k: i32 = j;
@@ -499,7 +499,7 @@ def rewrite_ref_member_access(expr: string): string {
                 if ws != ' ' and ws != '\t' and ws != '\n' {
                     break;
                 }
-                k = k + 1;
+                k++;
             }
 
             if k < str_len(expr) and get_char(expr, k) == '.' {
@@ -532,7 +532,7 @@ def rewrite_ref_member_access(expr: string): string {
         }
 
         out = concat_chr(out, ch);
-        i = i + 1;
+        i++;
     }
 
     return out;
