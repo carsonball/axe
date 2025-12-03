@@ -3826,7 +3826,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
                 // Per-token debug for RHS
                 debug_print_raw "\n[DEBUG]   RHS token type:";
-                debug_print_str t.token_type;
+                debug_print_i32 t.token_type;
                 debug_print_raw "\n[DEBUG]   RHS token value:";
                 debug_print_str t.value;
 
