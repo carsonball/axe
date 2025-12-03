@@ -3625,7 +3625,7 @@ pub def generate_c(ast: ref ASTNode): string {
         val pv: string = processed_var;
         debug_print_raw "\n[DBG-ASSIGN]   pv before fix:";
         debug_print_str pv;
-        
+
         mut fixed_var: string = str("");
         mut idx_av: i32 = 0;
         loop {
@@ -3767,9 +3767,9 @@ pub def generate_c(ast: ref ASTNode): string {
                 out_rhs = strip(rhs_suffix);
 
                 debug_print_raw "\n[DBG-ASSIGN]   reconstructed LHS (arrow sugar):";
-                println out_lhs;
+                debug_print_str out_lhs;
                 debug_print_raw "\n[DBG-ASSIGN]   reconstructed RHS (arrow sugar):";
-                println out_rhs;
+                debug_print_str out_rhs;
             }
         }
 
@@ -3787,11 +3787,11 @@ pub def generate_c(ast: ref ASTNode): string {
         
         debug_print_raw "\n[DBG-MEM] MemberAccess node";
         debug_print_raw "\n[DBG-MEM]   object_name:";
-        println object_name;
+        debug_print_str object_name;
         debug_print_raw "\n[DBG-MEM]   member_name:";
-        println member_name;
+        debug_print_str member_name;
         debug_print_raw "\n[DBG-MEM]   raw value:";
-        println value;
+        debug_print_str value;
 
         mut access_op: string = str(".");
         mut is_pointer: bool = false;
@@ -4059,21 +4059,21 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 val child_code: string = generate_c(addr(body.data[i_unsafe]));
                 debug_print_raw "\n[DBG-UNSAFE] Processing unsafe block child (index ";
-                print int_to_ascii(i_unsafe);
-                print ")\n";
-                println child_code;
+                debug_print_str int_to_ascii(i_unsafe);
+                debug_print_raw ")\n";
+                debug_print_str child_code;
                 result = concat(result, child_code);
                 i_unsafe = i_unsafe + 1;
             }
         }
         debug_print_raw "\n[DBG-UNSAFE] Before method call transformation:";
-        println result;
+        debug_print_str result;
         result = rewrite_method_calls(result);
         debug_print_raw "\n[DBG-UNSAFE] After method call transformation:";
-        println result;
+        debug_print_str result;
         result = rewrite_function_prefixes(result);
         debug_print_raw "\n[DBG-UNSAFE] After function prefix transformation:";
-        println result;
+        debug_print_str result;
         return result;
     }
 
