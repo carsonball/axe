@@ -729,7 +729,7 @@ def rewrite_sizeof_types(expr: string): string {
                     break;
                 }
                 ident = concat_chr(ident, cj);
-                j = j + 1;
+                j++;
             }
 
             if str_len(ident) == 6 and get_char(ident, 0) == 's' and get_char(ident, 1) == 'i' and get_char(ident, 2) == 'z' and get_char(ident, 3) == 'e' and get_char(ident, 4) == 'o' and get_char(ident, 5) == 'f' {
@@ -744,12 +744,12 @@ def rewrite_sizeof_types(expr: string): string {
                     if ws != ' ' and ws != '\t' and ws != '\n' {
                         break;
                     }
-                    k = k + 1;
+                    k++;
                 }
 
                 if k < str_len(expr) and get_char(expr, k) == '(' {
                     out = concat_chr(out, '(');
-                    k = k + 1;
+                    k++;
 
                     mut start_type: i32 = k;
                     loop {
@@ -802,7 +802,7 @@ def rewrite_sizeof_types(expr: string): string {
         }
 
         out = concat_chr(out, ch);
-        i = i + 1;
+        i++;
     }
 
     return out;
