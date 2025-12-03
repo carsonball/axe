@@ -3229,6 +3229,147 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 return node;
             }
             
+            if expect(ctx, TokenType.LBRACKET) {
+                consume(ctx); // Skip '['
+                skip_whitespace(ctx);
+                
+                mut member_index_expr: string = str("");
+                mut member_bracket_depth: i32 = 0;
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.LBRACKET {
+                        member_bracket_depth = member_bracket_depth + 1;
+                        member_index_expr = concat(member_index_expr, t.value);
+                        member_index_expr = concat(member_index_expr, str(" "));
+                    } elif t.token_type == TokenType.RBRACKET {
+                        if member_bracket_depth == 0 {
+                            break;
+                        }
+                        member_bracket_depth = member_bracket_depth - 1;
+                        member_index_expr = concat(member_index_expr, t.value);
+                        member_index_expr = concat(member_index_expr, str(" "));
+                    } elif t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                        member_index_expr = concat(member_index_expr, t.value);
+                        member_index_expr = concat(member_index_expr, str(" "));
+                    }
+                    consume(ctx);
+                }
+                
+                if !expect(ctx, TokenType.RBRACKET) {
+                    enforce_raw(false, "ERROR: Expected ']' after member array index");
+                    return node;
+                }
+                consume(ctx);
+                skip_whitespace(ctx);
+                
+                mut member_index2_expr: string = str("");
+                if expect(ctx, TokenType.LBRACKET) {
+                    consume(ctx); // Skip '['
+                    skip_whitespace(ctx);
+                    
+                    member_bracket_depth = 0;
+                    loop {
+                        if ctx.pos >= len(ctx.tokens) {
+                            break;
+                        }
+                        val t: Token = peek(ctx);
+                        if t.token_type == TokenType.LBRACKET {
+                            member_bracket_depth = member_bracket_depth + 1;
+                            member_index2_expr = concat(member_index2_expr, t.value);
+                            member_index2_expr = concat(member_index2_expr, str(" "));
+                        } elif t.token_type == TokenType.RBRACKET {
+                            if member_bracket_depth == 0 {
+                                break;
+                            }
+                            member_bracket_depth = member_bracket_depth - 1;
+                            member_index2_expr = concat(member_index2_expr, t.value);
+                            member_index2_expr = concat(member_index2_expr, str(" "));
+                        } elif t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                            member_index2_expr = concat(member_index2_expr, t.value);
+                            member_index2_expr = concat(member_index2_expr, str(" "));
+                        }
+                        consume(ctx);
+                    }
+                    
+                    if !expect(ctx, TokenType.RBRACKET) {
+                        enforce_raw(false, "ERROR: Expected ']' after second member array index");
+                        return node;
+                    }
+                    consume(ctx);
+                    skip_whitespace(ctx);
+                }
+                
+                if expect(ctx, TokenType.OPERATOR) {
+                    val member_op_token: Token = peek(ctx);
+                    if equals_c(member_op_token.value, "=") {
+                        consume(ctx); // Skip '='
+                        skip_whitespace(ctx);
+                        
+                        mut member_array_value_expr: string = str("");
+                        loop {
+                            if ctx.pos >= len(ctx.tokens) {
+                                break;
+                            }
+                            val t: Token = peek(ctx);
+                            if t.token_type == TokenType.SEMICOLON {
+                                consume(ctx);
+                                break;
+                            }
+                            if t.token_type == TokenType.STR {
+                                member_array_value_expr = concat(member_array_value_expr, str("\""));
+                                member_array_value_expr = concat(member_array_value_expr, t.value);
+                                member_array_value_expr = concat(member_array_value_expr, str("\" "));
+                            } elif t.token_type == TokenType.CHAR {
+                                member_array_value_expr = concat(member_array_value_expr, str("'"));
+                                member_array_value_expr = concat(member_array_value_expr, t.value);
+                                member_array_value_expr = concat(member_array_value_expr, str("' "));
+                            } elif t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                            } else {
+                                member_array_value_expr = concat(member_array_value_expr, t.value);
+                                member_array_value_expr = concat(member_array_value_expr, str(" "));
+                            }
+                            consume(ctx);
+                        }
+                        
+                        mut full_array_name: string = ident_name;
+                        full_array_name = concat(full_array_name, str("."));
+                        full_array_name = concat(full_array_name, member_name);
+                        
+                        node.node_type = str("ArrayAssign");
+                        node.data.array_assign.array_name = full_array_name;
+                        node.data.array_assign.index = member_index_expr;
+                        node.data.array_assign.index2 = member_index2_expr;
+                        node.data.array_assign.value = member_array_value_expr;
+                        return node;
+                    }
+                }
+                
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.SEMICOLON {
+                        consume(ctx);
+                        break;
+                    }
+                    consume(ctx);
+                }
+                
+                mut access_array_name: string = ident_name;
+                access_array_name = concat(access_array_name, str("."));
+                access_array_name = concat(access_array_name, member_name);
+                
+                node.node_type = str("ArrayAccess");
+                node.data.array_access.array_name = access_array_name;
+                node.data.array_access.index = member_index_expr;
+                node.data.array_access.index2 = member_index2_expr;
+                return node;
+            }
+            
             if expect(ctx, TokenType.OPERATOR) {
                 val op_token: Token = peek(ctx);
                 if equals_c(op_token.value, "=") {

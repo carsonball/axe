@@ -3830,6 +3830,42 @@ pub def generate_c(ast: ref ASTNode): string {
         return result;
     }
     
+    if equals_c(node_type, "ArrayAssign") {
+        val array_name: string = ast.data.array_assign.array_name;
+        val index_expr: string = ast.data.array_assign.index;
+        val index2_expr: string = ast.data.array_assign.index2;
+        val value_expr: string = ast.data.array_assign.value;
+        
+        debug_print_raw "\n[DBG-ARRAYASSIGN] ArrayAssign node";
+        debug_print_raw "\n[DBG-ARRAYASSIGN]   array_name:";
+        debug_print_str array_name;
+        debug_print_raw "\n[DBG-ARRAYASSIGN]   index:";
+        debug_print_str index_expr;
+        debug_print_raw "\n[DBG-ARRAYASSIGN]   value:";
+        debug_print_str value_expr;
+        
+        val processed_array: string = process_expression(array_name);
+        val processed_index: string = process_expression(index_expr);
+        val processed_value: string = process_expression(value_expr);
+        
+        result = concat(result, processed_array);
+        result = concat(result, str("["));
+        result = concat(result, processed_index);
+        result = concat(result, str("]"));
+        
+        if str_len(index2_expr) > 0 {
+            val processed_index2: string = process_expression(index2_expr);
+            result = concat(result, str("["));
+            result = concat(result, processed_index2);
+            result = concat(result, str("]"));
+        }
+        
+        result = concat(result, str(" = "));
+        result = concat(result, processed_value);
+        result = concat(result, str(";\n"));
+        return result;
+    }
+    
     if equals_c(node_type, "FunctionCall") {
         val func_name: string = ast.data.func_call.function_name;
 
