@@ -4368,6 +4368,13 @@ pub def generate_c(ast: ref ASTNode): string {
         
         return result;
     }
+
+    if equals_c(node_type, "Extern") {
+        val func_name: string = ast.data.extern_node.function_name;
+        mut arena: Arena = Arena.create(256);
+        StringBoolMap.set(addr(g_generated_functions), addr(arena), func_name, true);
+        return str("");
+    }
     
     if equals_c(node_type, "IncDec") {
         val variable: string = ast.data.inc_dec.variable;

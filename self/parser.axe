@@ -460,6 +460,14 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         return;
     }
     
+    if token_type == TokenType.EXTERN {
+        mut extern_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+        if str_len(extern_node.node_type) > 0 {
+            add_child_to_ast(ast, extern_node);
+        }
+        return;
+    }
+    
     if token_type == TokenType.MODEL {
         ctx.pos++;
         skip_whitespace(ctx);
@@ -4061,21 +4069,93 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         val func_name: string = func_name_token.value;
         skip_whitespace(ctx);
         
-        // Skip parameters and return type until semicolon
+        if !expect(ctx, TokenType.LPAREN) {
+            enforce_raw(false, "ERROR: Expected '(' after extern function name");
+            return node;
+        }
+        consume(ctx); // Skip '('
+        
+        mut extern_params: list(string);
         loop {
+            skip_whitespace(ctx);
             if ctx.pos >= len(ctx.tokens) {
                 break;
             }
             val t: Token = peek(ctx);
-            if t.token_type == TokenType.SEMICOLON {
-                consume(ctx);
+            if t.token_type == TokenType.RPAREN {
                 break;
             }
-            consume(ctx);
+            
+            mut param_str: string = str("");
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val pt: Token = peek(ctx);
+                if pt.token_type == TokenType.COMMA or pt.token_type == TokenType.RPAREN {
+                    break;
+                }
+                if pt.token_type != TokenType.WHITESPACE and pt.token_type != TokenType.NEWLINE {
+                    param_str = concat(param_str, pt.value);
+                } else {
+                    param_str = concat(param_str, str(" "));
+                }
+                consume(ctx);
+            }
+            
+            val trimmed_param: string = strip(param_str);
+            if str_len(trimmed_param) > 0 {
+                append(extern_params, trimmed_param);
+            }
+            
+            if ctx.pos < len(ctx.tokens) and peek(ctx).token_type == TokenType.COMMA {
+                consume(ctx); // Skip comma
+            }
         }
+        
+        if !expect(ctx, TokenType.RPAREN) {
+            enforce_raw(false, "ERROR: Expected ')' after extern parameters");
+            return node;
+        }
+        consume(ctx); // Skip ')'
+        skip_whitespace(ctx);
+        
+        // Parse return type if present
+        mut extern_return_type: string = str("");
+        if ctx.pos < len(ctx.tokens) and peek(ctx).token_type == TokenType.COLON {
+            consume(ctx); // Skip ':'
+            skip_whitespace(ctx);
+            
+            // Parse return type until semicolon
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val rt: Token = peek(ctx);
+                if rt.token_type == TokenType.SEMICOLON {
+                    break;
+                }
+                if rt.token_type != TokenType.WHITESPACE and rt.token_type != TokenType.NEWLINE {
+                    extern_return_type = concat(extern_return_type, rt.value);
+                } elif str_len(extern_return_type) > 0 {
+                    extern_return_type = concat(extern_return_type, str(" "));
+                }
+                consume(ctx);
+            }
+            extern_return_type = strip(extern_return_type);
+        }
+        
+        skip_whitespace(ctx);
+        if !expect(ctx, TokenType.SEMICOLON) {
+            enforce_raw(false, "ERROR: Expected ';' after extern declaration");
+            return node;
+        }
+        consume(ctx); // Skip ';'
         
         node.node_type = str("Extern");
         node.data.extern_node.function_name = func_name;
+        node.data.extern_node.params = addr(extern_params);
+        node.data.extern_node.return_type = extern_return_type;
         return node;
     }
     
