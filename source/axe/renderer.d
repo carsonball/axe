@@ -569,8 +569,6 @@ string generateC(ASTNode ast)
             if (child.nodeType == "Model")
             {
                 auto modelNode = cast(ModelNode) child;
-                // Store the model name mapping
-                // Extract base name from prefixed name (e.g., "std_arena_Arena" -> "Arena")
                 string baseName = modelNode.name;
                 if (modelNode.name.canFind("_") && modelNode.name.startsWith("std_"))
                 {
@@ -578,7 +576,8 @@ string generateC(ASTNode ast)
                     if (lastUnderscore >= 0)
                     {
                         baseName = modelNode.name[lastUnderscore + 2 .. $];
-                        g_modelNames[baseName] = modelNode.name;
+                        if (baseName !in g_modelNames)
+                            g_modelNames[baseName] = modelNode.name;
                     }
                 }
                 else
@@ -589,16 +588,22 @@ string generateC(ASTNode ast)
                         if (lastUnderscore >= 0)
                         {
                             baseName = modelNode.name[lastUnderscore + 2 .. $];
-                            g_modelNames[baseName] = modelNode.name;
+                            if (baseName !in g_modelNames)
+                                g_modelNames[baseName] = modelNode.name;
                         }
                     }
 
-                    // For std files, prefix with module name
                     // TODO: Remove this.
                     if (modelNode.name == "error")
-                        g_modelNames[modelNode.name] = "std_errors_" ~ modelNode.name;
+                    {
+                        if (modelNode.name !in g_modelNames)
+                            g_modelNames[modelNode.name] = "std_errors_" ~ modelNode.name;
+                    }
                     else
-                        g_modelNames[modelNode.name] = modelNode.name;
+                    {
+                        if (modelNode.name !in g_modelNames)
+                            g_modelNames[modelNode.name] = modelNode.name;
+                    }
                 }
 
                 foreach (field; modelNode.fields)
@@ -823,7 +828,9 @@ string generateC(ASTNode ast)
                     if (lastUnderscore >= 0)
                     {
                         baseName = enumNode.name[lastUnderscore + 2 .. $];
-                        g_modelNames[baseName] = enumNode.name;
+                        // Only set if not already mapped to prevent conflicts
+                        if (baseName !in g_modelNames)
+                            g_modelNames[baseName] = enumNode.name;
                     }
                 }
 
@@ -4766,7 +4773,7 @@ string processExpression(string expr, string context = "")
             {
                 if (parts[0].strip().length == 0)
                     continue;
-                return "(" ~ processExpression(parts[0]) ~ op ~ processExpression(parts[1]) ~ ")";
+                return fixEnumPrefixes("(" ~ processExpression(parts[0]) ~ op ~ processExpression(parts[1]) ~ ")");
             }
             else if (parts.length > 2)
             {
@@ -4777,7 +4784,7 @@ string processExpression(string expr, string context = "")
                 {
                     result = "(" ~ result ~ op ~ processExpression(parts[i]) ~ ")";
                 }
-                return result;
+                return fixEnumPrefixes(result);
             }
         }
     }
@@ -4844,8 +4851,48 @@ string processExpression(string expr, string context = "")
         return enumName ~ "_" ~ expr;
     }
 
+    expr = fixEnumPrefixes(expr);
+
     debugWriteln("DEBUG processExpression FINAL: returning '", expr, "'");
     return expr;
+}
+
+/**
+ * Fix enum member prefixes for transitive imports.
+ * E.g., lexer__TokenType_STAR -> builds__lexer__TokenType_STAR
+ * when builds__lexer__TokenType exists in g_enumNames.
+ */
+private string fixEnumPrefixes(string expr)
+{
+    if (!expr.canFind("__"))
+        return expr;
+    
+    string resultExpr = expr;
+    
+    foreach (enumKey; g_enumNames.byKey())
+    {
+        auto enumDoubleUnderPos = enumKey.indexOf("__");
+        if (enumDoubleUnderPos > 0)
+        {
+            string afterFirstModule = enumKey[enumDoubleUnderPos + 2 .. $];
+            auto secondDoubleUnderPos = afterFirstModule.indexOf("__");
+            if (secondDoubleUnderPos > 0)
+            {
+                string unprefixedEnumName = afterFirstModule; // e.g., "lexer__TokenType"
+                
+                import std.regex : regex, replaceAll, Regex;
+                
+                string pattern = r"\b" ~ unprefixedEnumName ~ r"_([A-Z][A-Z0-9_]*)";
+                auto re = regex(pattern);
+                
+                resultExpr = replaceAll!((m) {
+                    return enumKey ~ "_" ~ m[1];
+                })(resultExpr, re);
+            }
+        }
+    }
+    
+    return resultExpr;
 }
 
 string applyFunctionPrefixes(string expr)
