@@ -24,7 +24,7 @@ def main() {
         println("  -ast          print the parsed AST and exit");
         println("  -dll          build shared instead of standalone executable");
         println("  --release     build in release mode");
-        println("  -q, --quiet   suppress debug output");
+        println("  -l, --loud    loud debug output");
         println("  -I<path>      pass a C include directory");
         println("  --version, -v show axe version and exit\n");
         quit(0);
@@ -43,7 +43,7 @@ def main() {
         quit(0);
     }
 
-    if has_suffix(other_arg, str("-l")) {
+    if has_suffix(other_arg, str("-l")) or has_suffix(other_arg, str("--loud")) {
         set_loud_logger(true);
     }
 
