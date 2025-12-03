@@ -328,6 +328,7 @@ def collect_function_prefixes(node: ref ASTNode) {
     }
 }
 
+/// Build the g_function_prefixes map from the AST
 def build_function_prefixes(ast: ref ASTNode) {
     StringStringMap.clear(addr(g_function_prefixes));
     collect_function_prefixes(ast);
@@ -353,19 +354,16 @@ def canonical_model_c_name(name: string): string {
 def map_axe_type_to_c(axe_type: string): string {
     mut result: string = axe_type;
     
-    // Handle mut prefix
     if has_prefix(result, str("mut ")) {
         result = strip(substr(result, 4, str_len(result) - 4));
         return map_axe_type_to_c(result);
     }
     
-    // Handle list types [999]
     if has_suffix(result, str("[999]")) {
         val element_type: string = strip(substring_se(result, 0, str_len(result) - 5));
         if has_prefix(element_type, str("ref ")) {
             val base_elem: string = strip(substr(element_type, 4, str_len(element_type) - 4));
             val mapped_elem: string = map_axe_type_to_c(base_elem);
-            // register list element type for later helper generation
             add_list_element(mapped_elem);
             mut struct_name: string = str("__list_");
             struct_name = concat(struct_name, mapped_elem);
@@ -373,7 +371,6 @@ def map_axe_type_to_c(axe_type: string): string {
             return struct_name;
         } else {
             val mapped_elem: string = map_axe_type_to_c(element_type);
-            // register list element type for later helper generation
             add_list_element(mapped_elem);
             mut struct_name: string = str("__list_");
             struct_name = concat(struct_name, mapped_elem);
@@ -382,14 +379,12 @@ def map_axe_type_to_c(axe_type: string): string {
         }
     }
     
-    // Handle ref prefix
     if has_prefix(result, str("ref ")) {
         val base_type: string = strip(substr(result, 4, str_len(result) - 4));
         val mapped_base: string = map_axe_type_to_c(base_type);
         return concat(mapped_base, str("*"));
     }
     
-    // Handle pointer suffix
     if has_suffix(result, str("*")) {
         val base_type: string = strip(substring_se(result, 0, str_len(result) - 1));
         val mapped_base: string = map_axe_type_to_c(base_type);
@@ -406,12 +401,10 @@ def map_axe_type_to_c(axe_type: string): string {
         }
     }
     
-    // Check type mappings
     if StringStringMap.contains(addr(g_type_mappings), result) {
         return StringStringMap.get(addr(g_type_mappings), result);
     }
     
-    // Check model names
     if StringStringMap.contains(addr(g_model_names), result) {
         return StringStringMap.get(addr(g_model_names), result);
     }
