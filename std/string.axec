@@ -90,10 +90,10 @@ pub model StringBuilder {
     /// Appends a single character to the StringBuilder.
     pub def append_char(sb: ref StringBuilder, c: char): void {
         StringBuilder.ensure_capacity(sb, 1);
-        raw {
-            sb->data[sb->len] = c;
-            sb->len = sb->len + 1;
-            sb->data[sb->len] = '\0';
+        unsafe {
+            sb*.data[sb*.len] = c;
+            sb*.len = sb*.len + 1;
+            sb*.data[sb*.len] = '\0';
         }
     }
 
