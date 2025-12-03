@@ -4,7 +4,7 @@
 // Handles the rendering process.
 
 use structs     (ASTNode);
-use std.lists   (StringList);
+use std.lists   (StringList, IntList);
 use std.string;
 use std.io;
 use std.maps;
@@ -152,6 +152,68 @@ def collect_external_imports(node: ref ASTNode, current_platform: string, arena:
             i = i + 1;
         }
     }
+}
+
+/// Extract the base type name from a field type string.
+/// For example: "ref string" -> "string", "i32*" -> "i32", "list(Token)" -> "Token"
+def get_base_type_from_field(field_type: string): string {
+    mut t: string = strip(field_type);
+    
+    if has_prefix(t, str("mut ")) {
+        t = strip(substr(t, 4, str_len(t) - 4));
+    }
+    
+    loop {
+        if !has_prefix(t, str("ref ")) {
+            break;
+        }
+        t = strip(substr(t, 4, str_len(t) - 4));
+    }
+    
+    loop {
+        if !has_prefix(t, str("& ")) {
+            break;
+        }
+        t = strip(substr(t, 2, str_len(t) - 2));
+    }
+    
+    if has_prefix(t, str("list(")) {
+        mut paren_pos: i32 = 5;
+        mut depth: i32 = 1;
+        loop {
+            if paren_pos >= str_len(t) {
+                break;
+            }
+            val ch: char = get_char(t, paren_pos);
+            if ch == '(' {
+                depth = depth + 1;
+            } elif ch == ')' {
+                depth = depth - 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            paren_pos = paren_pos + 1;
+        }
+        t = strip(substr(t, 5, paren_pos - 5));
+    }
+    
+    mut bracket_pos: i32 = find_substr(t, str("["));
+    if bracket_pos >= 0 {
+        t = strip(substr(t, 0, bracket_pos));
+    }
+    
+    loop {
+        if str_len(t) == 0 {
+            break;
+        }
+        if get_char(t, str_len(t) - 1) != '*' {
+            break;
+        }
+        t = strip(substr(t, 0, str_len(t) - 1));
+    }
+    
+    return t;
 }
 
 /// Remove stray spaces around '.' in numeric C literals.
@@ -2783,17 +2845,247 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_opaque_plat++;
             }
 
-            mut i_models_fd: i32 = 0;
+            mut i_enums: i32 = 0;
             loop {
-                if i_models_fd >= len(deref(children)) {
+                if i_enums >= len(deref(children)) {
                     break;
                 }
-                val m_child_fd: ref ASTNode = addr(children.data[i_models_fd]);
-                if equals_c(m_child_fd.node_type, "Model") or equals_c(m_child_fd.node_type, "Enum") {
-                    val m_code: string = generate_c(m_child_fd);
-                    result = concat(result, m_code);
+                val enum_child: ref ASTNode = addr(children.data[i_enums]);
+                if equals_c(enum_child.node_type, "Enum") {
+                    val e_code: string = generate_c(enum_child);
+                    result = concat(result, e_code);
                 }
-                i_models_fd++;
+                i_enums = i_enums + 1;
+            }
+
+            // Topological sort of models to ensure dependencies come first
+            // Step 1: Collect all model names and build model map
+            mut model_arena: Arena = Arena.create(1024 * 64);
+            mut model_names_list: ref StringList = StringList.create(addr(model_arena), 64);
+            mut model_indices: StringIntMap = deref(StringIntMap.create(addr(model_arena), 128));
+            
+            mut collect_idx: i32 = 0;
+            loop {
+                if collect_idx >= len(deref(children)) {
+                    break;
+                }
+                val collect_child: ref ASTNode = addr(children.data[collect_idx]);
+                if equals_c(collect_child.node_type, "Model") {
+                    val mname: string = collect_child.data.model_node.name;
+                    StringList.push(model_names_list, addr(model_arena), mname);
+                    StringIntMap.set(addr(model_indices), addr(model_arena), mname, model_names_list.len - 1);
+                }
+                collect_idx = collect_idx + 1;
+            }
+            
+            // Step 2: Build dependency adjacency lists
+            // deps[i] contains list of model indices that model i depends on
+            val num_models: i32 = model_names_list.len;
+            
+            mut deps_lists: ref StringList = StringList.create(addr(model_arena), num_models + 1);
+            mut dep_init: i32 = 0;
+            loop {
+                if dep_init >= num_models {
+                    break;
+                }
+                StringList.push(deps_lists, addr(model_arena), str(""));
+                dep_init = dep_init + 1;
+            }
+            
+            mut build_deps_idx: i32 = 0;
+            loop {
+                if build_deps_idx >= len(deref(children)) {
+                    break;
+                }
+                val bdep_child: ref ASTNode = addr(children.data[build_deps_idx]);
+                if equals_c(bdep_child.node_type, "Model") {
+                    val this_model_name: string = bdep_child.data.model_node.name;
+                    val this_model_idx: i32 = StringIntMap.get(addr(model_indices), this_model_name);
+                    val ftypes: ref list(string) = bdep_child.data.model_node.field_types;
+
+                    if ftypes != nil {
+                        mut ft_idx: i32 = 0;
+                        loop {
+                            if ft_idx >= len(deref(ftypes)) {
+                                break;
+                            }
+
+                            val ftype: string = ftypes.data[ft_idx];
+                            val base_type: string = get_base_type_from_field(ftype);
+                            val mapped_type: string = map_axe_type_to_c(base_type);
+                            
+                            if StringIntMap.contains(addr(model_indices), mapped_type) {
+                                if compare(mapped_type, this_model_name) != 0 {
+                                    val dep_idx: i32 = StringIntMap.get(addr(model_indices), mapped_type);
+                                    val current_deps: string = StringList.get(deps_lists, this_model_idx);
+                                    if str_len(current_deps) == 0 {
+                                        deps_lists.data[this_model_idx] = mapped_type;
+                                    } else {
+                                        if find_substr(current_deps, mapped_type) < 0 {
+                                            deps_lists.data[this_model_idx] = concat(concat(current_deps, str(",")), mapped_type);
+                                        }
+                                    }
+                                }
+                            }
+                            ft_idx = ft_idx + 1;
+                        }
+                    }
+                    
+                    val union_types: ref list(string) = bdep_child.data.model_node.union_member_types;
+                    if union_types != nil {
+                        mut ut_idx: i32 = 0;
+                        loop {
+                            if ut_idx >= len(deref(union_types)) {
+                                break;
+                            }
+                            val utype: string = union_types.data[ut_idx];
+                            val ubase_type: string = get_base_type_from_field(utype);
+                            val umapped_type: string = map_axe_type_to_c(ubase_type);
+                            
+                            if StringIntMap.contains(addr(model_indices), umapped_type) {
+                                if compare(umapped_type, this_model_name) != 0 {
+                                    val current_deps: string = StringList.get(deps_lists, this_model_idx);
+                                    if str_len(current_deps) == 0 {
+                                        deps_lists.data[this_model_idx] = umapped_type;
+                                    } else {
+                                        if find_substr(current_deps, umapped_type) < 0 {
+                                            deps_lists.data[this_model_idx] = concat(concat(current_deps, str(",")), umapped_type);
+                                        }
+                                    }
+                                }
+                            }
+                            ut_idx = ut_idx + 1;
+                        }
+                    }
+                }
+                build_deps_idx = build_deps_idx + 1;
+            }
+            
+            mut visit_state: ref IntList = IntList.create(addr(model_arena), num_models + 1);
+            mut vs_init: i32 = 0;
+            loop {
+                if vs_init >= num_models {
+                    break;
+                }
+                IntList.push(visit_state, addr(model_arena), 0);
+                vs_init = vs_init + 1;
+            }
+            
+            mut sorted_order: ref StringList = StringList.create(addr(model_arena), num_models + 1);
+            
+            mut start_node: i32 = 0;
+            loop {
+                if start_node >= num_models {
+                    break;
+                }
+                
+                if IntList.get(visit_state, start_node) == 2 {
+                    start_node = start_node + 1;
+                    continue;
+                }
+                
+                // Manual DFS stack: pairs of (node_index, phase)
+                // phase 0 = first visit (mark visiting, push deps)
+                // phase 1 = done with deps (mark visited, add to sorted)
+                mut stack_nodes: ref IntList = IntList.create(addr(model_arena), 256);
+                mut stack_phases: ref IntList = IntList.create(addr(model_arena), 256);
+                
+                IntList.push(stack_nodes, addr(model_arena), start_node);
+                IntList.push(stack_phases, addr(model_arena), 0);
+                
+                loop {
+                    if stack_nodes.len == 0 {
+                        break;
+                    }
+                    
+                    val curr_node: i32 = IntList.get(stack_nodes, stack_nodes.len - 1);
+                    val curr_phase: i32 = IntList.get(stack_phases, stack_phases.len - 1);
+                    
+                    stack_nodes.len = stack_nodes.len - 1;
+                    stack_phases.len = stack_phases.len - 1;
+                    
+                    val curr_state: i32 = IntList.get(visit_state, curr_node);
+                    
+                    if curr_state == 2 {
+                        continue;
+                    }
+                    
+                    if curr_phase == 0 {
+                        if curr_state == 1 {
+                            continue;
+                        }
+                        
+                        visit_state.data[curr_node] = 1;
+                        
+                        IntList.push(stack_nodes, addr(model_arena), curr_node);
+                        IntList.push(stack_phases, addr(model_arena), 1);
+                        
+                        val deps_str: string = StringList.get(deps_lists, curr_node);
+                        if str_len(deps_str) > 0 {
+                            mut dep_start: i32 = 0;
+                            mut dep_pos: i32 = 0;
+                            loop {
+                                if dep_pos > str_len(deps_str) {
+                                    break;
+                                }
+                                
+                                mut is_sep: bool = dep_pos == str_len(deps_str);
+                                if !is_sep {
+                                    is_sep = get_char(deps_str, dep_pos) == ',';
+                                }
+                                
+                                if is_sep {
+                                    if dep_pos > dep_start {
+                                        val dep_name: string = substr(deps_str, dep_start, dep_pos - dep_start);
+                                        if StringIntMap.contains(addr(model_indices), dep_name) {
+                                            val dep_idx: i32 = StringIntMap.get(addr(model_indices), dep_name);
+                                            if IntList.get(visit_state, dep_idx) != 2 {
+                                                IntList.push(stack_nodes, addr(model_arena), dep_idx);
+                                                IntList.push(stack_phases, addr(model_arena), 0);
+                                            }
+                                        }
+                                    }
+                                    dep_start = dep_pos + 1;
+                                }
+                                dep_pos++;
+                            }
+                        }
+                    } else {
+                        // Phase 1: mark visited and add to sorted order
+                        visit_state.data[curr_node] = 2;
+                        val model_name: string = StringList.get(model_names_list, curr_node);
+                        StringList.push(sorted_order, addr(model_arena), model_name);
+                    }
+                }
+                
+                start_node = start_node + 1;
+            }
+            
+            // Step 4: Generate models in sorted order (dependencies first)
+            mut sorted_idx: i32 = 0;
+            loop {
+                if sorted_idx >= sorted_order.len {
+                    break;
+                }
+                val sorted_name: string = StringList.get(sorted_order, sorted_idx);
+                
+                mut find_idx: i32 = 0;
+                loop {
+                    if find_idx >= len(deref(children)) {
+                        break;
+                    }
+                    val find_child: ref ASTNode = addr(children.data[find_idx]);
+                    if equals_c(find_child.node_type, "Model") {
+                        if compare(find_child.data.model_node.name, sorted_name) == 0 {
+                            val m_code: string = generate_c(find_child);
+                            result = concat(result, m_code);
+                            break;
+                        }
+                    }
+                    find_idx++;
+                }
+                
+                sorted_idx++;
             }
 
             if g_list_elements != nil {
