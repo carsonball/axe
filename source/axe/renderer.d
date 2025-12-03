@@ -1201,7 +1201,7 @@ string generateC(ASTNode ast)
                                             .name, "'");
                                 }
                             }
-                            
+
                             // Check whether this looks like a model method (e.g., std__string__StringBuilder_init)
                             // by looking for a single underscore after the last double underscore
                             // The part after __ (baseName) would be some shit like "StringBuilder_init"
@@ -1259,7 +1259,8 @@ string generateC(ASTNode ast)
                         {
                             int[] reorderMap;
                             ParamInfo[] paramInfos;
-                            string[] processedParams = computeReorderedCParams(methodFunc, reorderMap, paramInfos, modelNode.name);
+                            string[] processedParams = computeReorderedCParams(methodFunc, reorderMap, paramInfos, modelNode
+                                    .name);
                             cCode ~= processedParams.join(", ");
                             g_functionParamReordering[methodFunc.name] = reorderMap;
                         }
@@ -4773,7 +4774,8 @@ string processExpression(string expr, string context = "")
             {
                 if (parts[0].strip().length == 0)
                     continue;
-                return fixEnumPrefixes("(" ~ processExpression(parts[0]) ~ op ~ processExpression(parts[1]) ~ ")");
+                return fixEnumPrefixes("(" ~ processExpression(
+                        parts[0]) ~ op ~ processExpression(parts[1]) ~ ")");
             }
             else if (parts.length > 2)
             {
@@ -4866,9 +4868,9 @@ private string fixEnumPrefixes(string expr)
 {
     if (!expr.canFind("__"))
         return expr;
-    
+
     string resultExpr = expr;
-    
+
     foreach (enumKey; g_enumNames.byKey())
     {
         auto enumDoubleUnderPos = enumKey.indexOf("__");
@@ -4879,19 +4881,17 @@ private string fixEnumPrefixes(string expr)
             if (secondDoubleUnderPos > 0)
             {
                 string unprefixedEnumName = afterFirstModule; // e.g., "lexer__TokenType"
-                
+
                 import std.regex : regex, replaceAll, Regex;
-                
+
                 string pattern = r"\b" ~ unprefixedEnumName ~ r"_([A-Z][A-Z0-9_]*)";
                 auto re = regex(pattern);
-                
-                resultExpr = replaceAll!((m) {
-                    return enumKey ~ "_" ~ m[1];
-                })(resultExpr, re);
+
+                resultExpr = replaceAll!((m) { return enumKey ~ "_" ~ m[1]; })(resultExpr, re);
             }
         }
     }
-    
+
     return resultExpr;
 }
 
