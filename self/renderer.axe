@@ -811,7 +811,9 @@ def rewrite_sizeof_types(expr: string): string {
                 j++;
             }
 
-            if str_len(ident) == 6 and get_char(ident, 0) == 's' and get_char(ident, 1) == 'i' and get_char(ident, 2) == 'z' and get_char(ident, 3) == 'e' and get_char(ident, 4) == 'o' and get_char(ident, 5) == 'f' {
+            if str_len(ident) == 6 and get_char(ident, 0) == 's' and get_char(ident, 1) == 'i' 
+                and get_char(ident, 2) == 'z' and get_char(ident, 3) == 'e' and get_char(ident, 4) == 'o' 
+                and get_char(ident, 5) == 'f' {
                 out = concat(out, ident);
 
                 mut k: i32 = j;
