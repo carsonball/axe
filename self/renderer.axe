@@ -2352,6 +2352,8 @@ pub def generate_c(ast: ref ASTNode): string {
         result = concat(result, str("#include <string.h>\n"));
         result = concat(result, str("#include <stdint.h>\n"));
         result = concat(result, str("\n"));
+        result = concat(result, str("int __axe_argc = 0;\n"));
+        result = concat(result, str("char** __axe_argv = NULL;\n\n"));
         
         build_function_prefixes(ast);
 
@@ -2892,6 +2894,8 @@ pub def generate_c(ast: ref ASTNode): string {
 
     if equals_c(node_type, "Test") {
         result = concat(result, str("int main(int argc, char** argv) {\n"));
+        result = concat(result, str("__axe_argc = argc;\n"));
+        result = concat(result, str("__axe_argv = argv;\n"));
         result = concat(result, str("    int passed = 0;\n"));
         result = concat(result, str("    int failed = 0;\n\n"));
 
@@ -3088,6 +3092,8 @@ pub def generate_c(ast: ref ASTNode): string {
         
         if equals_c(func_name, "main") {
             result = concat(result, str("int main(int argc, char** argv) {\n"));
+            result = concat(result, str("__axe_argc = argc;\n"));
+            result = concat(result, str("__axe_argv = argv;\n"));
             
             if ast.children != nil {
                 val children: ref list(ASTNode) = ast.children;

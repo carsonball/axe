@@ -510,15 +510,18 @@ pub def get_cmdline_args(arena: ref Arena): ref StringList {
     mut val result: ref StringList;
     result = StringList.create(arena, 10);
     
-    raw {
-        int argc = 0;
-        char **argv = (char**)__axe_argv;
-        while (argv[argc] != NULL) {
+    unsafe {
+        mut argc: i32 = 0;
+        mut argv: ref ref char = C.__axe_argv;
+        loop {
+            if argv[argc] == nil {
+                break;
+            }
             argc++;
         }
-        for (int i = 0; i < argc; i++) {
-            struct std__string__string str = std__string__string_create(argv[i]);
-            std__lists__StringList_push((struct std__lists__StringList*)result, arena, str);
+        for mut i = 0; i < argc; i++ {
+            val arg_str: string = string.create(argv[i]);
+            StringList.push(result, arena, arg_str);
         }
     }
     
