@@ -239,7 +239,7 @@ def compile_file(filename: string, is_axec: bool): bool {
     
     if !::is_release_build {
         platform windows {
-            compile_cmd = concat_c(compile_cmd, " -gcodeview -fuse-ld=lld -Xlinker /debug");
+            compile_cmd = concat_c(compile_cmd, " -gcodeview -fuse-ld=lld -Xlinker /debug -ldbghelp");
         }
         platform posix {
             compile_cmd = concat_c(compile_cmd, " -g");
