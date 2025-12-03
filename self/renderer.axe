@@ -2277,8 +2277,6 @@ def generate_function_prototype(ast: ref ASTNode): string {
 /// Generate C code from AST
 pub def generate_c(ast: ref ASTNode): string {
     mut result: string = str("");
-    print "Generating C for: ";
-    println ast.node_type;
 
     if ast == nil {
         return result;
