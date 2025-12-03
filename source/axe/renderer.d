@@ -58,6 +58,7 @@ private string[string] g_functionPrefixes;
 private string[string] g_modelNames;
 private bool[string] g_generatedTypedefs;
 private bool[string] g_generatedFunctions;
+private bool[string] g_generatedPrototypes;
 private bool[string] g_enumNames;
 private string[string] g_enumValueToEnumName;
 private bool g_inTopLevel = false;
@@ -212,7 +213,7 @@ struct ParamInfo
  * Function to compute reordered C parameters for functions with variable-length arrays.
  * Returns the reordered parameter strings, reorder map, and parameter info array.
  */
-string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, out ParamInfo[] paramInfos)
+string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, out ParamInfo[] paramInfos, string contextModelName = null)
 {
     import std.stdio : writeln;
     import std.string : split, strip, indexOf, lastIndexOf;
@@ -298,7 +299,7 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
         {
             if (info.type.endsWith("[999]"))
             {
-                string listType = mapAxeTypeToCForReturnOrParam(info.type);
+                string listType = mapAxeTypeToCForReturnOrParam(info.type, contextModelName);
                 otherParams ~= listType ~ "* " ~ info.name;
             }
             else
@@ -315,7 +316,7 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
                     baseType = baseType[4 .. $].strip();
                 }
 
-                baseType = mapAxeTypeToC(baseType);
+                baseType = mapAxeTypeToC(baseType, contextModelName);
 
                 if (info.dimNames.length > 0)
                 {
@@ -334,7 +335,7 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
         }
         else
         {
-            string finalType = mapAxeTypeToC(info.type);
+            string finalType = mapAxeTypeToC(info.type, contextModelName);
             if (info.name in referencedDimensions)
             {
                 dimensionParams ~= finalType ~ " " ~ info.name;
@@ -349,7 +350,7 @@ string[] computeReorderedCParams(FunctionNode funcNode, out int[] reorderMap, ou
     return dimensionParams ~ otherParams;
 }
 
-string mapAxeTypeToCForReturnOrParam(string axeType)
+string mapAxeTypeToCForReturnOrParam(string axeType, string contextModelName = null)
 {
     if (axeType.endsWith("[999]"))
     {
@@ -360,20 +361,20 @@ string mapAxeTypeToCForReturnOrParam(string axeType)
             isRef = true;
             elementType = elementType[4 .. $].strip();
         }
-        string mappedElementType = mapAxeTypeToC(elementType);
+        string mappedElementType = mapAxeTypeToC(elementType, contextModelName);
         string structName = "__list_" ~ mappedElementType.replace("*", "_ptr")
             .replace(" ", "_") ~ "_t";
         return isRef ? (structName ~ "*") : structName;
     }
-    return mapAxeTypeToC(axeType);
+    return mapAxeTypeToC(axeType, contextModelName);
 }
 
-string mapAxeTypeToC(string axeType)
+string mapAxeTypeToC(string axeType, string contextModelName = null)
 {
     if (axeType.startsWith("mut "))
     {
         string baseType = axeType[4 .. $].strip();
-        return mapAxeTypeToC(baseType);
+        return mapAxeTypeToC(baseType, contextModelName);
     }
 
     if (axeType.endsWith("[999]"))
@@ -382,14 +383,14 @@ string mapAxeTypeToC(string axeType)
         if (elementType.startsWith("ref "))
         {
             elementType = elementType[4 .. $].strip();
-            string mappedElementType = mapAxeTypeToC(elementType);
+            string mappedElementType = mapAxeTypeToC(elementType, contextModelName);
             string structName = "__list_" ~ mappedElementType.replace("*", "_ptr")
                 .replace(" ", "_") ~ "_t";
             return structName ~ "*";
         }
         else
         {
-            string mappedElementType = mapAxeTypeToC(elementType);
+            string mappedElementType = mapAxeTypeToC(elementType, contextModelName);
             string structName = "__list_" ~ mappedElementType.replace("*", "_ptr")
                 .replace(" ", "_") ~ "_t";
             return structName;
@@ -399,27 +400,41 @@ string mapAxeTypeToC(string axeType)
     if (axeType.startsWith("ref "))
     {
         string baseType = axeType[4 .. $].strip();
-        return mapAxeTypeToC(baseType) ~ "*";
+        return mapAxeTypeToC(baseType, contextModelName) ~ "*";
     }
     else if (axeType.startsWith("&mut "))
     {
         string baseType = axeType[5 .. $].strip();
-        return mapAxeTypeToC(baseType) ~ "*";
+        return mapAxeTypeToC(baseType, contextModelName) ~ "*";
     }
     else if (axeType.startsWith("& "))
     {
         string baseType = axeType[2 .. $].strip();
-        return "const " ~ mapAxeTypeToC(baseType) ~ "*";
+        return "const " ~ mapAxeTypeToC(baseType, contextModelName) ~ "*";
     }
     else if (axeType.endsWith("*"))
     {
         string baseType = axeType[0 .. $ - 1].strip();
-        return mapAxeTypeToC(baseType) ~ "*";
+        return mapAxeTypeToC(baseType, contextModelName) ~ "*";
     }
 
     if (axeType in g_typeMappings)
     {
         return g_typeMappings[axeType];
+    }
+
+    if (contextModelName.length > 0)
+    {
+        string contextBaseName = contextModelName;
+        auto lastUnderscore = contextModelName.lastIndexOf("__");
+        if (lastUnderscore >= 0 && lastUnderscore + 2 < contextModelName.length)
+        {
+            contextBaseName = contextModelName[lastUnderscore + 2 .. $];
+        }
+        if (axeType == contextBaseName)
+        {
+            return contextModelName;
+        }
     }
 
     if (axeType in g_modelNames)
@@ -485,6 +500,7 @@ string generateC(ASTNode ast)
         g_modelNames.clear();
         g_generatedTypedefs.clear();
         g_generatedFunctions.clear();
+        g_generatedPrototypes.clear();
         g_enumNames.clear();
         g_enumValueToEnumName.clear();
         g_localFunctions.clear();
@@ -532,9 +548,17 @@ string generateC(ASTNode ast)
                             string prefixedName = modulePrefix ~ "__" ~ importName;
                             debugWriteln("DEBUG: Adding g_functionPrefixes['", importName, "'] = '", prefixedName, "'");
                             g_functionPrefixes[importName] = prefixedName;
-                            g_modelNames[importName] = prefixedName;
-                            g_enumNames[modulePrefix ~ "__" ~ importName] = true;
                         }
+                    }
+                    else if (importName.length > 0 && importName[0] >= 'A' && importName[0] <= 'Z')
+                    {
+                        string prefixedName = modulePrefix ~ "__" ~ importName;
+                        if (importName !in g_modelNames)
+                        {
+                            debugWriteln("DEBUG: Adding g_modelNames['", importName, "'] = '", prefixedName, "' from import");
+                            g_modelNames[importName] = prefixedName;
+                        }
+                        g_enumNames[prefixedName] = true;
                     }
                 }
             }
@@ -1141,6 +1165,7 @@ string generateC(ASTNode ast)
                 if (funcNode.name != "main")
                 {
                     string prefixedFuncName = funcNode.name;
+                    string contextModelName = null;
 
                     if (funcNode.name.canFind("_"))
                     {
@@ -1169,17 +1194,32 @@ string generateC(ASTNode ast)
                                             .name, "'");
                                 }
                             }
+                            
+                            // Check whether this looks like a model method (e.g., std__string__StringBuilder_init)
+                            // by looking for a single underscore after the last double underscore
+                            // The part after __ (baseName) would be some shit like "StringBuilder_init"
+                            auto singleUnderscorePos = baseName.indexOf('_');
+                            if (singleUnderscorePos > 0)
+                            {
+                                string potentialModelName = funcNode.name[0 .. lastUnderscore + 2 + singleUnderscorePos];
+                                contextModelName = potentialModelName;
+                                debugWriteln("DEBUG: Function '", funcNode.name, "' appears to be a method of model '", contextModelName, "'");
+                            }
                         }
                         prefixedFuncName = funcNode.name;
                     }
 
-                    string processedReturnType = mapAxeTypeToCForReturnOrParam(funcNode.returnType);
+                    if (prefixedFuncName in g_generatedPrototypes)
+                        continue;
+                    g_generatedPrototypes[prefixedFuncName] = true;
+
+                    string processedReturnType = mapAxeTypeToCForReturnOrParam(funcNode.returnType, contextModelName);
                     cCode ~= processedReturnType ~ " " ~ prefixedFuncName ~ "(";
                     if (funcNode.params.length > 0)
                     {
                         int[] reorderMap;
                         ParamInfo[] paramInfos;
-                        string[] processedParams = computeReorderedCParams(funcNode, reorderMap, paramInfos);
+                        string[] processedParams = computeReorderedCParams(funcNode, reorderMap, paramInfos, contextModelName);
                         cCode ~= processedParams.join(", ");
                         g_functionParamReordering[prefixedFuncName] = reorderMap;
 
@@ -1201,14 +1241,18 @@ string generateC(ASTNode ast)
                     auto methodFunc = cast(FunctionNode) method;
                     if (methodFunc !is null)
                     {
+                        if (methodFunc.name in g_generatedPrototypes)
+                            continue;
+                        g_generatedPrototypes[methodFunc.name] = true;
+
                         string processedReturnType = mapAxeTypeToCForReturnOrParam(
-                            methodFunc.returnType);
+                            methodFunc.returnType, modelNode.name);
                         cCode ~= processedReturnType ~ " " ~ methodFunc.name ~ "(";
                         if (methodFunc.params.length > 0)
                         {
                             int[] reorderMap;
                             ParamInfo[] paramInfos;
-                            string[] processedParams = computeReorderedCParams(methodFunc, reorderMap, paramInfos);
+                            string[] processedParams = computeReorderedCParams(methodFunc, reorderMap, paramInfos, modelNode.name);
                             cCode ~= processedParams.join(", ");
                             g_functionParamReordering[methodFunc.name] = reorderMap;
                         }
