@@ -276,6 +276,91 @@ def normalize_numeric_dots(s: string): string {
     return result;
 }
 
+/// Replace a keyword with another string, but only when it's a standalone word
+/// (not part of a larger identifier) and not inside a string literal.
+def replace_keyword_outside_strings(expr: string, keyword: string, replacement: string): string {
+    val expr_len: i32 = str_len(expr);
+    val kw_len: i32 = str_len(keyword);
+    if expr_len == 0 or kw_len == 0 {
+        return expr;
+    }
+    
+    mut sb: StringBuilder = StringBuilder.init(cast[usize](expr_len + 32));
+    mut in_string: bool = false;
+    mut i: i32 = 0;
+    
+    loop {
+        if i >= expr_len {
+            break;
+        }
+        
+        val ch: char = get_char(expr, i);
+        
+        if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(sb), ch);
+            i = i + 1;
+            continue;
+        }
+        
+        if in_string {
+            StringBuilder.append_char(addr(sb), ch);
+            i = i + 1;
+            continue;
+        }
+        
+        mut matches: bool = true;
+        if i + kw_len > expr_len {
+            matches = false;
+        } else {
+            mut ki: i32 = 0;
+            loop {
+                if ki >= kw_len {
+                    break;
+                }
+                if get_char(expr, i + ki) != get_char(keyword, ki) {
+                    matches = false;
+                    break;
+                }
+                ki = ki + 1;
+            }
+        }
+        
+        if matches {
+            mut is_word: bool = true;
+            
+            if i > 0 {
+                val prev: char = get_char(expr, i - 1);
+                if (prev >= 'a' and prev <= 'z') or (prev >= 'A' and prev <= 'Z') or 
+                   (prev >= '0' and prev <= '9') or prev == '_' {
+                    is_word = false;
+                }
+            }
+            
+            if is_word and i + kw_len < expr_len {
+                val next: char = get_char(expr, i + kw_len);
+                if (next >= 'a' and next <= 'z') or (next >= 'A' and next <= 'Z') or 
+                   (next >= '0' and next <= '9') or next == '_' {
+                    is_word = false;
+                }
+            }
+            
+            if is_word {
+                StringBuilder.append(addr(sb), replacement);
+                i = i + kw_len;
+                continue;
+            }
+        }
+        
+        StringBuilder.append_char(addr(sb), ch);
+        i++;
+    }
+    
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
+    return result;
+}
+
 /// Rewrite member access on pointer-typed variables...
 def rewrite_pointer_member_accesses(expr: string): string {
     mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 64);
@@ -2592,7 +2677,9 @@ def process_expression(expr: string): string {
         val sizeof_fixed: string = rewrite_sizeof_types(methods_fixed);
         val calls_fixed_no_sugar: string = rewrite_function_calls(sizeof_fixed);
         val enum_fixed_no_sugar: string = rewrite_enum_member_refs(calls_fixed_no_sugar);
-        return strip(enum_fixed_no_sugar);
+        val and_fixed_no_sugar: string = replace_keyword_outside_strings(enum_fixed_no_sugar, str("and"), str("&&"));
+        val or_fixed_no_sugar: string = replace_keyword_outside_strings(and_fixed_no_sugar, str("or"), str("||"));
+        return strip(or_fixed_no_sugar);
     }
 
     mut result: string = trimmed;
@@ -2738,7 +2825,10 @@ def process_expression(expr: string): string {
     val sizeof_fixed2: string = rewrite_sizeof_types(methods_fixed2);
     val calls_fixed: string = rewrite_function_calls(sizeof_fixed2);
     val enum_fixed: string = rewrite_enum_member_refs(calls_fixed);
-    return strip(enum_fixed);
+    val and_fixed: string = replace_keyword_outside_strings(enum_fixed, str("and"), str("&&"));
+    val or_fixed: string = replace_keyword_outside_strings(and_fixed, str("or"), str("||"));
+
+    return strip(or_fixed);
 }
 
 /// Generate stack trace headers for segfault handlers (Windows and POSIX versions)

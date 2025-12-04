@@ -301,6 +301,45 @@ pub def lex(source: string): list(Token) {
             }
             append(tokens, create_token(TokenType.STR, substring_scse(source, pos + 1, ending)));
             pos = ending + 1;
+        } elif cast[i32](ch) == 96 {
+            // Backtick multi-line string literal
+            mut bt_end: i32 = pos + 1;
+            loop {
+                if bt_end >= source_len {
+                    break;
+                }
+                if cast[i32](get_char(source, bt_end)) == 96 {
+                    break;
+                }
+                bt_end = bt_end + 1;
+            }
+            val raw_content: string = str(substring_scse(source, pos + 1, bt_end));
+            mut sb: StringBuilder = StringBuilder.init(cast[usize]((bt_end - pos) * 2));
+            mut ri: i32 = 0;
+            loop {
+                if ri >= str_len(raw_content) {
+                    break;
+                }
+                val rc: char = get_char(raw_content, ri);
+                if rc == '\n' {
+                    StringBuilder.append_c(addr(sb), "\\n");
+                } elif rc == '\r' {
+                    StringBuilder.append_c(addr(sb), "\\r");
+                } elif rc == '\t' {
+                    StringBuilder.append_c(addr(sb), "\\t");
+                } elif rc == '"' {
+                    StringBuilder.append_c(addr(sb), "\\\"");
+                } elif rc == '\\' {
+                    StringBuilder.append_c(addr(sb), "\\\\");
+                } else {
+                    StringBuilder.append_char(addr(sb), rc);
+                }
+                ri = ri + 1;
+            }
+            val escaped_content: string = StringBuilder.to_string(addr(sb));
+            StringBuilder.destroy(addr(sb));
+            append(tokens, create_token(TokenType.STR, escaped_content.data));
+            pos = bt_end + 1;
         } elif cast[i32](ch) == 39 {
             mut cend: i32 = pos + 1;
             loop {
