@@ -1676,7 +1676,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         auto printlnNode = cast(PrintlnNode) node;
         for (size_t i = 0; i < printlnNode.messages.length; i++)
         {
-            if (printlnNode.isExpressions[i])
+            if (i >= printlnNode.isExpressions.length || !printlnNode.isExpressions[i])
+                continue;
             {
                 foreach (oldName, newName; nameMap)
                 {
@@ -1722,6 +1723,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         {
             foreach (oldName; mapData.underscoreNames)
             {
+                if (!(oldName in nameMap))
+                    continue;
                 auto dotPattern = getModelMethodDotCallRegex(oldName);
                 string newExpr = replaceAll(returnNode.expression, dotPattern, nameMap[oldName] ~ "(");
                 if (newExpr != returnNode.expression)
@@ -1773,6 +1776,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
             {
                 foreach (oldName; mapData.underscoreNames)
                 {
+                    if (!(oldName in nameMap))
+                        continue;
                     auto dotPattern = getModelMethodDotCallRegex(oldName);
                     debugWriteln("    DEBUG: Trying cached regex pattern for '", oldName, "' on '",
                         declNode.initializer, "'");
@@ -1810,6 +1815,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         {
             foreach (oldName; mapData.underscoreNames)
             {
+                if (!(oldName in nameMap))
+                    continue;
                 auto dotPattern = getModelMethodDotCallRegex(oldName);
                 string newExpr = replaceAll(assignNode.expression, dotPattern, nameMap[oldName] ~ "(");
                 if (newExpr != assignNode.expression)
@@ -1896,6 +1903,8 @@ void renameFunctionCalls(ASTNode node, string[string] nameMap)
         {
             foreach (oldName; mapData.underscoreNames)
             {
+                if (!(oldName in nameMap))
+                    continue;
                 auto dotPattern = getModelMethodDotCallRegex(oldName);
                 string newCond = replaceAll(assertNode.condition, dotPattern, nameMap[oldName] ~ "(");
                 if (newCond != assertNode.condition)
@@ -2114,6 +2123,32 @@ unittest
 
     assert(convertToModelMethodPattern("Model_method") == r"Model\s*\.\s*method");
     assert(convertToModelMethodPattern("Arena_create") == r"Arena\s*\.\s*create");
+}
+
+unittest
+{
+    NameMapData data;
+    data.underscoreNames ~= "Fake_missing_name";
+    data.dotCallMap["Fake.missing("] = "prefix_thing(";
+    g_nameMapDataCache[0] = data;
+    auto decl = new DeclarationNode("x", false, "Fake.missing(1)", "");
+    string[string] nameMap;
+    renameFunctionCalls(decl, nameMap);
+    assert(decl.initializer == "Fake.missing(1)");
+}
+
+unittest
+{
+    auto pn = new PrintlnNode(["literal", "funcCall(1)"], [false]);
+
+    string[string] nameMap;
+    nameMap["funcCall"] = "prefix_funcCall";
+
+    renameFunctionCalls(pn, nameMap);
+
+    assert(pn.messages.length == 2);
+    assert(pn.isExpressions.length == 1);
+    assert(pn.messages[1].canFind("funcCall"));
 }
 
 unittest
