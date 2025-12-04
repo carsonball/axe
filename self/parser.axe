@@ -3451,6 +3451,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         node.data.array_assign.index = member_index_expr;
                         node.data.array_assign.index2 = member_index2_expr;
                         node.data.array_assign.value = member_array_value_expr;
+
                         return node;
                     }
                 }
