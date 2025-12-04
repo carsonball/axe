@@ -5895,7 +5895,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 val child_code: string = generate_c(addr(body.data[i_unsafe]));
                 debug_print_raw "\n[DBG-UNSAFE] Processing unsafe block child (index ";
-                debug_print_str int_to_ascii(i_unsafe);
+                debug_print_str(int_to_ascii(i_unsafe));
                 debug_print_raw ")\n";
                 debug_print_str child_code;
                 StringBuilder.append(addr(sb_unsafe), child_code);
