@@ -56,7 +56,7 @@ def prefix_root_enums(node: ref ASTNode, mprefix: string) {
         val ename: string = node.data.enum_node.name;
         if str_len(mprefix) > 0 and !has_double_underscore(ename) {
             mut new_name: string = mprefix;
-            new_name = concat(new_name, str("__"));
+            new_name = concat_c(new_name, "__");
             new_name = concat(new_name, ename);
             node.data.enum_node.name = new_name;
         }
