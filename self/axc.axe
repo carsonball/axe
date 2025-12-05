@@ -17,6 +17,7 @@ def main() {
         println("Usage: axe <input.axe|axec> [options]");
         println("");
         println("Options:");
+        println("  -o <name>     specify output binary name");
         println("  -asm          emit assembly and assemble/link/run it (requires nasm)");
         println("  -e            keep the emitted file");
         println("  -r            run the built executable after compilation");
@@ -32,9 +33,24 @@ def main() {
     
     mut source_file: string = StringList.get(args, 1);
     mut other_arg: string = str("");
+    mut output_filename: string = str("");
 
     if args.len > 2 {
         other_arg = strip(StringList.get(args, 2));
+    }
+    
+    mut i: i32 = 2;
+
+    loop {
+        if i >= args.len {
+            break;
+        }
+        val arg: string = StringList.get(args, i);
+        if equals_c(arg, "-o") and i + 1 < args.len {
+            output_filename = StringList.get(args, i + 1);
+            break;
+        }
+        i = i + 1;
     }
     
     if strlst_contains_c(deref(args), "-v") or strlst_contains_c(deref(args), "--version") {
@@ -62,7 +78,7 @@ def main() {
         quit(1);
     }
     
-    val ok: bool = compile_file(source_file, is_axec);
+    val ok: bool = compile_file(source_file, is_axec, output_filename);
     
     Arena.destroy(addr(arena));
 
