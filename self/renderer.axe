@@ -5211,6 +5211,11 @@ pub def generate_c(ast: ref ASTNode): string {
         
         if equals_c(func_name, "main") {
             result = concat_c(result, "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
+
+            platform windows {
+                result = concat_c(result, "SetConsoleOutputCP(65001);\n");
+            }
+            
             if !::is_release_build {
                 result = concat(result, generate_stack_trace_setup());
             }
