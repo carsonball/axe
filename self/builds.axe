@@ -1,7 +1,7 @@
-// Author: Navid Momtahen (C) 2025
-// License: GPL-3.0
-// 
-// Handles build process orchestration.
+/// Author: Navid Momtahen (C) 2025
+/// License: GPL-3.0
+/// 
+/// Handles build process orchestration.
 
 use structs (
     ASTNode

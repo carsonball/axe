@@ -1,3 +1,8 @@
+/// Author: Navid Momtahen (C) 2025
+/// License: GPL-3.0
+///
+/// Handles the global state.
+
 use std.io;
 use std.lists (StringList);
 

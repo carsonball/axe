@@ -1,5 +1,7 @@
-// Author: Navid Momtahen (C) 2025
-// License: GPL-3.0
+/// Author: Navid Momtahen (C) 2025
+/// License: GPL-3.0
+///
+/// Lexical analysis for the Axe compiler.
 
 use std.string;
 use std.lists;

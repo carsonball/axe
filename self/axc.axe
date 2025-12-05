@@ -1,5 +1,5 @@
-// Author: Navid Momtahen (C) 2025
-// License: GPL-3.0
+/// Author: Navid Momtahen (C) 2025
+/// License: GPL-3.0
 
 use std.algorithms;
 use std.io;
