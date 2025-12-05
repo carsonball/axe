@@ -65,6 +65,12 @@ mut g_posix_external_headers: ref StringList;
 /// Global SB.
 mut g_renderer_sb: ref StringBuilder;
 
+/// Track emitted global variable names to avoid duplicates
+mut g_emitted_globals: StringBoolMap;
+
+/// Global variable prefixes mapping (logical name -> C symbol like gvar__name)
+mut g_global_var_prefixes: StringStringMap;
+
 /// Initialize renderer globals.
 ///
 /// This must be called before using the renderer at all.
@@ -88,6 +94,8 @@ pub def initialize_renderer() {
     g_global_external_headers = StringList.create(addr(arena), 32);
     g_windows_external_headers = StringList.create(addr(arena), 32);
     g_posix_external_headers = StringList.create(addr(arena), 32);
+    g_emitted_globals = deref(StringBoolMap.create(addr(arena), 128));
+    g_global_var_prefixes = deref(StringStringMap.create(addr(arena), 128));
     
     StringStringMap.set(addr(g_type_mappings), addr(arena), str("i8"), str("int8_t"));
     StringStringMap.set(addr(g_type_mappings), addr(arena), str("u8"), str("uint8_t"));
@@ -2818,11 +2826,194 @@ def rewrite_function_calls(expr: string): string {
     return result;
 }
 
+/// Rewrite ::name (global scope access) to gvar__name.
+/// Handles optional whitespace between the colons: :: name, : : name, etc.
+def rewrite_global_scope_refs(expr: string): string {
+    val expr_len: i32 = cast[i32](str_len(expr));
+    if expr_len < 3 {
+        return expr;
+    }
+
+    mut sb: StringBuilder = StringBuilder.init(cast[usize](expr_len + 32));
+    mut in_string: bool = false;
+    mut i: i32 = 0;
+
+    loop {
+        if i >= expr_len {
+            break;
+        }
+
+        val ch: char = get_char(expr, i);
+
+        if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(sb), ch);
+            i = i + 1;
+            continue;
+        }
+
+        if in_string {
+            StringBuilder.append_char(addr(sb), ch);
+            i = i + 1;
+            continue;
+        }
+
+        if ch == ':' {
+            mut j: i32 = i + 1;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val ws: char = get_char(expr, j);
+                if ws != ' ' and ws != '\t' {
+                    break;
+                }
+                j = j + 1;
+            }
+
+            if j < expr_len and get_char(expr, j) == ':' {
+                j = j + 1;
+                loop {
+                    if j >= expr_len {
+                        break;
+                    }
+                    val ws2: char = get_char(expr, j);
+                    if ws2 != ' ' and ws2 != '\t' {
+                        break;
+                    }
+                    j = j + 1;
+                }
+
+                if j < expr_len {
+                    val first_ch: char = get_char(expr, j);
+                    if (first_ch >= 'a' and first_ch <= 'z') or (first_ch >= 'A' and first_ch <= 'Z') or first_ch == '_' {
+                        mut k: i32 = j;
+                        loop {
+                            if k >= expr_len {
+                                break;
+                            }
+                            val id_ch: char = get_char(expr, k);
+                            if !((id_ch >= 'a' and id_ch <= 'z') or (id_ch >= 'A' and id_ch <= 'Z') or (id_ch >= '0' and id_ch <= '9') or id_ch == '_') {
+                                break;
+                            }
+                            k = k + 1;
+                        }
+
+                        val ident: string = substring_se(expr, j, k);
+                        StringBuilder.append(addr(sb), ident);
+                        i = k;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        StringBuilder.append_char(addr(sb), ch);
+        i = i + 1;
+    }
+
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
+    return result;
+}
+
+/// Rewrite plain identifier references to global variables to use gvar__ prefix.
+/// Only rewrites identifiers that are tracked in g_global_var_prefixes and
+/// are not already prefixed or local variables (tracked in g_var_types).
+def rewrite_global_var_refs(expr: string): string {
+    val expr_len: i32 = cast[i32](str_len(expr));
+    if expr_len == 0 {
+        return expr;
+    }
+
+    mut sb: StringBuilder = StringBuilder.init(cast[usize](expr_len + 64));
+    mut in_string: bool = false;
+    mut i: i32 = 0;
+
+    loop {
+        if i >= expr_len {
+            break;
+        }
+
+        val ch: char = get_char(expr, i);
+
+        if ch == '"' and (i == 0 or get_char(expr, i - 1) != '\\') {
+            in_string = !in_string;
+            StringBuilder.append_char(addr(sb), ch);
+            i = i + 1;
+            continue;
+        }
+
+        if in_string {
+            StringBuilder.append_char(addr(sb), ch);
+            i = i + 1;
+            continue;
+        }
+
+        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+            if i > 0 {
+                val prev_ch: char = get_char(expr, i - 1);
+                if (prev_ch >= 'a' and prev_ch <= 'z') or (prev_ch >= 'A' and prev_ch <= 'Z') or (prev_ch >= '0' and prev_ch <= '9') or prev_ch == '_' {
+                    StringBuilder.append_char(addr(sb), ch);
+                    i = i + 1;
+                    continue;
+                }
+            }
+
+            mut j: i32 = i;
+            loop {
+                if j >= expr_len {
+                    break;
+                }
+                val id_ch: char = get_char(expr, j);
+                if !((id_ch >= 'a' and id_ch <= 'z') or (id_ch >= 'A' and id_ch <= 'Z') or (id_ch >= '0' and id_ch <= '9') or id_ch == '_') {
+                    break;
+                }
+                j = j + 1;
+            }
+
+            val ident: string = substring_se(expr, i, j);
+
+            if has_prefix(ident, str("gvar__")) {
+                StringBuilder.append(addr(sb), ident);
+                i = j;
+                continue;
+            }
+
+            if StringStringMap.contains(addr(g_var_types), ident) {
+                StringBuilder.append(addr(sb), ident);
+                i = j;
+                continue;
+            }
+
+            if StringStringMap.contains(addr(g_global_var_prefixes), ident) {
+                val mapped: string = StringStringMap.get(addr(g_global_var_prefixes), ident);
+                StringBuilder.append(addr(sb), mapped);
+                i = j;
+                continue;
+            }
+
+            StringBuilder.append(addr(sb), ident);
+            i = j;
+            continue;
+        }
+
+        StringBuilder.append_char(addr(sb), ch);
+        i = i + 1;
+    }
+
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
+    return result;
+}
+
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     mut has_pointer_sugar: bool = false;
     mut in_string: bool = false;
     mut i: i32 = 0;
+
+    trimmed = rewrite_global_scope_refs(trimmed);
 
     if has_prefix(trimmed, str("__INTERPOLATED__")) and has_suffix(trimmed, str("__INTERPOLATED__")) {
         val inner_len: i32 = str_len(trimmed) - 32;
@@ -3384,6 +3575,159 @@ def generate_function_prototype(ast: ref ASTNode): string {
     StringBuilder.append_c(addr(sb), ");\n");
     val result: string = StringBuilder.to_string(addr(sb));
     StringBuilder.destroy(addr(sb));
+    return result;
+}
+
+/// Generate C code for a global variable declaration with gvar__ prefix.
+def generate_global_decl(ast: ref ASTNode): string {
+    mut result: string = str("");
+    if ast == nil {
+        return result;
+    }
+    
+    val var_name: string = ast.data.declaration.name;
+    mut type_name: string = ast.data.declaration.type_name;
+    val is_mutable: bool = ast.data.declaration.is_mutable;
+    val initializer: string = ast.data.declaration.initializer;
+    mut mapped_type: string = map_axe_type_to_c(type_name);
+
+    if str_len(type_name) == 0 {
+        mut trimmed_init: string = strip(initializer);
+        if has_prefix(trimmed_init, str("new ")) {
+            trimmed_init = substring_se(trimmed_init, 4, str_len(trimmed_init));
+            trimmed_init = strip(trimmed_init);
+            mut end_pos: i32 = -1;
+            mut i: i32 = 0;
+            loop {
+                if i >= str_len(trimmed_init) {
+                    break;
+                }
+                val ch: char = get_char(trimmed_init, i);
+                if ch == '(' or ch == ' ' or ch == '\t' {
+                    end_pos = i;
+                    break;
+                }
+                i = i + 1;
+            }
+            if end_pos < 0 {
+                end_pos = str_len(trimmed_init);
+            }
+            val inferred_name: string = strip(substring_se(trimmed_init, 0, end_pos));
+            if str_len(inferred_name) > 0 {
+                type_name = inferred_name;
+                mapped_type = map_axe_type_to_c(type_name);
+            }
+        } else {
+            val brace_pos: i32 = find_char_from(trimmed_init, '{', 0);
+            if brace_pos > 0 {
+                val inferred_name2: string = strip(substring_se(trimmed_init, 0, brace_pos));
+                if str_len(inferred_name2) > 0 {
+                    type_name = inferred_name2;
+                    mapped_type = map_axe_type_to_c(type_name);
+                }
+            }
+        }
+    }
+
+    if str_len(var_name) > 0 and str_len(type_name) > 0 {
+        mut arena: Arena = Arena.create(256);
+        StringStringMap.set(addr(g_var_types), addr(arena), var_name, type_name);
+
+        if has_prefix(type_name, str("list(")) {
+            mut paren_pos: i32 = 5;
+            mut depth: i32 = 1;
+            loop {
+                if paren_pos >= str_len(type_name) {
+                    break;
+                }
+                val ch: char = get_char(type_name, paren_pos);
+                if ch == '(' {
+                    depth = depth + 1;
+                } elif ch == ')' {
+                    depth = depth - 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                paren_pos = paren_pos + 1;
+            }
+            val element_type: string = strip(substr(type_name, 5, paren_pos - 5));
+            mut list_arena: Arena = Arena.create(256);
+            StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
+        } elif has_suffix(type_name, str("[999]")) {
+            val element_type: string = strip(substring_se(type_name, 0, str_len(type_name) - 5));
+            mut list_arena: Arena = Arena.create(256);
+            StringStringMap.set(addr(g_list_of_types), addr(list_arena), var_name, element_type);
+        }
+    }
+
+    val enum_model_name: string = canonical_model_c_name(type_name);
+    if str_len(enum_model_name) > 0 and StringBoolMap.contains(addr(g_enum_names), enum_model_name) {
+        mapped_type = enum_model_name;
+    }
+
+    mut array_suffix: string = str("");
+    val br: i32 = find_char_from(type_name, '[', 0);
+    if br >= 0 {
+        val suffix: string = substring_se(type_name, br, str_len(type_name));
+        if !equals_c(suffix, "[999]") {
+            val base_raw: string = strip(substring_se(type_name, 0, br));
+            if str_len(base_raw) > 0 {
+                mapped_type = map_axe_type_to_c(base_raw);
+                array_suffix = suffix;
+            }
+        }
+    }
+
+    val emitted_name: string = var_name;
+
+    if is_mutable {
+        result = concat(result, mapped_type);
+        result = concat_c(result, " ");
+        result = concat(result, emitted_name);
+        if str_len(array_suffix) > 0 {
+            result = concat(result, array_suffix);
+        }
+    } else {
+        result = concat_c(result, "const ");
+        result = concat(result, mapped_type);
+        result = concat_c(result, " ");
+        result = concat(result, emitted_name);
+        if str_len(array_suffix) > 0 {
+            result = concat(result, array_suffix);
+        }
+    }
+
+    if str_len(initializer) > 0 {
+        mut trimmed: string = strip(initializer);
+        val brace_idx: i32 = find_char_from(trimmed, '{', 0);
+        if brace_idx >= 0 {
+            val type_part: string = strip(substring_se(trimmed, 0, brace_idx));
+            val brace_part: string = substring_se(trimmed, brace_idx, str_len(trimmed));
+            if str_len(type_part) > 0 {
+                result = concat_c(result, " = ");
+                result = concat(result, brace_part);
+            } else {
+                result = concat_c(result, " = ");
+                result = concat(result, trimmed);
+            }
+        } else {
+            val processed_init: string = process_expression(trimmed);
+            result = concat_c(result, " = ");
+            result = concat(result, processed_init);
+        }
+    } else {
+        val first_char: char = get_char(mapped_type, 0);
+        if first_char >= 'A' and first_char <= 'Z' {
+            result = concat_c(result, " = {0}");
+        } elif has_prefix(mapped_type, str("__list_")) {
+            result = concat_c(result, " = {0}");
+        } elif has_prefix(mapped_type, str("std__")) {
+            result = concat_c(result, " = {0}");
+        }
+    }
+
+    result = concat_c(result, ";\n");
     return result;
 }
 
@@ -4134,14 +4478,22 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.destroy(addr(sb_list_def));
             }
 
+            mut global_arena: Arena = Arena.create(4096);
             mut i_globals: i32 = 0;
+
             loop {
                 if i_globals >= len(deref(children)) {
                     break;
                 }
                 val g_child: ref ASTNode = addr(children.data[i_globals]);
                 if equals_c(g_child.node_type, "Declaration") {
-                    val g_code: string = generate_c(g_child);
+                    val var_name: string = g_child.data.declaration.name;
+                    if StringBoolMap.contains(addr(g_emitted_globals), var_name) {
+                        i_globals = i_globals + 1;
+                        continue;
+                    }
+                    StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
+                    val g_code: string = generate_global_decl(g_child);
                     if str_len(g_code) > 0 {
                         result = concat(result, g_code);
                     }
