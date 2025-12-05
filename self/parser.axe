@@ -4078,15 +4078,122 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             consume(ctx);
             skip_whitespace(ctx);
             
-            loop {
-                if ctx.pos >= len(ctx.tokens) {
-                    break;
-                }
-                val t: Token = peek(ctx);
-                if t.token_type == TokenType.LBRACE {
-                    break;
-                }
+            mut var_name: string = str("");
+            mut var_type: string = str("int");
+            mut is_mutable: bool = false;
+            mut init_value: string = str("");
+            mut to_value: string = str("");
+            mut condition: string = str("");
+            mut increment: string = str("");
+            mut reduction_clauses: list(string);
+            
+            if expect(ctx, TokenType.MUT) {
+                is_mutable = true;
                 consume(ctx);
+                skip_whitespace(ctx);
+            } elif expect(ctx, TokenType.VAL) {
+                consume(ctx);
+                skip_whitespace(ctx);
+            }
+            
+            if expect(ctx, TokenType.IDENTIFIER) {
+                val var_tok: Token = consume(ctx);
+                var_name = var_tok.value;
+                skip_whitespace(ctx);
+            }
+            
+            if expect(ctx, TokenType.COLON) {
+                consume(ctx);
+                skip_whitespace(ctx);
+                if expect(ctx, TokenType.IDENTIFIER) {
+                    val type_tok: Token = consume(ctx);
+                    var_type = type_tok.value;
+                    skip_whitespace(ctx);
+                }
+            }
+            
+            if expect(ctx, TokenType.OPERATOR) {
+                val op_tok: Token = peek(ctx);
+                if equals_c(op_tok.value, "=") {
+                    consume(ctx);
+                    skip_whitespace(ctx);
+                    loop {
+                        if ctx.pos >= len(ctx.tokens) {
+                            break;
+                        }
+                        val t: Token = peek(ctx);
+                        if t.token_type == TokenType.TO or t.token_type == TokenType.LBRACE {
+                            break;
+                        }
+                        if t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                            init_value = concat(init_value, t.value);
+                        }
+                        consume(ctx);
+                    }
+                }
+            }
+            
+            skip_whitespace(ctx);
+            
+            if expect(ctx, TokenType.TO) {
+                consume(ctx);
+                skip_whitespace(ctx);
+                
+                loop {
+                    if ctx.pos >= len(ctx.tokens) {
+                        break;
+                    }
+                    val t: Token = peek(ctx);
+                    if t.token_type == TokenType.LBRACE or t.token_type == TokenType.REDUCE {
+                        break;
+                    }
+                    if t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+                        to_value = concat(to_value, t.value);
+                    }
+                    consume(ctx);
+                }
+                
+                if expect(ctx, TokenType.REDUCE) {
+                    consume(ctx);
+                    skip_whitespace(ctx);
+                    
+                    if expect(ctx, TokenType.LPAREN) {
+                        consume(ctx);
+                        
+                        mut clause: string = str("");
+                        loop {
+                            if ctx.pos >= len(ctx.tokens) {
+                                break;
+                            }
+                            val t: Token = peek(ctx);
+                            if t.token_type == TokenType.RPAREN {
+                                if str_len(strip(clause)) > 0 {
+                                    append(reduction_clauses, strip(clause));
+                                }
+                                consume(ctx);
+                                break;
+                            }
+                            if t.token_type == TokenType.COMMA {
+                                if str_len(strip(clause)) > 0 {
+                                    append(reduction_clauses, strip(clause));
+                                }
+                                clause = str("");
+                                consume(ctx);
+                            } else {
+                                if t.token_type != TokenType.WHITESPACE {
+                                    clause = concat(clause, t.value);
+                                }
+                                consume(ctx);
+                            }
+                        }
+                    }
+                }
+                
+                skip_whitespace(ctx);
+                
+                condition = concat(var_name, str("<"));
+                condition = concat(condition, to_value);
+                increment = concat(var_name, str("++"));
             }
             
             if !expect(ctx, TokenType.LBRACE) {
@@ -4095,25 +4202,60 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             consume(ctx);
             
-            mut depth: i32 = 1;
+            mut init_str: string = str("");
+            if str_len(var_name) > 0 {
+                if equals_c(var_type, "int") or equals_c(var_type, "i32") {
+                    init_str = str("int32_t ");
+                } else {
+                    init_str = concat(var_type, str(" "));
+                }
+                init_str = concat(init_str, var_name);
+                if str_len(init_value) > 0 {
+                    init_str = concat_c(init_str, " = ");
+                    init_str = concat(init_str, init_value);
+                }
+            }
+            
+            mut body: list(ASTNode);
             loop {
                 if ctx.pos >= len(ctx.tokens) {
                     break;
                 }
-                val t: Token = peek(ctx);
-                if t.token_type == TokenType.LBRACE {
-                    depth = depth + 1;
-                } elif t.token_type == TokenType.RBRACE {
-                    depth = depth - 1;
-                    if depth == 0 {
-                        consume(ctx);
-                        break;
-                    }
+                skip_whitespace(ctx);
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
                 }
-                consume(ctx);
+                if ctx.tokens.data[ctx.pos].token_type == TokenType.RBRACE {
+                    consume(ctx);
+                    break;
+                }
+                mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                if str_len(stmt.node_type) > 0 {
+                    append(body, stmt);
+                }
             }
             
             node.node_type = str("ParallelFor");
+            node.data.parallel_for.initialization = init_str;
+            node.data.parallel_for.condition = condition;
+            node.data.parallel_for.increment = increment;
+            
+            unsafe {
+                val list_size: usize = C.sizeof(list(ASTNode));
+                val heap_list: ref list(ASTNode) = cast[ref list(ASTNode)](C.malloc(list_size));
+                if heap_list != nil {
+                    C.memcpy(heap_list, addr(body), list_size);
+                    node.children = heap_list;
+                }
+                
+                val list_size_str: usize = C.sizeof(list(string));
+                val heap_clauses: ref list(string) = cast[ref list(string)](C.malloc(list_size_str));
+                if heap_clauses != nil {
+                    C.memcpy(heap_clauses, addr(reduction_clauses), list_size_str);
+                    node.data.parallel_for.reduction_clauses = heap_clauses;
+                }
+            }
+            
             return node;
         }
         

@@ -6294,6 +6294,97 @@ pub def generate_c(ast: ref ASTNode): string {
         return StringBuilder.to_string(addr(sb_for));
     }
     
+    if equals_c(node_type, "ParallelFor") {
+        val init_raw: string = ast.data.parallel_for.initialization;
+        val cond_raw: string = ast.data.parallel_for.condition;
+        val incr_raw: string = ast.data.parallel_for.increment;
+
+        mut init: string = strip(init_raw);
+        mut cond: string = strip(cond_raw);
+        mut incr: string = strip(incr_raw);
+
+        if has_prefix(init, str("mut ")) {
+            init = strip(substr(init, 4, str_len(init) - 4));
+        }
+
+        mut header: string = init;
+        header = concat_c(header, "; ");
+        header = concat(header, cond);
+        header = concat_c(header, "; ");
+        header = concat(header, incr);
+
+        header = replace_all(header, str("+ ="), str("+="));
+        header = replace_all(header, str("- ="), str("-="));
+        header = replace_all(header, str("+  ="), str("+="));
+        header = replace_all(header, str("-  ="), str("-="));
+
+        val header_norm: string = process_expression(header);
+
+        mut sb_pfor: StringBuilder = StringBuilder.init(1024);
+        
+        StringBuilder.append_c(addr(sb_pfor), "#pragma omp parallel for");
+        
+        val reduction_clauses: ref list(string) = ast.data.parallel_for.reduction_clauses;
+
+        if reduction_clauses != nil and len(deref(reduction_clauses)) > 0 {
+            StringBuilder.append_c(addr(sb_pfor), " reduction(");
+            mut ri: i32 = 0;
+            loop {
+                if ri >= len(deref(reduction_clauses)) {
+                    break;
+                }
+                if ri > 0 {
+                    StringBuilder.append_c(addr(sb_pfor), ", ");
+                }
+                StringBuilder.append(addr(sb_pfor), reduction_clauses.data[ri]);
+                ri = ri + 1;
+            }
+            StringBuilder.append_c(addr(sb_pfor), ")");
+        }
+        
+        StringBuilder.append_c(addr(sb_pfor), "\n");
+        StringBuilder.append_c(addr(sb_pfor), "for (");
+        StringBuilder.append(addr(sb_pfor), header_norm);
+        StringBuilder.append_c(addr(sb_pfor), ") {\n");
+
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i_pfor: i32 = 0;
+            loop {
+                if i_pfor >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr(children.data[i_pfor]));
+                StringBuilder.append(addr(sb_pfor), child_code);
+                i_pfor = i_pfor + 1;
+            }
+        }
+
+        StringBuilder.append_c(addr(sb_pfor), "}\n");
+        return StringBuilder.to_string(addr(sb_pfor));
+    }
+    
+    if equals_c(node_type, "Parallel") {
+        mut sb_par: StringBuilder = StringBuilder.init(512);
+        StringBuilder.append_c(addr(sb_par), "#pragma omp parallel\n{\n");
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i_par: i32 = 0;
+            loop {
+                if i_par >= len(deref(children)) {
+                    break;
+                }
+                val child_code: string = generate_c(addr(children.data[i_par]));
+                StringBuilder.append(addr(sb_par), child_code);
+                i_par = i_par + 1;
+            }
+        }
+        
+        StringBuilder.append_c(addr(sb_par), "}\n");
+        return StringBuilder.to_string(addr(sb_par));
+    }
+    
     if equals_c(node_type, "ForIn") {
         // for item in collection { ... }
         // Generate: for (int32_t _i_item = 0; _i_item < collection->len; _i_item++) {
