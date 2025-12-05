@@ -1,0 +1,25 @@
+use std.io;
+
+def main() {
+    println "Testing compound assignment operators:";
+    
+    mut x: i32 = 10;
+    println x;
+    
+    x += 5;
+    println x;  // Should be 15
+    
+    x -= 3;
+    println x;  // Should be 12
+    
+    mut sum: i32 = 0;
+    mut n: i32 = 100;
+    
+    parallel for mut i = 0 to n reduce(+:sum) {
+        sum += i;
+    }
+    
+    println "Sum from 0 to 99:";
+    println sum;
+    println "Expected: 4950";
+}
