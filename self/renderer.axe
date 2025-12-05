@@ -1419,11 +1419,21 @@ def rewrite_sizeof_types(expr: string): string {
                 j++;
             }
             val ident: string = substring_se(expr, ident_start, j);
+            mut is_sizeof: bool = false;
 
             if str_len(ident) == 6 and get_char(ident, 0) == 's' and get_char(ident, 1) == 'i' 
                 and get_char(ident, 2) == 'z' and get_char(ident, 3) == 'e' and get_char(ident, 4) == 'o' 
                 and get_char(ident, 5) == 'f' {
-                StringBuilder.append(addr(sb), ident);
+                is_sizeof = true;
+            } elif str_len(ident) == 9 and get_char(ident, 0) == 'C' and get_char(ident, 1) == '_'
+                and get_char(ident, 2) == '_' and get_char(ident, 3) == 's' and get_char(ident, 4) == 'i'
+                and get_char(ident, 5) == 'z' and get_char(ident, 6) == 'e' and get_char(ident, 7) == 'o'
+                and get_char(ident, 8) == 'f' {
+                is_sizeof = true;
+            }
+
+            if is_sizeof {
+                StringBuilder.append_c(addr(sb), "sizeof");
 
                 mut k: i32 = j;
                 loop {
@@ -2591,6 +2601,24 @@ def rewrite_len_calls(expr: string): string {
                 }
                 if get_char(result, i) == 'l' and get_char(result, i + 1) == 'e' and 
                    get_char(result, i + 2) == 'n' {
+                    mut in_string_check: bool = false;
+                    mut qi: i32 = 0;
+                    loop {
+                        if qi >= i {
+                            break;
+                        }
+                        val qc: char = get_char(result, qi);
+                        if qc == '"' and (qi == 0 or get_char(result, qi - 1) != '\\') {
+                            in_string_check = !in_string_check;
+                        }
+                        qi++;
+                    }
+                    
+                    if in_string_check {
+                        i++;
+                        continue;
+                    }
+                    
                     mut is_standalone: bool = true;
                     if i > 0 {
                         val prev: char = get_char(result, i - 1);
@@ -2805,7 +2833,10 @@ def rewrite_function_calls(expr: string): string {
             }
 
             mut replaced_ident: string = ident;
-            if k < expr_len and get_char(expr, k) == '(' {
+            
+            if str_len(ident) > 3 and get_char(ident, 0) == 'C' and get_char(ident, 1) == '_' and get_char(ident, 2) == '_' {
+                replaced_ident = substring_se(ident, 3, str_len(ident));
+            } elif k < expr_len and get_char(expr, k) == '(' {
                 val has_double_underscore: bool = find_substr(ident, str("__")) >= 0;
                 if !has_double_underscore and StringStringMap.contains(addr(g_function_prefixes), ident) {
                     replaced_ident = StringStringMap.get(addr(g_function_prefixes), ident);
