@@ -1,0 +1,14 @@
+use std.io;
+use std.string;
+
+model Person {
+    name: string;
+    age:  i32;
+}
+
+def main() {
+    parallel for mut i = 0 to 10 {
+        mut person = Person{name: "Alice", age: i};
+        println person.age;
+    }
+}
