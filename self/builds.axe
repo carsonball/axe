@@ -333,9 +333,8 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     val keep_file: bool = ::keep_emitted_file;
 
     if keep_file {
-        println "Keeping emitted C file (-e flag)";
+        println "Keeping emitted C.";
     } else {
-        println "Deleting emitted C file";
         delete_file(c_filename);
     }
     
