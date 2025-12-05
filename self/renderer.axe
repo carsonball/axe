@@ -82,6 +82,20 @@ pub def set_source_file(filename: string) {
     g_current_source_file = filename;
 }
 
+/// Check if a specific external header was used (e.g., "pcre.h", "curl/curl.h")
+pub def has_external_header(header_name: string): bool {
+    if StringList.contains(g_global_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_windows_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_posix_external_headers, header_name) {
+        return true;
+    }
+    return false;
+}
+
 /// Emit a #line directive for error mapping
 def emit_line_directive(line: i32): string {
     if !g_emit_line_directives or line <= 0 {
