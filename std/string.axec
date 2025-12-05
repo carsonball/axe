@@ -386,6 +386,7 @@ def concat_chr(a: mut string, b: char): string {
 }
 
 /// Returns a substring from start to end (exclusive).
+///
 /// Optimized to use direct memory allocation instead of O(n²) concat_chr calls.
 pub def substring_se(s: string, start: i32, end: i32): string {
     mut result: string;
