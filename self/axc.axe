@@ -17,16 +17,16 @@ def main() {
         println("Usage: axe <input.axe> [options]");
         println("");
         println("Options:");
-        println("  -o <name>     specify output binary name");
-        println("  -e            keep the emitted file");
-        println("  -r            run the built executable after compilation");
-        println("  -tokens       print lexer tokens and exit");
-        println("  -ast          print the parsed AST and exit");
-        println("  -dll          build shared instead of standalone executable");
-        println("  --release     build in release mode");
-        println("  -l, --loud    loud debug output");
-        println("  -I<path>      pass a C include directory");
-        println("  --version, -v show axe version and exit\n");
+        println("  -o <name>     Specify output binary name");
+        println("  -e            Keep the emitted file");
+        println("  -r            Run the built executable after compilation");
+        println("  -tokens       Print lexer tokens and exit");
+        println("  -ast          Print the parsed AST and exit");
+        println("  -dll          Build shared instead of standalone executable");
+        println("  --release     Build in release mode");
+        println("  -l, --loud    Loud debug output");
+        println("  -I<path>      Pass a C include directory");
+        println("  --version, -v Show axe version and exit\n");
         quit(0);
     }
     
