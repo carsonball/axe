@@ -1,0 +1,3 @@
+def main() {
+    val x: i32 = y; //should fail
+}
