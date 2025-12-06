@@ -27,54 +27,13 @@ use std.os (ExecResult, exec_capture, exec, delete_file, get_executable_dir);
 use std.string;
 use std.lists (StringList);
 
-/// Filter and print C compiler errors, showing only the error line
-/// (not the generated code context)
+/// Print all errors if there are any.
 def filter_and_print_errors(output: string) {
     if str_len(output) == 0 {
         return;
     }
     
-    mut i: i32 = 0;
-    mut line_start: i32 = 0;
-    val olen: i32 = str_len(output);
-    
-    loop {
-        if i >= olen {
-            break;
-        }
-        
-        val ch: char = get_char(output, i);
-        if ch == '\n' {
-            val line: string = substring_se(output, line_start, i);
-            
-            if str_len(line) > 0 {
-                val first_char: char = get_char(line, 0);
-                if first_char != ' ' and first_char != '\t' {
-                    val has_pipe: i32 = find_substr(line, str(" | "));
-                    if has_pipe < 0 {
-                        println line;
-                    }
-                }
-            }
-            
-            line_start = i + 1;
-        }
-        
-        i++;
-    }
-    
-    if line_start < olen {
-        val line: string = substring_se(output, line_start, olen);
-        if str_len(line) > 0 {
-            val first_char: char = get_char(line, 0);
-            if first_char != ' ' and first_char != '\t' {
-                val has_pipe: i32 = find_substr(line, str(" | "));
-                if has_pipe < 0 {
-                    println line;
-                }
-            }
-        }
-    }
+    println output;
 }
 
 /// Detect if a name already has a module-style "__" prefix.
