@@ -1,9 +1,0 @@
-{
-    "name": "axe",
-    "targetType": "executable",
-    "sourcePaths": ["source"],
-    "importPaths": ["source"],
-    "mainSourceFile": "source/axe/app.d",
-    "dependencies": {
-    }
-}
