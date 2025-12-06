@@ -291,8 +291,7 @@ def is_builtin_function(name: string): bool {
         or equals_c(name, "printf") or equals_c(name, "sprintf") or equals_c(name, "fprintf")
         or equals_c(name, "fopen") or equals_c(name, "fclose") or equals_c(name, "fread") or equals_c(name, "fwrite")
         or equals_c(name, "exit") or equals_c(name, "abort") or equals_c(name, "atexit")
-        or (name.len >= 2 and name.data[0] == 'C' and name.data[1] == '.')
-        or equals_c(name, "srand") or equals_c(name, "rand") or equals_c(name, "time");
+        or (name.len >= 2 and name.data[0] == 'C' and name.data[1] == '.');
 }
 
 /// Check if a symbol is valid (either builtin, imported, or a known model/enum)
