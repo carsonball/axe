@@ -173,14 +173,14 @@ pub def initialize_renderer() {
 /// Check if a type is a builtin primitive type
 def is_builtin_type(type_name: string): bool {
     return equals_c(type_name, "i8") or equals_c(type_name, "u8") or
-           equals_c(type_name, "i16") or equals_c(type_name, "u16") or
-           equals_c(type_name, "i32") or equals_c(type_name, "u32") or
-           equals_c(type_name, "i64") or equals_c(type_name, "u64") or
-           equals_c(type_name, "isize") or equals_c(type_name, "usize") or
-           equals_c(type_name, "f32") or equals_c(type_name, "f64") or
-           equals_c(type_name, "bool") or equals_c(type_name, "char") or
-           equals_c(type_name, "void") or equals_c(type_name, "byte") or
-           equals_c(type_name, "rchar") or equals_c(type_name, "ptrdiff");
+        equals_c(type_name, "i16") or equals_c(type_name, "u16") or
+        equals_c(type_name, "i32") or equals_c(type_name, "u32") or
+        equals_c(type_name, "i64") or equals_c(type_name, "u64") or
+        equals_c(type_name, "isize") or equals_c(type_name, "usize") or
+        equals_c(type_name, "f32") or equals_c(type_name, "f64") or
+        equals_c(type_name, "bool") or equals_c(type_name, "char") or
+        equals_c(type_name, "void") or equals_c(type_name, "byte") or
+        equals_c(type_name, "rchar") or equals_c(type_name, "ptrdiff");
 }
 
 /// Extract the base type name from a complex type (removing ref, list, mut, etc.)
