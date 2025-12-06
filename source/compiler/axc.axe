@@ -25,7 +25,7 @@ def main() {
         println("  -dll          Build shared instead of standalone executable");
         println("  --release     Build in release mode");
         println("  -l, --loud    Loud debug output");
-        println("  --quiet       Suppress all output");
+        println("  -q, --quiet   Suppress all output");
         println("  -I<path>      Pass a C include directory");
         println("  --version, -v Show axe version and exit\n");
         quit(0);
