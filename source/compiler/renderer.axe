@@ -513,12 +513,12 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         }
         i = i + 1;
     }
+
     val final_arg: string = StringBuilder.to_string(addr(sb_arg));
     if str_len(strip(final_arg)) > 0 {
         append(arg_list, strip(final_arg));
     }
 
-    // Check nested calls for ALL arguments
     mut arg_idx_nested: i32 = 0;
     loop {
         if arg_idx_nested >= len(arg_list) {
@@ -540,13 +540,11 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         arg_idx_nested++;
     }
 
-    // Get the prefixed name if it exists
     mut lookup_name: string = func_name;
     if StringStringMap.contains(addr(g_function_prefixes), func_name) {
         lookup_name = StringStringMap.get(addr(g_function_prefixes), func_name);
     }
     
-    // Check if this function has a signature
     if !StringStringMap.contains(addr(g_function_param_types), lookup_name) {
         return;
     }
@@ -566,7 +564,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         return;
     }
     
-    // Parse expected types using StringBuilder
     mut expected_types: list(string);
     mut sb_type: StringBuilder = StringBuilder.init(128);
     mut j: usize = 0;
@@ -584,14 +581,14 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         } else {
             StringBuilder.append_char(addr(sb_type), ch2);
         }
-        j = j + 1;
+        j++;
     }
+
     val final_type: string = StringBuilder.to_string(addr(sb_type));
     if str_len(strip(final_type)) > 0 {
         append(expected_types, strip(final_type));
     }
     
-    // Check argument count
     if len(arg_list) != len(expected_types) {
         print "error: function '";
         print func_name;
@@ -605,7 +602,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         }
     }
     
-    // Check each argument type
     mut arg_idx: i32 = 0;
 
     loop {
