@@ -1033,7 +1033,9 @@ test {
     assert(to_lower_chr(65) == 97, "to_lower_chr('A') should return a");
     assert(str_ncmp("hello", "help", 3) == 0, "first 3 chars of hello and help should match");
     
-    mut buffer: char[64];
+    unsafe {
+        mut buffer: char* = C.malloc(32);
+    }
     
     int_to_str(42, buffer);
     assert(str_ncmp(buffer, "42", 2) == 0, "int_to_str(42) should produce 42");
@@ -1044,10 +1046,10 @@ test {
     int_to_str(0, buffer);
     assert(str_ncmp(buffer, "0", 1) == 0, "int_to_str(0) should produce 0");
     
-    long_to_str(1000, buffer);
+    long_to_str(cast[i64](1000), buffer);
     assert(str_ncmp(buffer, "1000", 4) == 0, "long_to_str(1000) should produce 1000");
     
-    long_to_str(-9999, buffer);
+    long_to_str(cast[i64](-9999), buffer);
     assert(str_ncmp(buffer, "-9999", 5) == 0, "long_to_str(-9999) should produce -9999");
 
     val lower_case_string: string = string.create("hello, world");
