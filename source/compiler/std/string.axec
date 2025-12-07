@@ -1033,9 +1033,8 @@ test {
     assert(to_lower_chr(65) == 97, "to_lower_chr('A') should return a");
     assert(str_ncmp("hello", "help", 3) == 0, "first 3 chars of hello and help should match");
     
-    unsafe {
-        mut buffer: char* = C.malloc(32);
-    }
+    mut arena: Arena = Arena.create(2048);
+    mut buffer: char* = cast[ref char](Arena.alloc(addr(arena), 52));
     
     int_to_str(42, buffer);
     assert(str_ncmp(buffer, "42", 2) == 0, "int_to_str(42) should produce 42");
@@ -1130,6 +1129,6 @@ test {
     assert(compare(sb_result2, string.create("Test!")) == 0, "StringBuilder append_char should work");
     
     StringBuilder.destroy(addr(sb));
-
+    Arena.destroy(addr(arena));
     print_str(str($"This should be 10 dollars: $ {y}"));
 }
