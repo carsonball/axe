@@ -4482,6 +4482,7 @@ def generate_global_decl(ast: ref ASTNode): string {
 pub def generate_c(ast: ref ASTNode): string {
     if ast != nil {
         g_current_line = ast.line;
+        g_current_source_file = ast.source_file;
     }
 
     mut arena: Arena = Arena.create(1024);

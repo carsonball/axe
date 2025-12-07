@@ -38,7 +38,10 @@ pub model ASTNode {
     children: ref list(ASTNode);
 
     // Source line number for error reporting
-    line: i32;  
+    line: i32;
+    
+    // Source file name for error reporting
+    source_file: string;
     
     // Union of all possible node-specific data
     // This allows each node to store only the data relevant to its type
