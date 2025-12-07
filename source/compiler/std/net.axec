@@ -983,12 +983,22 @@ def send_http_response(client: Socket, status_code: i32, content_type: string, b
 
 /// Free HTTP request memory
 def free_request(request: HttpRequest) {
-    raw {
-        if (request.method.data != NULL) free(request.method.data);
-        if (request.path.data != NULL) free(request.path.data);
-        if (request.headers.data != NULL) free(request.headers.data);
-        if (request.body.data != NULL) free(request.body.data);
-        if (request.version.data != NULL) free(request.version.data);
+    unsafe {
+        if request.method.data != nil {
+            C.free(request.method.data);
+        }
+        if request.path.data != nil {
+            C.free(request.path.data);
+        }
+        if request.headers.data != nil {
+            C.free(request.headers.data);
+        }
+        if request.body.data != nil {
+            C.free(request.body.data);
+        }
+        if request.version.data != nil {
+            C.free(request.version.data);
+        }
     }
 }
 

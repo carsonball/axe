@@ -4585,7 +4585,7 @@ pub def generate_c(ast: ref ASTNode): string {
         StringBuilder.append_c(addr(sb), "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n#define len_ptr(x) ((x)->len)\n#define len_v(x) ((&(x))->len)\n#define len(x) len_v(x)\n");
 
         platform windows {
-            StringBuilder.append_c(addr(sb), "\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n#include <windows.h>");
+            StringBuilder.append_c(addr(sb), "\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n#include <windows.h>\n");
         }
         
         mut ghi: i32 = 0;
