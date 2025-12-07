@@ -51,11 +51,11 @@ pub model Arena {
             if (arena*.offset + size > arena*.capacity) {
                 mut msg: string = str("Arena out of memory! cap=");
                 msg = concat(msg, i32_to_string(arena*.capacity));
-                msg = concat(msg, str(" used="));
+                msg = concat_c(msg, " used=");
                 msg = concat(msg, i32_to_string(arena*.offset));
-                msg = concat(msg, str(" req="));
+                msg = concat_c(msg, " req=");
                 msg = concat(msg, i32_to_string(size));
-                msg = concat(msg, str("\n"));
+                msg = concat_c(msg, "\n");
                 panic(error.create(msg.data));
                 return nil;
             }
