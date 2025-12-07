@@ -1,0 +1,6 @@
+use test_mscl;
+
+def main() {
+    val x: i32 = 12;
+    val y: i32 = 0;
+}
