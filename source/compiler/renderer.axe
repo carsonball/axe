@@ -7356,6 +7356,7 @@ pub def generate_c(ast: ref ASTNode): string {
         
         mut accessor: string = str(".");
         val trimmed_coll: string = strip(array_name_raw);
+
         if StringStringMap.contains(addr(g_var_types), trimmed_coll) {
             val coll_type: string = StringStringMap.get(addr(g_var_types), trimmed_coll);
             mut t: string = strip(coll_type);
