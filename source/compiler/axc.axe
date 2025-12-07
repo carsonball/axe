@@ -17,17 +17,18 @@ def main() {
         println("Usage: axe <input.axe> [options]");
         println("");
         println("Options:");
-        println("  -o <name>     Specify output binary name");
-        println("  -e            Keep the emitted file");
-        println("  -r            Run the built executable after compilation");
-        println("  -tokens       Print lexer tokens and exit");
-        println("  -ast          Print the parsed AST and exit");
-        println("  -dll          Build shared instead of standalone executable");
-        println("  --release     Build in release mode");
-        println("  -l, --loud    Loud debug output");
-        println("  -q, --quiet   Suppress all output");
-        println("  -I<path>      Pass a C include directory");
-        println("  --version, -v Show axe version and exit\n");
+        println("  -o <name>      Specify output binary name");
+        println("  -e             Keep the emitted file");
+        println("  -r             Run the built executable after compilation");
+        println("  -tokens        Print lexer tokens and exit");
+        println("  -ast           Print the parsed AST and exit");
+        println("  -dll           Build shared instead of standalone executable");
+        println("  --release      Build in release mode");
+        println("  -l, --loud     Loud debug output");
+        println("  -q, --quiet    Suppress all output");
+        println("  -I<path>       Pass a C include directory");
+        println("  --syntax-check Check syntax only (no code generation)");
+        println("  --version, -v  Show axe version and exit\n");
         quit(0);
     }
     
@@ -97,6 +98,11 @@ def main() {
     
     if strlst_contains_c(deref(args), "-dll") {
         set_build_shared_lib(true);
+    }
+    
+    if strlst_contains_c(deref(args), "--syntax-check") {
+        set_syntax_check_only(true);
+        set_quiet_mode(true);
     }
 
     if !has_suffix(source_file, str(".axe")) and !has_suffix(source_file, str(".axec")) {

@@ -15,6 +15,7 @@ pub mut print_ast: bool = false;
 pub mut build_shared_lib: bool = false;
 pub mut include_paths: ref StringList = nil;
 pub mut quiet_mode: bool = false;
+pub mut syntax_check_only: bool = false;
 
 /// Print a debug message
 overload debug_print(x: generic) {
@@ -71,6 +72,11 @@ pub def get_include_paths(): ref StringList {
 /// Set quiet mode flag
 pub def set_quiet_mode(v: bool) {
     quiet_mode = v;
+}
+
+/// Set syntax check only mode (no code generation)
+pub def set_syntax_check_only(v: bool) {
+    syntax_check_only = v;
 }
 
 /// Ditto.

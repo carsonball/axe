@@ -205,6 +205,11 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     val module_name: string = str("");
     ast = process_imports(addr(ast), base_dir, is_axec, filename, true, module_name);
     
+    val syntax_only: bool = ::syntax_check_only;
+    if syntax_only {
+        return true;
+    }
+    
     val do_print_ast: bool = ::print_ast;
     if do_print_ast {
         print_ast_node(addr(ast), 0);

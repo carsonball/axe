@@ -1468,16 +1468,37 @@ def current_line(ctx: ref ParserContext): i32 {
     return token.line;
 }
 
-/// Format error message with file and line information
+/// Format error message with file, line, and column information
 def format_error(ctx: ref ParserContext, message: string): string {
     mut result: string = str("");
     if str_len(ctx.filename) > 0 {
         result = concat(result, ctx.filename);
         result = concat(result, str(":"));
     }
-    val line_num: i32 = current_line(ctx);
-    mut line_str: string = i32_to_string(line_num);
-    result = concat(result, line_str);
+    
+    mut line_num: i32 = 1;
+    mut col_num: i32 = 1;
+    
+    if ctx.pos < len(ctx.tokens) {
+        val token: Token = ctx.tokens.data[ctx.pos];
+        line_num = token.line;
+        col_num = token.column;
+    } elif ctx.pos > 0 and len(ctx.tokens) > 0 {
+        val last_token: Token = ctx.tokens.data[len(ctx.tokens) - 1];
+        line_num = last_token.line;
+        col_num = last_token.column;
+    }
+    
+    if line_num <= 0 {
+        line_num = 1;
+    }
+    if col_num <= 0 {
+        col_num = 1;
+    }
+    
+    result = concat(result, i32_to_string(line_num));
+    result = concat(result, str(":"));
+    result = concat(result, i32_to_string(col_num));
     result = concat(result, str(": "));
     result = concat(result, message);
     return result;
