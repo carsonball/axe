@@ -7912,7 +7912,8 @@ pub def generate_c(ast: ref ASTNode): string {
             val processed_ptr_val: string = process_expression(ptr_val);
             result = concat(result, processed_ptr_val);
         }
-        result = concat(result, str(";\n"));
+
+        result = concat_c(result, ";\n");
         return result;
     }
     
