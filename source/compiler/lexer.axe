@@ -86,6 +86,7 @@ enum TokenType {
     XOR
 }
 
+/// Representation of some token
 pub model Token {
     pub token_type: i32;
     pub value: string;
@@ -96,6 +97,7 @@ pub model Token {
 /// Current line number during lexing
 mut g_lexer_current_line: i32;
 
+/// Create some token for a character
 def create_token(token_type: i32, value: ref char): Token {
     mut t: Token;
     t.token_type = token_type;
@@ -105,6 +107,7 @@ def create_token(token_type: i32, value: ref char): Token {
     return t;
 }
 
+/// Create a token with a specific line number
 def create_token_with_line(token_type: i32, value: ref char, line: i32): Token {
     mut t: Token;
     t.token_type = token_type;
@@ -114,14 +117,17 @@ def create_token_with_line(token_type: i32, value: ref char, line: i32): Token {
     return t;
 }
 
+/// Check if a character is a hex digit
 def is_hex_digit(ch: char): bool {
     return (ch >= '0' and ch <= '9') or (ch >= 'a' and ch <= 'f') or (ch >= 'A' and ch <= 'F');
 }
 
+/// Check if a character is whitespace
 def is_whitespace(ch: char): bool {
     return ch == ' ' or ch == '\t' or ch == '\r';
 }
 
+/// Check if a character is an identifier character
 def is_ident_char(ch: char): bool {
     if is_alphanum(ch) != 0 {
         return true;
@@ -132,6 +138,7 @@ def is_ident_char(ch: char): bool {
     return false;
 }
 
+/// Check if a position is a boundary for an identifier
 def check_boundary(source: string, pos: i32, source_len: i32): bool {
     if pos >= source_len {
         return true;
@@ -140,6 +147,7 @@ def check_boundary(source: string, pos: i32, source_len: i32): bool {
     return !is_ident_char(ch);
 }
 
+/// Check if a string is equal to a sequence of characters
 def str_equals(s1: string, s2: ref char, start: i32, len: i32, source_len: i32): bool {
     if start + len > source_len {
         return false;
@@ -157,6 +165,7 @@ def str_equals(s1: string, s2: ref char, start: i32, len: i32, source_len: i32):
     return true;
 }
 
+/// Lexical analysis function
 pub def lex(source: string): list(Token) {
     mut tokens: list(Token);
     mut pos: i32 = 0;
