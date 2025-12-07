@@ -5878,14 +5878,15 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         if equals_c(func_name, "main") {
-            result = concat_c(result, "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
+            mut sb_main: StringBuilder = StringBuilder.init(4096);
+            StringBuilder.append_c(addr(sb_main), "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
 
             platform windows {
-                result = concat_c(result, "SetConsoleOutputCP(65001);\n");
+                StringBuilder.append_c(addr(sb_main), "SetConsoleOutputCP(65001);\n");
             }
 
             if !::is_release_build {
-                result = concat(result, generate_stack_trace_setup());
+                StringBuilder.append(addr(sb_main), generate_stack_trace_setup());
             }
             
             if ast.children != nil {
@@ -5896,13 +5897,13 @@ pub def generate_c(ast: ref ASTNode): string {
                         break;
                     }
                     val child_code: string = generate_c(addr(children.data[i]));
-                    result = concat(result, child_code);
+                    StringBuilder.append(addr(sb_main), child_code);
                     i++;
                 }
             }
             
-            result = concat_c(result, "return 0;\n}\n\n");
-            return result;
+            StringBuilder.append_c(addr(sb_main), "return 0;\n}\n\n");
+            return StringBuilder.to_string(addr(sb_main));
         }
         
         if str_len(return_type) == 0 {
@@ -6117,13 +6118,11 @@ pub def generate_c(ast: ref ASTNode): string {
     }
 
     if equals_c(node_type, "Break") {
-        result = concat_c(result, "break;\n");
-        return result;
+        return str("break;\n");
     }
 
     if equals_c(node_type, "Continue") {
-        result = concat_c(result, "continue;\n");
-        return result;
+        return str("continue;\n");
     }
     
     if equals_c(node_type, "Declaration") {
@@ -7931,18 +7930,19 @@ pub def generate_c(ast: ref ASTNode): string {
         val ptr_memb: string = ast.data.member_access.member_name;
         val ptr_val: string = ast.data.member_access.value;
         
-        result = concat(result, strip(ptr_obj));
-        result = concat_c(result, "->");
-        result = concat(result, ptr_memb);
+        mut sb_ptr: StringBuilder = StringBuilder.init(512);
+        StringBuilder.append(addr(sb_ptr), strip(ptr_obj));
+        StringBuilder.append_c(addr(sb_ptr), "->");
+        StringBuilder.append(addr(sb_ptr), ptr_memb);
         
         if str_len(strip(ptr_val)) > 0 {
-            result = concat(result, str(" = "));
+            StringBuilder.append_c(addr(sb_ptr), " = ");
             val processed_ptr_val: string = process_expression(ptr_val);
-            result = concat(result, processed_ptr_val);
+            StringBuilder.append(addr(sb_ptr), processed_ptr_val);
         }
 
-        result = concat_c(result, ";\n");
-        return result;
+        StringBuilder.append_c(addr(sb_ptr), ";\n");
+        return StringBuilder.to_string(addr(sb_ptr));
     }
     
     return result;
