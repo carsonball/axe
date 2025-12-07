@@ -6834,8 +6834,9 @@ pub def generate_c(ast: ref ASTNode): string {
         
         val has_module_sep: bool = str_contains_c(func_name, "__");
         val is_method_call: bool = find_char_from(func_name, '.', 0) >= 0;
+        val is_c_call: bool = has_prefix(func_name, str("C."));
         
-        if !has_module_sep and !is_method_call and !is_builtin_function(func_name) {
+        if !has_module_sep and !is_method_call and !is_c_call and !is_builtin_function(func_name) {
             if !StringStringMap.contains(addr(g_function_prefixes), func_name) {
                 if !StringStringMap.contains(addr(g_function_param_types), func_name) {
                     val base_func: string = func_name;
