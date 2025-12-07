@@ -21,7 +21,12 @@ def main() {
 }
 ```
 
-Documentation on the language can be found [here](https://axe-docs.pages.dev)
+## Getting Started
+
+- [Latest release of the Axe compiler](https://github.com/axelang/axe/releases)
+- [Documentation on the language](https://axe-docs.pages.dev)
+- [The Visual Studio Code extension for Axe](https://marketplace.visualstudio.com/items?itemName=NavidM.axe-programming-language)
+- [The LSP, namely Axels](https://github.com/axelang/axels/releases/), installation involves just downloading it and adding it to PATH.
 
 ## Features
 
