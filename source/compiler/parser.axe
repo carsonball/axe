@@ -2715,6 +2715,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             enforce_raw(false, "Expected identifier after 'val'");
             return node;
         }
+
         val var_name: Token = consume(ctx);
         skip_whitespace(ctx);
 
