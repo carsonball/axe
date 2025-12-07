@@ -4492,7 +4492,13 @@ pub def generate_c(ast: ref ASTNode): string {
     if ast == nil {
         return result;
     }
+
     val node_type: string = ast.node_type;
+    val str_empty: string = str("");
+    val str_double_underscore: string = str("__");
+    val str_dot: string = str(".");
+    val str_comma: string = str(",");
+    val str_equals_space: string = str(" = ");
 
     if equals_c(node_type, "Overload") {
         val name: string = ast.data.overload_node.name;
@@ -4538,7 +4544,8 @@ pub def generate_c(ast: ref ASTNode): string {
             val mapped_type: string = map_axe_type_to_c(axe_type);
 
             if StringStringMap.contains(addr(g_function_prefixes), target_name) {
-                target_name = StringStringMap.get(addr(g_function_prefixes), target_name);
+                val prefixed_target: string = StringStringMap.get(addr(g_function_prefixes), target_name);
+                target_name = prefixed_target;
             }
 
             StringBuilder.append_c(addr(sb_top_level), "    ");
@@ -4669,9 +4676,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                 val first_char: char = get_char(import_name, 0);
                                 if first_char >= 'a' and first_char <= 'z' {
                                     if !StringStringMap.contains(addr(g_function_prefixes), import_name) {
-                                        mut prefixed_name: string = module_prefix;
-                                        prefixed_name = concat(prefixed_name, double_underscore_str);
-                                        prefixed_name = concat(prefixed_name, import_name);
+                                        mut sb_prefix: StringBuilder = StringBuilder.init(str_len(module_prefix) + str_len(import_name) + 2);
+                                        StringBuilder.append(addr(sb_prefix), module_prefix);
+                                        StringBuilder.append(addr(sb_prefix), double_underscore_str);
+                                        StringBuilder.append(addr(sb_prefix), import_name);
+                                        val prefixed_name: string = StringBuilder.to_string(addr(sb_prefix));
+                                        StringBuilder.destroy(addr(sb_prefix));
                                         StringStringMap.set(addr(g_function_prefixes), addr(use_arena), import_name, prefixed_name);
                                     }
                                 }
@@ -4994,6 +5004,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     if str_len(this_model_name) == 0 {
                         this_model_name = raw_model_name;
                     }
+                    // Cache model index since it's used multiple times in loop
                     val this_model_idx: i32 = StringIntMap.get(addr(model_indices), this_model_name);
                     val ftypes: ref list(string) = bdep_child.data.model_node.field_types;
 
@@ -5020,10 +5031,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                         deps_lists.data[this_model_idx] = mapped_type;
                                     } else {
                                         if find_substr(current_deps, mapped_type) < 0 {
-                                            mut new_deps: string = current_deps;
-                                            new_deps = concat(new_deps, str(","));
-                                            new_deps = concat(new_deps, mapped_type);
-                                            deps_lists.data[this_model_idx] = new_deps;
+                                            mut sb_deps: StringBuilder = StringBuilder.init(str_len(current_deps) + str_len(mapped_type) + 1);
+                                            StringBuilder.append(addr(sb_deps), current_deps);
+                                            StringBuilder.append_c(addr(sb_deps), ",");
+                                            StringBuilder.append(addr(sb_deps), mapped_type);
+                                            deps_lists.data[this_model_idx] = StringBuilder.to_string(addr(sb_deps));
+                                            StringBuilder.destroy(addr(sb_deps));
                                         }
                                     }
                                 }
@@ -5056,10 +5069,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                         deps_lists.data[this_model_idx] = umapped_type;
                                     } else {
                                         if find_substr(current_deps, umapped_type) < 0 {
-                                            mut new_deps: string = current_deps;
-                                            new_deps = concat(new_deps, str(","));
-                                            new_deps = concat(new_deps, umapped_type);
-                                            deps_lists.data[this_model_idx] = new_deps;
+                                            mut sb_udeps: StringBuilder = StringBuilder.init(str_len(current_deps) + str_len(umapped_type) + 1);
+                                            StringBuilder.append(addr(sb_udeps), current_deps);
+                                            StringBuilder.append_c(addr(sb_udeps), ",");
+                                            StringBuilder.append(addr(sb_udeps), umapped_type);
+                                            deps_lists.data[this_model_idx] = StringBuilder.to_string(addr(sb_udeps));
+                                            StringBuilder.destroy(addr(sb_udeps));
                                         }
                                     }
                                 }
@@ -5816,10 +5831,12 @@ pub def generate_c(ast: ref ASTNode): string {
                 if !has_inner_sep2 {
                     val canon_model2: string = canonical_model_c_name(model_part2);
                     if str_len(canon_model2) > 0 {
-                        mut full2: string = canon_model2;
-                        full2 = concat(full2, str("__"));
-                        full2 = concat(full2, method_part2);
-                        func_name = full2;
+                        mut sb_fname: StringBuilder = StringBuilder.init(str_len(canon_model2) + str_len(method_part2) + 2);
+                        StringBuilder.append(addr(sb_fname), canon_model2);
+                        StringBuilder.append_c(addr(sb_fname), "__");
+                        StringBuilder.append(addr(sb_fname), method_part2);
+                        func_name = StringBuilder.to_string(addr(sb_fname));
+                        StringBuilder.destroy(addr(sb_fname));
                     }
                 }
             }
@@ -5970,7 +5987,8 @@ pub def generate_c(ast: ref ASTNode): string {
     }
     
     if equals_c(node_type, "Return") {
-        result = concat_c(result, "return ");
+        mut sb_ret: StringBuilder = StringBuilder.init(512);
+        StringBuilder.append_c(addr(sb_ret), "return ");
         mut expr: string = ast.data.return_node.expression;
         debug_print_raw "\n[DEBUG] RENDERER raw return expr:";
         debug_print_str expr;
@@ -5983,7 +6001,11 @@ pub def generate_c(ast: ref ASTNode): string {
             if StringStringMap.contains(addr(g_function_prefixes), call_name_ret) {
                 val full_name_ret: string = StringStringMap.get(addr(g_function_prefixes), call_name_ret);
                 val rest_ret: string = substring_se(trimmed_ret, paren_pos_ret, str_len(trimmed_ret));
-                trimmed_ret = concat(full_name_ret, rest_ret);
+                mut sb_tmp: StringBuilder = StringBuilder.init(str_len(full_name_ret) + str_len(rest_ret));
+                StringBuilder.append(addr(sb_tmp), full_name_ret);
+                StringBuilder.append(addr(sb_tmp), rest_ret);
+                trimmed_ret = StringBuilder.to_string(addr(sb_tmp));
+                StringBuilder.destroy(addr(sb_tmp));
                 expr = trimmed_ret;
             }
         }
@@ -6003,9 +6025,10 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
 
                 if str_len(c_type_ret) > 0 {
-                    mut init_code_ret: string = str("(");
-                    init_code_ret = concat(init_code_ret, c_type_ret);
-                    init_code_ret = concat(init_code_ret, str("){"));
+                    mut sb_init_ret: StringBuilder = StringBuilder.init(512);
+                    StringBuilder.append_c(addr(sb_init_ret), "(");
+                    StringBuilder.append(addr(sb_init_ret), c_type_ret);
+                    StringBuilder.append_c(addr(sb_init_ret), "){");
 
                     mut sb_current_ret: StringBuilder = StringBuilder.init(str_len(inner_ret) + 16);
                     mut depth_ret: i32 = 0;
@@ -6035,13 +6058,13 @@ pub def generate_c(ast: ref ASTNode): string {
                                     val value_expr_ret: string = strip(substr(part_ret, colon_pos_ret2 + 1, str_len(part_ret) - colon_pos_ret2 - 1));
                                     if str_len(field_name_ret) > 0 and str_len(value_expr_ret) > 0 {
                                         if !first_field_ret {
-                                            init_code_ret = concat(init_code_ret, str(", "));
+                                            StringBuilder.append_c(addr(sb_init_ret), ", ");
                                         }
-                                        init_code_ret = concat(init_code_ret, str("."));
-                                        init_code_ret = concat(init_code_ret, field_name_ret);
-                                        init_code_ret = concat(init_code_ret, str(" = "));
+                                        StringBuilder.append_c(addr(sb_init_ret), ".");
+                                        StringBuilder.append(addr(sb_init_ret), field_name_ret);
+                                        StringBuilder.append_c(addr(sb_init_ret), " = ");
                                         val processed_val_ret: string = process_expression(value_expr_ret);
-                                        init_code_ret = concat(init_code_ret, processed_val_ret);
+                                        StringBuilder.append(addr(sb_init_ret), processed_val_ret);
                                         first_field_ret = false;
                                     }
                                 }
@@ -6062,20 +6085,21 @@ pub def generate_c(ast: ref ASTNode): string {
                             val value_expr_last_ret: string = strip(substr(part_last_ret, colon_pos_last_ret + 1, str_len(part_last_ret) - colon_pos_last_ret - 1));
                             if str_len(field_name_last_ret) > 0 and str_len(value_expr_last_ret) > 0 {
                                 if !first_field_ret {
-                                    init_code_ret = concat(init_code_ret, str(", "));
+                                    StringBuilder.append_c(addr(sb_init_ret), ", ");
                                 }
-                                init_code_ret = concat(init_code_ret, str("."));
-                                init_code_ret = concat(init_code_ret, field_name_last_ret);
-                                init_code_ret = concat(init_code_ret, str(" = "));
+                                StringBuilder.append_c(addr(sb_init_ret), ".");
+                                StringBuilder.append(addr(sb_init_ret), field_name_last_ret);
+                                StringBuilder.append_c(addr(sb_init_ret), " = ");
                                 val processed_last_ret: string = process_expression(value_expr_last_ret);
-                                init_code_ret = concat(init_code_ret, processed_last_ret);
+                                StringBuilder.append(addr(sb_init_ret), processed_last_ret);
                                 first_field_ret = false;
                             }
                         }
                     }
 
-                    init_code_ret = concat(init_code_ret, str("}"));
-                    processed = init_code_ret;
+                    StringBuilder.append_c(addr(sb_init_ret), "}");
+                    processed = StringBuilder.to_string(addr(sb_init_ret));
+                    StringBuilder.destroy(addr(sb_init_ret));
                 }
             }
         }
@@ -6085,8 +6109,10 @@ pub def generate_c(ast: ref ASTNode): string {
             debug_print_str expr;
             processed = process_expression(expr);
         }
-        result = concat(result, processed);
-        result = concat_c(result, ";\n");
+        StringBuilder.append(addr(sb_ret), processed);
+        StringBuilder.append_c(addr(sb_ret), ";\n");
+        result = StringBuilder.to_string(addr(sb_ret));
+        StringBuilder.destroy(addr(sb_ret));
         return result;
     }
 
