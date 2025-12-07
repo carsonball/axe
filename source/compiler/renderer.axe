@@ -4852,11 +4852,12 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_models3++;
             }
             
-            result = concat(result, StringBuilder.to_string(addr(sb_fwd)));
+            mut sb_prog: StringBuilder = StringBuilder.init(1024 * 512);
+            StringBuilder.append(addr(sb_prog), result);
+            StringBuilder.append(addr(sb_prog), StringBuilder.to_string(addr(sb_fwd)));
             StringBuilder.destroy(addr(sb_fwd));
 
             if g_list_elements != nil {
-                mut sb_list_fwd: StringBuilder = StringBuilder.init(2048);
                 val lst_ref: ref StringList = g_list_elements;
                 mut li: i32 = 0;
                 loop {
@@ -4865,15 +4866,13 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                     val elemTypeStr: string = StringList.get(lst_ref, li);
                     val san: string = sanitize_list_element_name(elemTypeStr);
-                    StringBuilder.append_c(addr(sb_list_fwd), "typedef struct __list_");
-                    StringBuilder.append(addr(sb_list_fwd), san);
-                    StringBuilder.append_c(addr(sb_list_fwd), "_t __list_");
-                    StringBuilder.append(addr(sb_list_fwd), san);
-                    StringBuilder.append_c(addr(sb_list_fwd), "_t;\n");
+                    StringBuilder.append_c(addr(sb_prog), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_prog), san);
+                    StringBuilder.append_c(addr(sb_prog), "_t __list_");
+                    StringBuilder.append(addr(sb_prog), san);
+                    StringBuilder.append_c(addr(sb_prog), "_t;\n");
                     li = li + 1;
                 }
-                result = concat(result, StringBuilder.to_string(addr(sb_list_fwd)));
-                StringBuilder.destroy(addr(sb_list_fwd));
             }
 
             mut i_opaque_plat: i32 = 0;
@@ -4904,9 +4903,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     
                     if has_opaque {
                         if equals_c(platform_name, "windows") {
-                            result = concat(result, str("#ifdef _WIN32\n"));
+                            StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
                         } elif equals_c(platform_name, "posix") {
-                            result = concat(result, str("#ifndef _WIN32\n"));
+                            StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
                         }
                         val plat_children2: ref list(ASTNode) = op_plat.children;
                         mut oc2: i32 = 0;
@@ -4917,11 +4916,11 @@ pub def generate_c(ast: ref ASTNode): string {
                             val oc_child2: ref ASTNode = addr(plat_children2.data[oc2]);
                             if equals_c(oc_child2.node_type, "Opaque") {
                                 val opaque_code: string = generate_c(oc_child2);
-                                result = concat(result, opaque_code);
+                                StringBuilder.append(addr(sb_prog), opaque_code);
                             }
                             oc2++;
                         }
-                        result = concat(result, str("#endif\n"));
+                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
                     }
                 }
                 i_opaque_plat++;
@@ -4935,7 +4934,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 val enum_child: ref ASTNode = addr(children.data[i_enums]);
                 if equals_c(enum_child.node_type, "Enum") {
                     val e_code: string = generate_c(enum_child);
-                    result = concat(result, e_code);
+                    StringBuilder.append(addr(sb_prog), e_code);
                 }
                 i_enums = i_enums + 1;
             }
@@ -5188,7 +5187,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     if equals_c(find_child.node_type, "Model") {
                         if compare(find_child.data.model_node.name, sorted_name) == 0 {
                             val m_code: string = generate_c(find_child);
-                            result = concat(result, m_code);
+                            StringBuilder.append(addr(sb_prog), m_code);
                             break;
                         }
                     }
@@ -5200,7 +5199,6 @@ pub def generate_c(ast: ref ASTNode): string {
 
             if g_list_elements != nil {
                 val lst_ref2: ref StringList = g_list_elements;
-                mut sb_list_def: StringBuilder = StringBuilder.init(8192);
                 mut ld: i32 = 0;
                 loop {
                     if ld >= lst_ref2*.len {
@@ -5209,42 +5207,37 @@ pub def generate_c(ast: ref ASTNode): string {
                     val elemType: string = StringList.get(lst_ref2, ld);
                     val elemSanDef: string = sanitize_list_element_name(elemType);
 
-                    StringBuilder.append_c(addr(sb_list_def), "typedef struct __list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_t {\n    ");
-                    StringBuilder.append(addr(sb_list_def), elemType);
-                    StringBuilder.append_c(addr(sb_list_def), "* data;\n    int len;\n    int capacity;\n} __list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_t;\n\n");
-                    StringBuilder.append_c(addr(sb_list_def), "static inline __list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_t __list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_init(void) {\n    __list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
-                    StringBuilder.append_c(addr(sb_list_def), "static inline void __list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_push(__list_");
-                    StringBuilder.append(addr(sb_list_def), elemSanDef);
-                    StringBuilder.append_c(addr(sb_list_def), "_t* list, ");
-                    StringBuilder.append(addr(sb_list_def), elemType);
-                    StringBuilder.append_c(addr(sb_list_def), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
-                    StringBuilder.append(addr(sb_list_def), elemType);
-                    StringBuilder.append_c(addr(sb_list_def), "* new_data = (");
-                    StringBuilder.append(addr(sb_list_def), elemType);
-                    StringBuilder.append_c(addr(sb_list_def), "*)realloc(list->data, new_capacity * sizeof(");
-                    StringBuilder.append(addr(sb_list_def), elemType);
-                    StringBuilder.append_c(addr(sb_list_def), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
+                    StringBuilder.append_c(addr(sb_prog), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_t {\n    ");
+                    StringBuilder.append(addr(sb_prog), elemType);
+                    StringBuilder.append_c(addr(sb_prog), "* data;\n    int len;\n    int capacity;\n} __list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_t;\n\n");
+                    StringBuilder.append_c(addr(sb_prog), "static inline __list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_t __list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_init(void) {\n    __list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
+                    StringBuilder.append_c(addr(sb_prog), "static inline void __list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_push(__list_");
+                    StringBuilder.append(addr(sb_prog), elemSanDef);
+                    StringBuilder.append_c(addr(sb_prog), "_t* list, ");
+                    StringBuilder.append(addr(sb_prog), elemType);
+                    StringBuilder.append_c(addr(sb_prog), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
+                    StringBuilder.append(addr(sb_prog), elemType);
+                    StringBuilder.append_c(addr(sb_prog), "* new_data = (");
+                    StringBuilder.append(addr(sb_prog), elemType);
+                    StringBuilder.append_c(addr(sb_prog), "*)realloc(list->data, new_capacity * sizeof(");
+                    StringBuilder.append(addr(sb_prog), elemType);
+                    StringBuilder.append_c(addr(sb_prog), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
 
                     ld++;
                 }
-                result = concat(result, StringBuilder.to_string(addr(sb_list_def)));
-                StringBuilder.destroy(addr(sb_list_def));
             }
-
-            mut sb_main: StringBuilder = StringBuilder.init(1024 * 128);
-            StringBuilder.append(addr(sb_main), result);
 
             mut global_arena: Arena = Arena.create(4096);
             mut i_globals: i32 = 0;
@@ -5263,7 +5256,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
                     val g_code: string = generate_global_decl(g_child);
                     if str_len(g_code) > 0 {
-                        StringBuilder.append(addr(sb_main), g_code);
+                        StringBuilder.append(addr(sb_prog), g_code);
                     }
                 }
                 i_globals = i_globals + 1;
@@ -5278,15 +5271,15 @@ pub def generate_c(ast: ref ASTNode): string {
                 if equals_c(proto_child.node_type, "Function") {
                     val proto_code: string = generate_function_prototype(proto_child);
                     if str_len(proto_code) > 0 {
-                        StringBuilder.append(addr(sb_main), proto_code);
+                        StringBuilder.append(addr(sb_prog), proto_code);
                     }
                 }
                 if equals_c(proto_child.node_type, "Platform") {
                     val platform_name: string = proto_child.data.platform_node.platform_name;
                     if equals_c(platform_name, "windows") {
-                        StringBuilder.append_c(addr(sb_main), "#ifdef _WIN32\n");
+                        StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
                     } elif equals_c(platform_name, "posix") {
-                        StringBuilder.append_c(addr(sb_main), "#ifndef _WIN32\n");
+                        StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
                     }
                     if proto_child.children != nil {
                         val plat_children: ref list(ASTNode) = proto_child.children;
@@ -5299,17 +5292,17 @@ pub def generate_c(ast: ref ASTNode): string {
                             if equals_c(plat_child.node_type, "Function") {
                                 val plat_proto: string = generate_function_prototype(plat_child);
                                 if str_len(plat_proto) > 0 {
-                                    StringBuilder.append(addr(sb_main), plat_proto);
+                                    StringBuilder.append(addr(sb_prog), plat_proto);
                                 }
                             }
                             pi = pi + 1;
                         }
                     }
-                    StringBuilder.append_c(addr(sb_main), "#endif\n");
+                    StringBuilder.append_c(addr(sb_prog), "#endif\n");
                 }
                 i_proto = i_proto + 1;
             }
-            StringBuilder.append_char(addr(sb_main), '\n');
+            StringBuilder.append_char(addr(sb_prog), '\n');
 
             mut i: i32 = 0;
             loop {
@@ -5319,8 +5312,8 @@ pub def generate_c(ast: ref ASTNode): string {
                 val child: ref ASTNode = addr(children.data[i]);
                 if equals_c(child.node_type, "Overload") {
                     val ov_code: string = generate_c(child);
-                    StringBuilder.append(addr(sb_main), ov_code);
-                    StringBuilder.append_char(addr(sb_main), '\n');
+                    StringBuilder.append(addr(sb_prog), ov_code);
+                    StringBuilder.append_char(addr(sb_prog), '\n');
                 }
                 i++;
             }
@@ -5335,15 +5328,15 @@ pub def generate_c(ast: ref ASTNode): string {
                     val fn_name: string = fn_child.data.function.name;
                     if !equals_c(fn_name, "main") {
                         val fn_code: string = generate_c(fn_child);
-                        StringBuilder.append(addr(sb_main), fn_code);
+                        StringBuilder.append(addr(sb_prog), fn_code);
                     }
                 }
                 if equals_c(fn_child.node_type, "Platform") {
                     val platform_name: string = fn_child.data.platform_node.platform_name;
                     if equals_c(platform_name, "windows") {
-                        StringBuilder.append_c(addr(sb_main), "#ifdef _WIN32\n");
+                        StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
                     } elif equals_c(platform_name, "posix") {
-                        StringBuilder.append_c(addr(sb_main), "#ifndef _WIN32\n");
+                        StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
                     }
                     if fn_child.children != nil {
                         val plat_children: ref list(ASTNode) = fn_child.children;
@@ -5357,13 +5350,13 @@ pub def generate_c(ast: ref ASTNode): string {
                                 val plat_fn_name: string = plat_child.data.function.name;
                                 if !equals_c(plat_fn_name, "main") {
                                     val plat_fn_code: string = generate_c(plat_child);
-                                    StringBuilder.append(addr(sb_main), plat_fn_code);
+                                    StringBuilder.append(addr(sb_prog), plat_fn_code);
                                 }
                             }
                             pi++;
                         }
                     }
-                    StringBuilder.append_c(addr(sb_main), "#endif\n");
+                    StringBuilder.append_c(addr(sb_prog), "#endif\n");
                 }
                 i++;
             }
@@ -5378,7 +5371,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     val namecheck: string = fnn.data.function.name;
                     if equals_c(namecheck, "main") {
                         val main_code: string = generate_c(fnn);
-                        StringBuilder.append(addr(sb_main), main_code);
+                        StringBuilder.append(addr(sb_prog), main_code);
                         break;
                     }
                 }
@@ -5395,7 +5388,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     and !equals_c(child2.node_type, "Model") and !equals_c(child2.node_type, "Enum") 
                     and !equals_c(child2.node_type, "Declaration") and !equals_c(child2.node_type, "Platform") {
                     val child_code: string = generate_c(child2);
-                    StringBuilder.append(addr(sb_main), child_code);
+                    StringBuilder.append(addr(sb_prog), child_code);
                 }
                 i++;
             }
@@ -5428,9 +5421,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     
                     if has_non_func_content {
                         if equals_c(platform_name, "windows") {
-                            StringBuilder.append_c(addr(sb_main), "#ifdef _WIN32\n");
+                            StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
                         } elif equals_c(platform_name, "posix") {
-                            StringBuilder.append_c(addr(sb_main), "#ifndef _WIN32\n");
+                            StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
                         }
                         if plat_node.children != nil {
                             val plat_children2: ref list(ASTNode) = plat_node.children;
@@ -5443,19 +5436,19 @@ pub def generate_c(ast: ref ASTNode): string {
                                 // Skip functions - they were already emitted
                                 if !equals_c(pc_child2.node_type, "Function") {
                                     val pc_code: string = generate_c(pc_child2);
-                                    StringBuilder.append(addr(sb_main), pc_code);
+                                    StringBuilder.append(addr(sb_prog), pc_code);
                                 }
                                 pc2 = pc2 + 1;
                             }
                         }
-                        StringBuilder.append_c(addr(sb_main), "#endif\n");
+                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
                     }
                 }
                 i++;
             }
             
-            result = StringBuilder.to_string(addr(sb_main));
-            StringBuilder.destroy(addr(sb_main));
+            result = StringBuilder.to_string(addr(sb_prog));
+            StringBuilder.destroy(addr(sb_prog));
         }
         result = replace_all(result, str("(->"), str("->"));
 
@@ -5670,11 +5663,12 @@ pub def generate_c(ast: ref ASTNode): string {
     }
 
     if equals_c(node_type, "Test") {
-        result = concat_c(result, "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
+        mut sb_test: StringBuilder = StringBuilder.init(4096);
+        StringBuilder.append_c(addr(sb_test), "int main(int argc, char** argv) {\n__axe_argc = argc;\n__axe_argv = argv;\n");
         if !::is_release_build {
-            result = concat(result, generate_stack_trace_setup());
+            StringBuilder.append(addr(sb_test), generate_stack_trace_setup());
         }
-        result = concat_c(result, "    int passed = 0;\n    int failed = 0;\n\n");
+        StringBuilder.append_c(addr(sb_test), "    int passed = 0;\n    int failed = 0;\n\n");
 
         if ast.children != nil {
             val children: ref list(ASTNode) = ast.children;
@@ -5691,13 +5685,13 @@ pub def generate_c(ast: ref ASTNode): string {
                     val cond_norm: string = process_expression(cond_raw);
                     val msg: string = child.data.assert_node.message;
 
-                    result = concat_c(result, "    if (");
-                    result = concat(result, cond_norm);
-                    result = concat_c(result, ") {\n        printf(\"PASSED: ");
-                    result = concat(result, msg);
-                    result = concat_c(result, "\\n\");\n        passed++;\n    } else {\n        printf(\"FAILED: ");
-                    result = concat(result, msg);
-                    result = concat_c(result, "\\n\");\n        failed++;\n    }\n\n");
+                    StringBuilder.append_c(addr(sb_test), "    if (");
+                    StringBuilder.append(addr(sb_test), cond_norm);
+                    StringBuilder.append_c(addr(sb_test), ") {\n        printf(\"PASSED: ");
+                    StringBuilder.append(addr(sb_test), msg);
+                    StringBuilder.append_c(addr(sb_test), "\\n\");\n        passed++;\n    } else {\n        printf(\"FAILED: ");
+                    StringBuilder.append(addr(sb_test), msg);
+                    StringBuilder.append_c(addr(sb_test), "\\n\");\n        failed++;\n    }\n\n");
                 } elif equals_c(child.node_type, "Declaration") {
                     val var_name: string = child.data.declaration.name;
                     val type_name: string = child.data.declaration.type_name;
@@ -5710,7 +5704,6 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
 
                     mut mapped_type: string = map_axe_type_to_c(type_name);
-                    mut line: string = str("");
                     mut array_suffix: string = str("");
                     val br: i32 = find_char_from(type_name, '[', 0);
 
@@ -5725,38 +5718,28 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
                     }
 
-                    if is_mutable {
-                        line = concat(line, mapped_type);
-                        line = concat(line, str(" "));
-                        line = concat(line, var_name);
-                        if str_len(array_suffix) > 0 {
-                            line = concat(line, array_suffix);
-                        }
-                    } else {
-                        line = concat(line, str("const "));
-                        line = concat(line, mapped_type);
-                        line = concat(line, str(" "));
-                        line = concat(line, var_name);
-                        if str_len(array_suffix) > 0 {
-                            line = concat(line, array_suffix);
-                        }
+                    StringBuilder.append_c(addr(sb_test), "    ");
+                    if !is_mutable {
+                        StringBuilder.append_c(addr(sb_test), "const ");
+                    }
+                    StringBuilder.append(addr(sb_test), mapped_type);
+                    StringBuilder.append_char(addr(sb_test), ' ');
+                    StringBuilder.append(addr(sb_test), var_name);
+                    if str_len(array_suffix) > 0 {
+                        StringBuilder.append(addr(sb_test), array_suffix);
                     }
 
                     mut trimmed_init: string = strip(initializer);
                     if str_len(trimmed_init) > 0 {
                         val init_norm: string = process_expression(trimmed_init);
-                        line = concat(line, str(" = "));
-                        line = concat(line, init_norm);
+                        StringBuilder.append_c(addr(sb_test), " = ");
+                        StringBuilder.append(addr(sb_test), init_norm);
                     }
 
-                    line = concat(line, str(";"));
-                    result = concat(result, str("    "));
-                    result = concat(result, line);
-                    result = concat(result, str("\n"));
+                    StringBuilder.append_c(addr(sb_test), ";\n");
                 } else {
                     val stmt_code: string = generate_c(child);
                     if str_len(stmt_code) > 0 {
-                        mut sb_line: StringBuilder = StringBuilder.init(256);
                         mut buf: string = stmt_code;
                         mut idx: i32 = 0;
                         val buf_len: i32 = cast[i32](str_len(buf));
@@ -5767,24 +5750,13 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             val ch: char = get_char(buf, idx);
                             if ch == '\n' {
-                                if sb_line.len > 0 {
-                                    result = concat_c(result, "    ");
-                                    result = concat(result, StringBuilder.to_string(addr(sb_line)));
-                                    result = concat_c(result, "\n");
-                                    StringBuilder.clear(addr(sb_line));
-                                }
+                                StringBuilder.append_c(addr(sb_test), "\n    ");
                             } else {
-                                StringBuilder.append_char(addr(sb_line), ch);
+                                StringBuilder.append_char(addr(sb_test), ch);
                             }
                             idx = idx + 1;
                         }
-
-                        if sb_line.len > 0 {
-                            result = concat_c(result, "    ");
-                            result = concat(result, StringBuilder.to_string(addr(sb_line)));
-                            result = concat_c(result, "\n");
-                        }
-                        StringBuilder.destroy(addr(sb_line));
+                        StringBuilder.append_char(addr(sb_test), '\n');
                     }
                 }
 
@@ -5792,8 +5764,10 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
-        result = concat_c(result, "    printf(\"\\n\");\n    if (failed == 0) {\n        printf(\"All tests passed. (%d/%d)\\n\", passed, passed + failed);\n    } else {\n        printf(\"%d test(s) failed, %d passed\\n\", failed, passed);\n    }\n    return failed > 0 ? 1 : 0;\n}\n");
+        StringBuilder.append_c(addr(sb_test), "    printf(\"\\n\");\n    if (failed == 0) {\n        printf(\"All tests passed. (%d/%d)\\n\", passed, passed + failed);\n    } else {\n        printf(\"%d test(s) failed, %d passed\\n\", failed, passed);\n    }\n    return failed > 0 ? 1 : 0;\n}\n");
 
+        result = StringBuilder.to_string(addr(sb_test));
+        StringBuilder.destroy(addr(sb_test));
         return result;
     }
     
@@ -6229,22 +6203,21 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
-        if is_mutable {
-            result = concat(result, mapped_type);
-            result = concat_c(result, " ");
-            result = concat(result, var_name);
-            if str_len(array_suffix) > 0 {
-                result = concat(result, array_suffix);
-            }
-        } else {
-            result = concat_c(result, "const ");
-            result = concat(result, mapped_type);
-            result = concat_c(result, " ");
-            result = concat(result, var_name);
-            if str_len(array_suffix) > 0 {
-                result = concat(result, array_suffix);
-            }
+        mut sb_decl: StringBuilder = StringBuilder.init(256);
+        StringBuilder.append(addr(sb_decl), result);
+        
+        if !is_mutable {
+            StringBuilder.append_c(addr(sb_decl), "const ");
         }
+        StringBuilder.append(addr(sb_decl), mapped_type);
+        StringBuilder.append_char(addr(sb_decl), ' ');
+        StringBuilder.append(addr(sb_decl), var_name);
+        if str_len(array_suffix) > 0 {
+            StringBuilder.append(addr(sb_decl), array_suffix);
+        }
+        
+        result = StringBuilder.to_string(addr(sb_decl));
+        StringBuilder.destroy(addr(sb_decl));
         
         if str_len(initializer) > 0 {
             mut trimmed: string = strip(initializer);
@@ -6309,7 +6282,11 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.append(addr(sb_list_init), i32_to_string(element_count));
                 StringBuilder.append_c(addr(sb_list_init), "}");
 
-                result = concat(result, StringBuilder.to_string(addr(sb_list_init)));
+                mut sb_decl2: StringBuilder = StringBuilder.init(512);
+                StringBuilder.append(addr(sb_decl2), result);
+                StringBuilder.append(addr(sb_decl2), StringBuilder.to_string(addr(sb_list_init)));
+                result = StringBuilder.to_string(addr(sb_decl2));
+                StringBuilder.destroy(addr(sb_decl2));
                 
                 StringBuilder.destroy(addr(sb_list_init));
             } elif has_prefix(trimmed, str("new ")) {
@@ -6700,19 +6677,23 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
-        result = concat(result, out_lhs);
+        mut sb_assign: StringBuilder = StringBuilder.init(512);
+        StringBuilder.append(addr(sb_assign), out_lhs);
         
         val op: string = ast.data.assignment.operator;
         if str_len(op) > 0 {
-            result = concat_c(result, " ");
-            result = concat(result, op);
-            result = concat_c(result, " ");
+            StringBuilder.append_char(addr(sb_assign), ' ');
+            StringBuilder.append(addr(sb_assign), op);
+            StringBuilder.append_char(addr(sb_assign), ' ');
         } else {
-            result = concat_c(result, " = ");
+            StringBuilder.append_c(addr(sb_assign), " = ");
         }
         
-        result = concat(result, out_rhs);
-        result = concat_c(result, ";\n");
+        StringBuilder.append(addr(sb_assign), out_rhs);
+        StringBuilder.append_c(addr(sb_assign), ";\n");
+        
+        result = StringBuilder.to_string(addr(sb_assign));
+        StringBuilder.destroy(addr(sb_assign));
         return result;
     }
     
@@ -6770,10 +6751,13 @@ pub def generate_c(ast: ref ASTNode): string {
             val processed_value: string = process_expression(trimmed_value);
             debug_print_raw "\n[DEBUG]   processed value:";
             debug_print_str processed_value;
-            mut result_mem: string = processed_chain;
-            result_mem = concat(result_mem, str(" = "));
-            result_mem = concat(result_mem, processed_value);
-            result_mem = concat(result_mem, str(";\n"));
+            mut sb_result_mem: StringBuilder = StringBuilder.init(256);
+            StringBuilder.append(addr(sb_result_mem), processed_chain);
+            StringBuilder.append_c(addr(sb_result_mem), " = ");
+            StringBuilder.append(addr(sb_result_mem), processed_value);
+            StringBuilder.append_c(addr(sb_result_mem), ";\n");
+            mut result_mem: string = StringBuilder.to_string(addr(sb_result_mem));
+            StringBuilder.destroy(addr(sb_result_mem));
             return result_mem;
         }
 
@@ -7112,12 +7096,16 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
-        mut header: string = str("int32_t ");
-        header = concat(header, init);
-        header = concat_c(header, "; ");
-        header = concat(header, cond);
-        header = concat_c(header, "; ");
-        header = concat(header, incr);
+        mut sb_header: StringBuilder = StringBuilder.init(256);
+        StringBuilder.append_c(addr(sb_header), "int32_t ");
+        StringBuilder.append(addr(sb_header), init);
+        StringBuilder.append_c(addr(sb_header), "; ");
+        StringBuilder.append(addr(sb_header), cond);
+        StringBuilder.append_c(addr(sb_header), "; ");
+        StringBuilder.append(addr(sb_header), incr);
+
+        mut header: string = StringBuilder.to_string(addr(sb_header));
+        StringBuilder.destroy(addr(sb_header));
 
         header = replace_all(header, str("+ ="), str("+="));
         header = replace_all(header, str("- ="), str("-="));
@@ -7166,11 +7154,15 @@ pub def generate_c(ast: ref ASTNode): string {
             init = strip(substr(init, 4, str_len(init) - 4));
         }
 
-        mut header: string = init;
-        header = concat_c(header, "; ");
-        header = concat(header, cond);
-        header = concat_c(header, "; ");
-        header = concat(header, incr);
+        mut sb_pheader: StringBuilder = StringBuilder.init(256);
+        StringBuilder.append(addr(sb_pheader), init);
+        StringBuilder.append_c(addr(sb_pheader), "; ");
+        StringBuilder.append(addr(sb_pheader), cond);
+        StringBuilder.append_c(addr(sb_pheader), "; ");
+        StringBuilder.append(addr(sb_pheader), incr);
+
+        mut header: string = StringBuilder.to_string(addr(sb_pheader));
+        StringBuilder.destroy(addr(sb_pheader));
 
         header = replace_all(header, str("+ ="), str("+="));
         header = replace_all(header, str("- ="), str("-="));
