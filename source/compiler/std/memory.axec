@@ -9,9 +9,7 @@ macro copy(src: untyped, dest: untyped, type: untyped) {
 
 /// Returns the size of a type in bytes.
 macro size_of(type: untyped) {
-    unsafe {
-        cast[i32](sizeof(type));
-    }
+    cast[i32](sizeof(type))
 }
 
 test {

@@ -108,6 +108,171 @@ def is_all_digits(s: string): bool {
     return true;
 }
 
+/// Expand macro calls inline within an expression string
+///
+/// This handles macros that appear within expressions (e.g., assert, return, assignments)
+def expand_macros_in_expression(expr: string): string {
+    mut result: StringBuilder = StringBuilder.init(512);
+    mut i: i32 = 0;
+    val expr_len: i32 = str_len(expr);
+    
+    loop {
+        if i >= expr_len {
+            break;
+        }
+        
+        loop {
+            if i >= expr_len {
+                break;
+            }
+            val ch: char = get_char(expr, i);
+            if ch != ' ' and ch != '\t' {
+                break;
+            }
+            StringBuilder.append_char(addr(result), ch);
+            i++;
+        }
+        
+        if i >= expr_len {
+            break;
+        }
+        
+        val ch: char = get_char(expr, i);
+        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+            val ident_start: i32 = i;
+            loop {
+                if i >= expr_len {
+                    break;
+                }
+                val c: char = get_char(expr, i);
+                if !((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_') {
+                    break;
+                }
+                i++;
+            }
+            val ident: string = substring_se(expr, ident_start, i);
+            
+            loop {
+                if i >= expr_len {
+                    break;
+                }
+                val ws: char = get_char(expr, i);
+                if ws != ' ' and ws != '\t' {
+                    break;
+                }
+                i++;
+            }
+            
+            if i < expr_len and get_char(expr, i) == '(' and macros_contains(ident) {
+                i++;  // skip '('
+                
+                mut args: list(string);
+                mut current_arg: StringBuilder = StringBuilder.init(128);
+                mut paren_depth: i32 = 0;
+                
+                loop {
+                    if i >= expr_len {
+                        break;
+                    }
+                    
+                    val c: char = get_char(expr, i);
+                    
+                    if c == '(' {
+                        paren_depth++;
+                        StringBuilder.append_char(addr(current_arg), c);
+                    } elif c == ')' {
+                        if paren_depth == 0 {
+                            val arg_str: string = strip(StringBuilder.to_string(addr(current_arg)));
+                            if str_len(arg_str) > 0 {
+                                append(args, arg_str);
+                            }
+                            StringBuilder.destroy(addr(current_arg));
+                            i++;  // skip ')'
+                            break;
+                        } else {
+                            paren_depth--;
+                            StringBuilder.append_char(addr(current_arg), c);
+                        }
+                    } elif c == ',' and paren_depth == 0 {
+                        val arg_str: string = strip(StringBuilder.to_string(addr(current_arg)));
+                        if str_len(arg_str) > 0 {
+                            append(args, arg_str);
+                        }
+                        StringBuilder.destroy(addr(current_arg));
+                        current_arg = StringBuilder.init(128);
+                    } else {
+                        StringBuilder.append_char(addr(current_arg), c);
+                    }
+                    
+                    i++;
+                }
+                
+                val defn: MacroDef = macros_get(ident);
+                mut expanded: StringBuilder = StringBuilder.init(256);
+                mut tok_idx: i32 = 0;
+                
+                loop {
+                    if tok_idx >= len(defn.body) {
+                        break;
+                    }
+                    
+                    val tok: Token = defn.body.data[tok_idx];
+                    
+                    if tok.token_type == TokenType.IDENTIFIER {
+                        mut found_param: bool = false;
+                        mut param_idx: i32 = 0;
+                        loop {
+                            if param_idx >= len(defn.params) or param_idx >= len(args) {
+                                break;
+                            }
+                            if compare(tok.value, defn.params.data[param_idx]) == 0 {
+                                val arg_expanded: string = expand_macros_in_expression(args.data[param_idx]);
+                                StringBuilder.append(addr(expanded), arg_expanded);
+                                found_param = true;
+                                break;
+                            }
+                            param_idx++;
+                        }
+                        
+                        if !found_param {
+                            StringBuilder.append(addr(expanded), tok.value);
+                        }
+                    } elif tok.token_type == TokenType.STR {
+                        StringBuilder.append_char(addr(expanded), '"');
+                        StringBuilder.append(addr(expanded), tok.value);
+                        StringBuilder.append_char(addr(expanded), '"');
+                    } elif tok.token_type == TokenType.CHAR {
+                        StringBuilder.append_char(addr(expanded), '\'');
+                        StringBuilder.append(addr(expanded), tok.value);
+                        StringBuilder.append_char(addr(expanded), '\'');
+                    } elif tok.token_type != TokenType.WHITESPACE and tok.token_type != TokenType.NEWLINE {
+                        StringBuilder.append(addr(expanded), tok.value);
+                    } else {
+                        StringBuilder.append_char(addr(expanded), ' ');
+                    }
+                    
+                    tok_idx++;
+                }
+                
+                val expanded_text: string = StringBuilder.to_string(addr(expanded));
+                StringBuilder.destroy(addr(expanded));
+                
+                val fully_expanded: string = expand_macros_in_expression(expanded_text);
+                StringBuilder.append(addr(result), fully_expanded);
+            } else {
+                StringBuilder.append(addr(result), ident);
+            }
+        } else {
+            StringBuilder.append_char(addr(result), ch);
+            i++;
+        }
+    }
+    
+    val final_result: string = StringBuilder.to_string(addr(result));
+    StringBuilder.destroy(addr(result));
+    return final_result;
+}
+
 /// Register a variable's mutability (true for mut, false for val)
 def register_variable(var_name: string, is_mutable: bool) {
     mut arena: Arena = Arena.create(1024);
@@ -1992,6 +2157,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             consume(ctx);
         }
         
+        condition = expand_macros_in_expression(condition);
+        
         if !expect(ctx, TokenType.COMMA) {
             mut err: string = format_error(ctx, str("Expected ',' after assert condition"));
             enforce_raw(false, err.data);
@@ -2085,6 +2252,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             return node;
         }
         consume(ctx);
+        
+        expr = expand_macros_in_expression(expr);
         
         node.node_type = str("Return");
         node.line = return_line;
@@ -2944,6 +3113,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     return node;
                 }
 
+                initializer = expand_macros_in_expression(initializer);
+
                 if !has_explicit_type {
                     if non_ws_count == 1 {
                         if first_non_ws_token.token_type == TokenType.NUMBER or (first_non_ws_token.token_type == TokenType.IDENTIFIER and is_all_digits(first_non_ws_token.value)) {
@@ -3113,6 +3284,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     enforce_raw(false, err.data);
                     return node;
                 }
+
+                initializer = expand_macros_in_expression(initializer);
 
                 if !has_explicit_type_mut {
                     if non_ws_count_mut == 1 {
@@ -3311,6 +3484,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     return node;
                 }
                 consume(ctx);
+                
+                value_str = expand_macros_in_expression(value_str);
                 
                 mut left_side: string = concat(ident_name, str("("));
                 left_side = concat(left_side, strip(args_str));
@@ -4172,6 +4347,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 return node;
             }
 
+            expr = expand_macros_in_expression(expr);
+            
             node.node_type = str("Assignment");
             node.data.assignment.variable = ident_name;
             node.data.assignment.expression = strip(expr);
@@ -4263,6 +4440,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
             debug_print_raw "\n[DEBUG]   final RHS expr:";
             debug_print_str expr;
+
+            expr = expand_macros_in_expression(expr);
 
             mut trimmed_assign: string = strip(expr);
             val prefix_fix: string = str("_state = ");
