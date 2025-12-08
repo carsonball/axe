@@ -590,6 +590,7 @@ def net_init(): bool {
     mut success: bool = true;
     platform windows {
         foreign { WSADATA };
+
         mut wsaData: WSADATA;
         mut result: i32 = C.WSAStartup(C.MAKEWORD(2, 2), &wsaData);
 
