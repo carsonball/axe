@@ -4654,6 +4654,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.member_access.object_name = ident_name;
                     node.data.member_access.member_name = member_name;
                     node.data.member_access.value = value_expr;
+                    scan_expression_for_usage(value_expr);
                     mark_variable_mutated(ident_name);
                     return node;
                 }
@@ -4907,6 +4908,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.member_access.object_name = ident_name;
                     node.data.member_access.member_name = ptr_member_name;
                     node.data.member_access.value = ptr_value_expr;
+                    scan_expression_for_usage(ptr_value_expr);
                     mark_variable_mutated(ident_name);
                     return node;
                 }
