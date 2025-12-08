@@ -211,8 +211,8 @@ pub def replace_all(s: string, from: string, dest: string): string {
 
     mut sb: StringBuilder = StringBuilder.init(s.len + 64);
     mut i: i32 = 0;
-    mut n: i32 = cast[i32](str_len(s));
-    mut from_len: i32 = cast[i32](str_len(from));
+    val n: i32 = cast[i32](str_len(s));
+    val from_len: i32 = cast[i32](str_len(from));
 
     loop {
         if i >= n {
@@ -876,7 +876,7 @@ pub def has_suffix(s: string, suffix: string): bool {
     }
 
     mut i: usize = 0;
-    mut start: usize = s.len - suffix.len;
+    val start: usize = s.len - suffix.len;
     loop {
         if i >= suffix.len {
             break;
@@ -917,7 +917,7 @@ pub def trim_suffix(s: string, suffix: string): string {
     }
 
     mut i: usize = 0;
-    mut start: usize = s.len - suffix.len;
+    val start: usize = s.len - suffix.len;
     loop {
         if i >= suffix.len {
             break;

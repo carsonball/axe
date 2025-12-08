@@ -10,7 +10,7 @@ use builds;
 use gstate;
 
 def main() {
-    mut arena: Arena = Arena.create(1024);
+    val arena: Arena = Arena.create(1024);
     val args: ref StringList = get_cmdline_args(addr(arena));
     
     if args.len < 2 {

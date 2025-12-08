@@ -144,7 +144,7 @@ def check_boundary(source: string, pos: i32, source_len: i32): bool {
     if pos >= source_len {
         return true;
     }
-    mut ch: char = source.data[pos];
+    val ch: char = source.data[pos];
     return !is_ident_char(ch);
 }
 
@@ -170,14 +170,14 @@ def str_equals(s1: string, s2: ref char, start: i32, len: i32, source_len: i32):
 pub def lex(source: string): list(Token) {
     mut tokens: list(Token);
     mut pos: i32 = 0;
-    mut source_len: i32 = source.len;
+    val source_len: i32 = source.len;
     g_lexer_current_line = 1;
     
     loop {
         if pos >= source_len {
             break;
         }
-        mut ch: char = get_char(source, pos);
+        val ch: char = get_char(source, pos);
         
         if ch == '*' {
             if pos + 1 < source_len and get_char(source, pos + 1) == '.' {
@@ -271,7 +271,7 @@ pub def lex(source: string): list(Token) {
             }
         } elif ch == '/' {
             if pos + 1 < source_len and get_char(source, pos + 1) == '/' {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or get_char(source, pos) == '\n' {
                         break;
@@ -301,7 +301,7 @@ pub def lex(source: string): list(Token) {
         } elif ch == '$' {
             if pos + 1 < source_len and get_char(source, pos + 1) == '"' {
                 pos = pos + 2;
-                mut str_start: i32 = pos;
+                val str_start: i32 = pos;
                 mut ending: i32 = pos;
                 loop {
                     if ending >= source_len {
@@ -315,7 +315,7 @@ pub def lex(source: string): list(Token) {
                         ending = ending + 1;
                     }
                 }
-                mut raw_inter: string = str(substring_scse(source, str_start, ending));
+                val raw_inter: string = str(substring_scse(source, str_start, ending));
                 mut wrapped: string = str("__INTERPOLATED__");
                 wrapped = concat(wrapped, raw_inter);
                 wrapped = concat(wrapped, str("__INTERPOLATED__"));
@@ -417,7 +417,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.AND, "and"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -431,7 +431,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.BREAK, "break"));
                 pos = pos + 5;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -448,7 +448,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.CASE, "case"));
                 pos = pos + 4;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -467,7 +467,7 @@ pub def lex(source: string): list(Token) {
                     if lookAhead >= source_len {
                         break;
                     }
-                    mut ch_look: char = get_char(source, lookAhead);
+                    val ch_look: char = get_char(source, lookAhead);
                     if ch_look != ' ' and ch_look != '\t' {
                         break;
                     }
@@ -480,7 +480,7 @@ pub def lex(source: string): list(Token) {
                         if lookAhead >= source_len {
                             break;
                         }
-                        mut ch_look: char = get_char(source, lookAhead);
+                        val ch_look: char = get_char(source, lookAhead);
                         if ch_look != ' ' and ch_look != '\t' {
                             break;
                         }
@@ -502,7 +502,7 @@ pub def lex(source: string): list(Token) {
                     pos = pos + 3;
                 }
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -528,7 +528,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.ELSE, "else"));
                 pos = pos + 4;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -545,7 +545,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.FOR, "for"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -562,7 +562,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.IF, "if"));
                 pos = pos + 2;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -579,7 +579,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.LOCAL, "local"));
                 pos = pos + 5;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -605,7 +605,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.MOD, "mod"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -619,7 +619,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.NEW, "new"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -639,7 +639,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.OR, "or"));
                 pos = pos + 2;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -665,7 +665,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.PRINT, "put"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -702,7 +702,7 @@ pub def lex(source: string): list(Token) {
                     append(tokens, create_token(TokenType.LBRACE, "{"));
                     pos = pos + 1;
                     mut brace_depth: i32 = 1;
-                    mut content_start: i32 = pos;
+                    val content_start: i32 = pos;
                     loop {
                         if pos >= source_len or brace_depth <= 0 {
                             break;
@@ -726,7 +726,7 @@ pub def lex(source: string): list(Token) {
                     }
                 }
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -743,7 +743,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.SINGLE, "single"));
                 pos = pos + 6;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -760,7 +760,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.TO, "to"));
                 pos = pos + 2;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -777,7 +777,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.USE, "use"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -808,7 +808,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.VAL, "val"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -825,7 +825,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.WHILE, "while"));
                 pos = pos + 5;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -839,7 +839,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.XOR, "xor"));
                 pos = pos + 3;
             } else {
-                mut start: i32 = pos;
+                val start: i32 = pos;
                 loop {
                     if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                         break;
@@ -849,7 +849,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.IDENTIFIER, substring_scse(source, start, pos)));
             }
         } elif ch == '0' and pos + 1 < source_len and (get_char(source, pos + 1) == 'x' or get_char(source, pos + 1) == 'X') {
-            mut start: i32 = pos;
+            val start: i32 = pos;
             pos = pos + 2;
             loop {
                 if pos >= source_len or !is_hex_digit(get_char(source, pos)) {
@@ -859,7 +859,7 @@ pub def lex(source: string): list(Token) {
             }
             append(tokens, create_token(TokenType.IDENTIFIER, substring_scse(source, start, pos)));
         } elif is_ident_char(ch) {
-            mut start: i32 = pos;
+            val start: i32 = pos;
             loop {
                 if pos >= source_len or !is_ident_char(get_char(source, pos)) {
                     break;

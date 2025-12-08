@@ -28,6 +28,7 @@ mut g_list_of_types: StringStringMap;
 mut g_var_mutability: StringBoolMap;
 mut g_var_actually_mutated: StringBoolMap;
 mut g_mutable_vars_in_scope: list(string);
+mut g_function_has_raw_block: bool;
 mut g_macro_names: list(string);
 mut g_macro_defs: list(MacroDef);
 
@@ -290,11 +291,15 @@ def register_variable(var_name: string, is_mutable: bool) {
     debug_print_raw "\n[DEBUG]   is_mutable:";
     if is_mutable {
         debug_print_raw "true";
-        append(g_mutable_vars_in_scope, var_name);
     } else {
         debug_print_raw "false";
     }
     StringBoolMap.set(addr(g_var_mutability), addr(arena), var_name, is_mutable);
+}
+
+/// Register a mutable variable for mutation tracking (only for vars with initializers)
+def register_for_mutation_tracking(var_name: string) {
+    append(g_mutable_vars_in_scope, var_name);
 }
 
 /// Check if a variable has been declared (tracked in mutability map)
@@ -332,6 +337,162 @@ def is_variable_mutable(var_name: string): bool {
 def mark_variable_mutated(var_name: string) {
     mut arena: Arena = Arena.create(512);
     StringBoolMap.set(addr(g_var_actually_mutated), addr(arena), var_name, true);
+}
+
+/// Check if string contains "C." (for detecting C function calls)
+/// Handles whitespace between C and .
+def contains_c_call(s: string): bool {
+    if s.len < 2 {
+        return false;
+    }
+    mut i: usize = 0;
+    loop {
+        if i >= s.len {
+            break;
+        }
+        if s.data[i] == 'C' {
+            // Found 'C', now skip whitespace and look for '.'
+            mut j: usize = i + 1;
+            loop {
+                if j >= s.len {
+                    break;
+                }
+                val ch: char = s.data[j];
+                if ch == ' ' or ch == '\t' {
+                    j++;
+                    continue;
+                }
+                if ch == '.' {
+                    return true;
+                }
+                break;
+            }
+        }
+        i++;
+    }
+    return false;
+}
+
+/// Scan an expression string for addr() calls and mark those variables as mutated
+def scan_expression_for_addr(expr: string) {
+    mut pos: i32 = 0;
+    loop {
+        if pos >= str_len(expr) {
+            break;
+        }
+        
+        // Look for "addr"
+        if pos + 4 <= str_len(expr) {
+            val substr: string = substring_se(expr, pos, pos + 4);
+            if equals_c(substr, "addr") {
+                // Skip whitespace after "addr"
+                mut scan_pos: i32 = pos + 4;
+                loop {
+                    if scan_pos >= str_len(expr) {
+                        break;
+                    }
+                    val ch: char = get_char(expr, scan_pos);
+                    if ch != ' ' and ch != '\t' {
+                        break;
+                    }
+                    scan_pos = scan_pos + 1;
+                }
+                
+                if scan_pos < str_len(expr) and get_char(expr, scan_pos) == '(' {
+                    scan_pos = scan_pos + 1;
+                    
+                    val arg_start: i32 = scan_pos;
+                    mut arg_end: i32 = scan_pos;
+                    mut paren_depth: i32 = 1;
+                    
+                    loop {
+                        if arg_end >= str_len(expr) {
+                            break;
+                        }
+                        val ach: char = get_char(expr, arg_end);
+                        if ach == '(' {
+                            paren_depth = paren_depth + 1;
+                        } elif ach == ')' {
+                            paren_depth = paren_depth - 1;
+                            if paren_depth == 0 {
+                                break;
+                            }
+                        }
+                        arg_end = arg_end + 1;
+                    }
+                    
+                    if arg_end > arg_start {
+                        val arg: string = strip(substring_se(expr, arg_start, arg_end));
+                        
+                        // Extract just the variable name (before any . or *)
+                        mut var_name: string = arg;
+                        val dot_pos: i32 = find_char_from(var_name, '.', 0);
+                        val star_pos: i32 = find_char_from(var_name, '*', 0);
+                        if dot_pos > 0 {
+                            var_name = strip(substring_se(var_name, 0, dot_pos));
+                        } elif star_pos > 0 {
+                            var_name = strip(substring_se(var_name, 0, star_pos));
+                        }
+                        
+                        // Mark variable as mutated (will only affect tracked variables)
+                        if str_len(var_name) > 0 {
+                            mark_variable_mutated(var_name);
+                        }
+                    }
+                }
+            }
+        }
+        
+        pos = pos + 1;
+    }
+}
+
+/// Scan expression for variables used in C function calls
+/// If an expression contains "C." it means we're calling C code,
+/// and any mutable variables in that expression should be marked as mutated
+def scan_expression_for_c_calls(expr: string) {
+    // Check if expression contains "C."
+    if !contains_c_call(expr) {
+        return;
+    }
+    
+    // Expression contains C function calls - mark all mutable variables as mutated
+    mut pos: i32 = 0;
+    loop {
+        if pos >= str_len(expr) {
+            break;
+        }
+        
+        val ch: char = get_char(expr, pos);
+        
+        // Look for identifiers (variable names)
+        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+            val id_start: i32 = pos;
+            mut id_end: i32 = pos;
+            loop {
+                if id_end >= str_len(expr) {
+                    break;
+                }
+                val ich: char = get_char(expr, id_end);
+                if (ich >= 'a' and ich <= 'z') or (ich >= 'A' and ich <= 'Z') or (ich >= '0' and ich <= '9') or ich == '_' {
+                    id_end = id_end + 1;
+                } else {
+                    break;
+                }
+            }
+            
+            val var_name: string = substring_se(expr, id_start, id_end);
+            
+            // If this is a declared mutable variable, mark it as mutated
+            if str_len(var_name) > 0 and is_variable_declared(var_name) and is_variable_mutable(var_name) {
+                mark_variable_mutated(var_name);
+            }
+            
+            pos = id_end;
+        } else {
+            pos = pos + 1;
+        }
+    }
 }
 
 /// Check if an identifier is NULL and report an error.
@@ -638,7 +799,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 break;
             }
             
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(children, stmt);
             }
@@ -703,7 +864,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     }
     
     if token_type == TokenType.EXTERN {
-        mut extern_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+        val extern_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
         if str_len(extern_node.node_type) > 0 {
             add_child_to_ast(ast, extern_node);
         }
@@ -884,7 +1045,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                             ctx.pos++; // Skip ':'
 
                             skip_whitespace(ctx);
-                            mut member_base_type: string = parse_type(ctx);
+                            val member_base_type: string = parse_type(ctx);
                             skip_whitespace(ctx);
 
                             // Anonymous model inside union: `member_name: model { ... }`
@@ -941,7 +1102,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                                     ctx.pos++; // Skip ':'
 
                                     skip_whitespace(ctx);
-                                    mut nested_type: string = parse_type(ctx);
+                                    val nested_type: string = parse_type(ctx);
 
                                     // Optional semicolon
                                     skip_whitespace(ctx);
@@ -962,7 +1123,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                                 }
                             } else {
                                 // Normal union member (non-anonymous-model)
-                                mut member_type: string = member_base_type;
+                                val member_type: string = member_base_type;
 
                                 // Consume optional semicolon after union member
                                 skip_whitespace(ctx);
@@ -1156,7 +1317,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     }
     
     if token_type == TokenType.MUT or token_type == TokenType.VAL {
-        mut decl_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+        val decl_node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
         if str_len(decl_node.node_type) > 0 {
             add_child_to_ast(ast, decl_node);
         }
@@ -1193,7 +1354,7 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 break;
             }
             
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(children, stmt);
             }
@@ -1728,7 +1889,7 @@ def parse_type(ctx: ref ParserContext): string {
     skip_whitespace(ctx);
     
     if ctx.pos >= len(ctx.tokens) {
-        mut err: string = format_error(ctx, str("Expected type but reached end of tokens"));
+        val err: string = format_error(ctx, str("Expected type but reached end of tokens"));
         enforce_raw(false, err.data);
         return str("");
     }
@@ -1765,7 +1926,7 @@ def parse_type(ctx: ref ParserContext): string {
             skip_whitespace(ctx);
             
             if !expect(ctx, TokenType.LPAREN) {
-                mut err: string = format_error(ctx, str("Expected '(' after 'list'"));
+                val err: string = format_error(ctx, str("Expected '(' after 'list'"));
                 enforce_raw(false, err.data);
                 return str("");
             }
@@ -1777,7 +1938,7 @@ def parse_type(ctx: ref ParserContext): string {
             
             skip_whitespace(ctx);
             if !expect(ctx, TokenType.RPAREN) {
-                mut err: string = format_error(ctx, str("Expected ')' after list element type"));
+                val err: string = format_error(ctx, str("Expected ')' after list element type"));
                 enforce_raw(false, err.data);
                 return str("");
             }
@@ -1819,7 +1980,7 @@ def parse_type(ctx: ref ParserContext): string {
             }
         }
     } else {
-        mut err: string = format_error(ctx, str("Invalid type specification"));
+        val err: string = format_error(ctx, str("Invalid type specification"));
         enforce_raw(false, err.data);
         return str("");
     }
@@ -1860,6 +2021,10 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     func.node_type = str("Function");
     func.line = current_line(ctx);
     
+    // Clear function-local mutable variable tracking (keep globals out of the list)
+    g_mutable_vars_in_scope.len = 0;
+    g_function_has_raw_block = false;
+    
     skip_whitespace(ctx);
     if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
         mut err: string = format_error(ctx, str("Expected function name after 'def'"));
@@ -1899,7 +2064,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         mut dbg: string = str("  func_name = ");
         dbg = concat(dbg, func_name);
         debug_print_str dbg;
-        mut buffer: char[64] = {};
+        val buffer: char[64] = {};
         dbg = str("  ctx.pos = ");
         dbg = concat_c(dbg, int_to_str(ctx.pos, buffer));
         dbg = concat(dbg, str(" / "));
@@ -1933,7 +2098,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 break;
             }
             val tok_dbg: Token = ctx.tokens.data[i_dbg];
-            mut buffer: char[64] = {};
+            val buffer: char[64] = {};
 
             dbg = str("    [");
             dbg = concat_c(dbg, int_to_str(i_dbg, buffer));
@@ -1973,7 +2138,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         val t: Token = ctx.tokens.data[ctx.pos];
 
         if t.token_type == TokenType.RPAREN and paren_depth_params == 0 {
-            mut trimmed: string = strip(current_param);
+            val trimmed: string = strip(current_param);
             if str_len(trimmed) > 0 {
                 append(params, trimmed);
             }
@@ -1996,7 +2161,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         }
 
         if t.token_type == TokenType.COMMA and paren_depth_params == 0 {
-            mut trimmed_param: string = strip(current_param);
+            val trimmed_param: string = strip(current_param);
             if str_len(trimmed_param) > 0 {
                 append(params, trimmed_param);
             }
@@ -2071,7 +2236,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             break;
         }
         
-        mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+        val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
         if str_len(stmt.node_type) > 0 {
             append(children, stmt);
         }
@@ -2086,27 +2251,39 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         }
     }
     
-    mut i_mut: i32 = 0;
-    loop {
-        if i_mut >= len(g_mutable_vars_in_scope) {
-            break;
+    // Skip mutation checking if function contains raw block
+    if !g_function_has_raw_block {
+        mut i_mut: i32 = 0;
+        loop {
+            if i_mut >= len(g_mutable_vars_in_scope) {
+                break;
+            }
+            val var_name: string = g_mutable_vars_in_scope.data[i_mut];
+            if !StringBoolMap.contains(addr(g_var_actually_mutated), var_name) {
+                print ctx.filename;
+                print ":";
+                print(i32_to_string(func.line));
+                print ": error: variable '";
+                print var_name;
+                println "' is declared 'mut' but is never mutated. Use 'val' instead.";
+                quit(1);
+            }
+            i_mut++;
         }
-        val var_name: string = g_mutable_vars_in_scope.data[i_mut];
-        if !StringBoolMap.contains(addr(g_var_actually_mutated), var_name) {
-            print ctx.filename;
-            print ":";
-            print(i32_to_string(func.line));
-            print ": error: variable '";
-            print var_name;
-            println "' is declared 'mut' but is never mutated. Use 'val' instead.";
-            quit(1);
-        }
-        i_mut++;
     }
     
+    // Clear only the function-local variables from the maps (keep globals)
+    mut clear_idx: i32 = 0;
+    loop {
+        if clear_idx >= len(g_mutable_vars_in_scope) {
+            break;
+        }
+        val var_to_clear: string = g_mutable_vars_in_scope.data[clear_idx];
+        StringBoolMap.pop(addr(g_var_mutability), var_to_clear);
+        StringBoolMap.pop(addr(g_var_actually_mutated), var_to_clear);
+        clear_idx++;
+    }
     g_mutable_vars_in_scope.len = 0;
-    StringBoolMap.clear(addr(g_var_mutability));
-    StringBoolMap.clear(addr(g_var_actually_mutated));
     
     return func;
 }
@@ -2360,7 +2537,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 break;
             }
 
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(body, stmt);
             }
@@ -2514,7 +2691,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 break;
             }
 
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(if_children, stmt);
             }
@@ -2615,7 +2792,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     break;
                 }
 
-                mut stmt_eb: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                val stmt_eb: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt_eb.node_type) > 0 {
                     append(elif_children, stmt_eb);
                 }
@@ -2676,7 +2853,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     break;
                 }
 
-                mut stmt2: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                val stmt2: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt2.node_type) > 0 {
                     append(final_else_children, stmt2);
                 }
@@ -2903,7 +3080,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     consume(ctx); // skip '}'
                     break;
                 }
-                mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt.node_type) > 0 {
                     append(body, stmt);
                 }
@@ -3008,7 +3185,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 break;
             }
 
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(body, stmt);
             }
@@ -3236,6 +3413,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.declaration.type_name = type_name;
         node.data.declaration.ref_depth = 0;
         register_variable(var_name.value, false);
+        scan_expression_for_addr(initializer);
+        scan_expression_for_c_calls(initializer);
         debug_print_raw "\n[DEBUG] VAL declaration details:";
         debug_print_raw "\n[DEBUG]   name:";
         debug_print_str var_name.value;
@@ -3422,7 +3601,23 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         node.data.declaration.initializer = initializer;
         node.data.declaration.type_name = type_name;
         node.data.declaration.ref_depth = 0;
+        // Always register the variable as mutable
         register_variable(var_name.value, true);
+        // Only track mutation for variables with initializers
+        // Variables without initializers (e.g., mut buffer: char[1024];) are typically
+        // written to later and don't need mutation tracking
+        // Also skip Arena types since they're typically only used via addr()
+        val is_arena_type: bool = equals_c(type_name, "Arena") or has_suffix(type_name, str("Arena"));
+        if str_len(initializer) > 0 and !is_arena_type {
+            register_for_mutation_tracking(var_name.value);
+            scan_expression_for_addr(initializer);
+            scan_expression_for_c_calls(initializer);
+            // If initializer contains C function call, mark this variable as mutated
+            // (since C code might write to memory it returns)
+            if contains_c_call(initializer) {
+                mark_variable_mutated(var_name.value);
+            }
+        }
         debug_print_raw "\n[DEBUG] MUT declaration finished for:";
         debug_print_str var_name.value;
         return node;
@@ -3675,6 +3870,10 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             
             skip_whitespace(ctx);
             
+            // Scan function arguments for addr() calls
+            scan_expression_for_addr(args_str);
+            scan_expression_for_c_calls(args_str);
+            
             mut is_assignment: bool = false;
             if ctx.pos < len(ctx.tokens) {
                 val look_tok: Token = peek(ctx);
@@ -3875,6 +4074,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.array_assign.index = index_expr;
                     node.data.array_assign.index2 = index2_expr;
                     node.data.array_assign.value = value_expr;
+                    // Mark the array/pointer variable as mutated
+                    mark_variable_mutated(ident_name);
                     return node;
                 }
             }
@@ -4133,7 +4334,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         node.data.array_assign.index = member_index_expr;
                         node.data.array_assign.index2 = member_index2_expr;
                         node.data.array_assign.value = member_array_value_expr;
-
+                        // Mark the base variable as mutated
+                        mark_variable_mutated(ident_name);
                         return node;
                     }
                 }
@@ -4225,6 +4427,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.member_access.object_name = ident_name;
                     node.data.member_access.member_name = member_name;
                     node.data.member_access.value = value_expr;
+                    mark_variable_mutated(ident_name);
                     return node;
                 }
             }
@@ -4400,6 +4603,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         node.data.array_assign.index = ptr_member_index_expr;
                         node.data.array_assign.index2 = ptr_member_index2_expr;
                         node.data.array_assign.value = ptr_member_array_value_expr;
+                        // Mark the base variable as mutated
+                        mark_variable_mutated(ident_name);
                         return node;
                     }
                 }
@@ -4475,6 +4680,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     node.data.member_access.object_name = ident_name;
                     node.data.member_access.member_name = ptr_member_name;
                     node.data.member_access.value = ptr_value_expr;
+                    mark_variable_mutated(ident_name);
                     return node;
                 }
             }
@@ -4585,6 +4791,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
 
             expr = expand_macros_in_expression(expr);
+            scan_expression_for_addr(expr);
+            scan_expression_for_c_calls(expr);
             
             node.node_type = str("Assignment");
             node.data.assignment.variable = ident_name;
@@ -4689,6 +4897,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 expr = trimmed_assign;
             }
 
+            scan_expression_for_addr(expr);
+            scan_expression_for_c_calls(expr);
+            
             node.node_type = str("Assignment");
             node.data.assignment.variable = ident_name;
             node.data.assignment.expression = expr;
@@ -4829,7 +5040,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 break;
             }
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 add_child_to_ast(addr(node), stmt);
             }
@@ -4999,7 +5210,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     consume(ctx);
                     break;
                 }
-                mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt.node_type) > 0 {
                     append(body, stmt);
                 }
@@ -5142,7 +5353,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     consume(ctx);
                     break;
                 }
-                mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt.node_type) > 0 {
                     append(body, stmt);
                 }
@@ -5202,7 +5413,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 break;
             }
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(body, stmt);
             }
@@ -5246,7 +5457,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 break;
             }
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(body, stmt);
             }
@@ -5289,7 +5500,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 break;
             }
             
-            mut stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+            val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
                 append(body, stmt);
             }
@@ -5315,6 +5526,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             enforce_raw(false, err.data);
             return node;
         }
+
+        // Mark that this function contains a raw block
+        g_function_has_raw_block = true;
 
         consume(ctx); // Skip 'raw'
         skip_whitespace(ctx);
@@ -6030,7 +6244,7 @@ test {
     ctx19.is_axec = false;
     ctx19.check_entry_point = false;
     ctx19.current_module = str("");
-    mut stmt19: ASTNode = parse_statement_helper(addr(ctx19), addr(ctx19.current_scope));
+    val stmt19: ASTNode = parse_statement_helper(addr(ctx19), addr(ctx19.current_scope));
     assert equals_c(stmt19.node_type, "Break"), "Expected Break node";
 
     println "\nTest 20: parse_statement_helper with return";
@@ -6039,7 +6253,7 @@ test {
     ctx20.tokens = addr(tokens20);
     ctx20.pos = 0;
     ctx20.is_axec = false;
-    mut stmt20: ASTNode = parse_statement_helper(addr(ctx20), addr(ctx20.current_scope));
+    val stmt20: ASTNode = parse_statement_helper(addr(ctx20), addr(ctx20.current_scope));
     assert equals_c(stmt20.node_type, "Return"), "Expected Return node";
     assert str_contains_c(stmt20.data.return_node.expression, "42"), "Expected return expression to contain '42'";
 
@@ -6049,7 +6263,7 @@ test {
     ctx21.tokens = addr(tokens21);
     ctx21.pos = 0;
     ctx21.is_axec = false;
-    mut stmt21: ASTNode = parse_statement_helper(addr(ctx21), addr(ctx21.current_scope));
+    val stmt21: ASTNode = parse_statement_helper(addr(ctx21), addr(ctx21.current_scope));
     assert equals_c(stmt21.node_type, "Assert"), "Expected Assert node";
     assert str_len(stmt21.data.assert_node.condition) > 0, "Expected assert condition";
     assert str_len(stmt21.data.assert_node.message) > 0, "Expected assert message";
@@ -6060,7 +6274,7 @@ test {
     ctx22.tokens = addr(tokens22);
     ctx22.pos = 0;
     ctx22.is_axec = false;
-    mut stmt22: ASTNode = parse_statement_helper(addr(ctx22), addr(ctx22.current_scope));
+    val stmt22: ASTNode = parse_statement_helper(addr(ctx22), addr(ctx22.current_scope));
     assert equals_c(stmt22.node_type, "Unsafe"), "Expected Unsafe node";
 
     println "\nTest 23: parse_statement_helper with if-elif-else";
@@ -6069,7 +6283,7 @@ test {
     ctx23.tokens = addr(tokens23);
     ctx23.pos = 0;
     ctx23.is_axec = false;
-    mut stmt23: ASTNode = parse_statement_helper(addr(ctx23), addr(ctx23.current_scope));
+    val stmt23: ASTNode = parse_statement_helper(addr(ctx23), addr(ctx23.current_scope));
     assert equals_c(stmt23.node_type, "If"), "Expected If node with elif and else";
 
     println "\nTest 24: parse_statement_helper with use statement";
@@ -6078,7 +6292,7 @@ test {
     ctx24.tokens = addr(tokens24);
     ctx24.pos = 0;
     ctx24.is_axec = false;
-    mut stmt24: ASTNode = parse_statement_helper(addr(ctx24), addr(ctx24.current_scope));
+    val stmt24: ASTNode = parse_statement_helper(addr(ctx24), addr(ctx24.current_scope));
     assert equals_c(stmt24.node_type, "Use"), "Expected Use node";
     assert stmt24.data.use_node.import_all == true, "Expected import_all to be true";
 
@@ -6088,7 +6302,7 @@ test {
     ctx25.tokens = addr(tokens25);
     ctx25.pos = 0;
     ctx25.is_axec = false;
-    mut stmt25: ASTNode = parse_statement_helper(addr(ctx25), addr(ctx25.current_scope));
+    val stmt25: ASTNode = parse_statement_helper(addr(ctx25), addr(ctx25.current_scope));
     assert equals_c(stmt25.node_type, "Use"), "Expected Use node with selective imports";
     assert stmt25.data.use_node.import_all == false, "Expected import_all to be false";
 
@@ -6098,7 +6312,7 @@ test {
     ctx26.tokens = addr(tokens26);
     ctx26.pos = 0;
     ctx26.is_axec = false;
-    mut stmt26: ASTNode = parse_statement_helper(addr(ctx26), addr(ctx26.current_scope));
+    val stmt26: ASTNode = parse_statement_helper(addr(ctx26), addr(ctx26.current_scope));
     assert equals_c(stmt26.node_type, "Case"), "Expected Case node";
     assert stmt26.data.case_node.is_default == false, "Expected non-default case";
 
@@ -6108,7 +6322,7 @@ test {
     ctx27.tokens = addr(tokens27);
     ctx27.pos = 0;
     ctx27.is_axec = false;
-    mut stmt27: ASTNode = parse_statement_helper(addr(ctx27), addr(ctx27.current_scope));
+    val stmt27: ASTNode = parse_statement_helper(addr(ctx27), addr(ctx27.current_scope));
     assert equals_c(stmt27.node_type, "Case"), "Expected Case node for default";
     assert stmt27.data.case_node.is_default == true, "Expected default case";
 
@@ -6118,7 +6332,7 @@ test {
     ctx28.tokens = addr(tokens28);
     ctx28.pos = 0;
     ctx28.is_axec = false;
-    mut stmt28: ASTNode = parse_statement_helper(addr(ctx28), addr(ctx28.current_scope));
+    val stmt28: ASTNode = parse_statement_helper(addr(ctx28), addr(ctx28.current_scope));
     assert equals_c(stmt28.node_type, "MemberAccess"), "Expected MemberAccess node";
     assert equals_c(stmt28.data.member_access.object_name, "obj"), "Expected object name 'obj'";
     assert equals_c(stmt28.data.member_access.member_name, "field"), "Expected member name 'field'";
@@ -6130,7 +6344,7 @@ test {
     ctx29.tokens = addr(tokens29);
     ctx29.pos = 0;
     ctx29.is_axec = false;
-    mut stmt29: ASTNode = parse_statement_helper(addr(ctx29), addr(ctx29.current_scope));
+    val stmt29: ASTNode = parse_statement_helper(addr(ctx29), addr(ctx29.current_scope));
     assert equals_c(stmt29.node_type, "MemberAccess"), "Expected MemberAccess node";
     assert equals_c(stmt29.data.member_access.object_name, "obj"), "Expected object name 'obj'";
     assert equals_c(stmt29.data.member_access.member_name, "field"), "Expected member name 'field'";
@@ -6142,7 +6356,7 @@ test {
     ctx30.tokens = addr(tokens30);
     ctx30.pos = 0;
     ctx30.is_axec = false;
-    mut stmt30: ASTNode = parse_statement_helper(addr(ctx30), addr(ctx30.current_scope));
+    val stmt30: ASTNode = parse_statement_helper(addr(ctx30), addr(ctx30.current_scope));
     assert equals_c(stmt30.node_type, "ArrayAccess"), "Expected ArrayAccess node";
     assert equals_c(stmt30.data.array_access.array_name, "arr"), "Expected array name 'arr'";
     assert str_contains_c(stmt30.data.array_access.index, "5"), "Expected index to contain '5'";
@@ -6153,7 +6367,7 @@ test {
     ctx31.tokens = addr(tokens31);
     ctx31.pos = 0;
     ctx31.is_axec = false;
-    mut stmt31: ASTNode = parse_statement_helper(addr(ctx31), addr(ctx31.current_scope));
+    val stmt31: ASTNode = parse_statement_helper(addr(ctx31), addr(ctx31.current_scope));
     assert equals_c(stmt31.node_type, "ArrayAssign"), "Expected ArrayAssign node";
     assert equals_c(stmt31.data.array_assign.array_name, "arr"), "Expected array name 'arr'";
     assert str_contains_c(stmt31.data.array_assign.index, "i"), "Expected index to contain 'i'";
@@ -6165,7 +6379,7 @@ test {
     ctx32.tokens = addr(tokens32);
     ctx32.pos = 0;
     ctx32.is_axec = false;
-    mut stmt32: ASTNode = parse_statement_helper(addr(ctx32), addr(ctx32.current_scope));
+    val stmt32: ASTNode = parse_statement_helper(addr(ctx32), addr(ctx32.current_scope));
     assert equals_c(stmt32.node_type, "ArrayAccess"), "Expected ArrayAccess node for 2D array";
     assert equals_c(stmt32.data.array_access.array_name, "matrix"), "Expected array name 'matrix'";
     assert str_contains_c(stmt32.data.array_access.index, "i"), "Expected first index to contain 'i'";
@@ -6177,7 +6391,7 @@ test {
     ctx33.tokens = addr(tokens33);
     ctx33.pos = 0;
     ctx33.is_axec = false;
-    mut stmt33: ASTNode = parse_statement_helper(addr(ctx33), addr(ctx33.current_scope));
+    val stmt33: ASTNode = parse_statement_helper(addr(ctx33), addr(ctx33.current_scope));
     assert equals_c(stmt33.node_type, "IncDec"), "Expected IncDec node";
     assert equals_c(stmt33.data.inc_dec.variable, "x"), "Expected variable name 'x'";
     assert stmt33.data.inc_dec.is_increment == true, "Expected is_increment to be true";
@@ -6188,7 +6402,7 @@ test {
     ctx34.tokens = addr(tokens34);
     ctx34.pos = 0;
     ctx34.is_axec = false;
-    mut stmt34: ASTNode = parse_statement_helper(addr(ctx34), addr(ctx34.current_scope));
+    val stmt34: ASTNode = parse_statement_helper(addr(ctx34), addr(ctx34.current_scope));
     assert equals_c(stmt34.node_type, "IncDec"), "Expected IncDec node";
     assert equals_c(stmt34.data.inc_dec.variable, "x"), "Expected variable name 'x'";
     assert stmt34.data.inc_dec.is_increment == false, "Expected is_increment to be false";
@@ -6199,7 +6413,7 @@ test {
     ctx35.tokens = addr(tokens35);
     ctx35.pos = 0;
     ctx35.is_axec = false;
-    mut stmt35: ASTNode = parse_statement_helper(addr(ctx35), addr(ctx35.current_scope));
+    val stmt35: ASTNode = parse_statement_helper(addr(ctx35), addr(ctx35.current_scope));
     assert equals_c(stmt35.node_type, "MemberIncDec"), "Expected MemberIncDec node";
     assert equals_c(stmt35.data.member_inc_dec.object_name, "obj"), "Expected object name 'obj'";
     assert equals_c(stmt35.data.member_inc_dec.member_name, "count"), "Expected member name 'count'";
@@ -6211,7 +6425,7 @@ test {
     ctx36.tokens = addr(tokens36);
     ctx36.pos = 0;
     ctx36.is_axec = false;
-    mut stmt36: ASTNode = parse_statement_helper(addr(ctx36), addr(ctx36.current_scope));
+    val stmt36: ASTNode = parse_statement_helper(addr(ctx36), addr(ctx36.current_scope));
     assert equals_c(stmt36.node_type, "MemberIncDec"), "Expected MemberIncDec node";
     assert equals_c(stmt36.data.member_inc_dec.object_name, "obj"), "Expected object name 'obj'";
     assert equals_c(stmt36.data.member_inc_dec.member_name, "count"), "Expected member name 'count'";
@@ -6243,7 +6457,7 @@ test {
     ctx37.pos = 0;
     ctx37.is_axec = false;
 
-    mut stmt37: ASTNode = parse_statement_helper(addr(ctx37), addr(ctx37.current_scope));
+    val stmt37: ASTNode = parse_statement_helper(addr(ctx37), addr(ctx37.current_scope));
     
     assert equals_c(stmt37.node_type, "Use"), "Expected Use node as first statement in program";
     assert equals_c(stmt37.data.use_node.module_name, "std.io"), "Expected module name 'std.io'";

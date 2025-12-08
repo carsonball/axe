@@ -69,7 +69,7 @@ pub model Arena {
 
     /// Allocates memory for an array from the arena.
     pub def alloc_array(arena: ref Arena, element_size: i32, count: i32): ref void {
-        mut total_size: i32 = element_size * count;
+        val total_size: i32 = element_size * count;
         return Arena.alloc(arena, total_size);
     }
 
