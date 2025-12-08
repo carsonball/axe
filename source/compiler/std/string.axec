@@ -235,15 +235,15 @@ pub def replace_all(s: string, from: string, dest: string): string {
                 match = false;
                 break;
             }
-            j = j + 1;
+            j++;
         }
 
         if match {
             StringBuilder.append(addr(sb), dest);
-            i = i + from_len;
+            i += from_len;
         } else {
             StringBuilder.append_char(addr(sb), get_char(s, i));
-            i = i + 1;
+            i++;
         }
     }
 
