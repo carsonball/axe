@@ -2144,7 +2144,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         mut dbg: string = str("  func_name = ");
         dbg = concat(dbg, func_name);
         debug_print_str dbg;
-        mut buffer: char[64] = {};
+        
+        val buffer: char[64] = {};
         dbg = str("  ctx.pos = ");
         dbg = concat_c(dbg, int_to_str(ctx.pos, buffer));
         dbg = concat(dbg, str(" / "));
