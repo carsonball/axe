@@ -3206,8 +3206,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         mut incr: string = str("");
         mut part_idx: i32 = 0;
         mut current: string = str("");
-
         mut i_hdr: i32 = 0;
+
         loop {
             if i_hdr >= str_len(header) {
                 break;
