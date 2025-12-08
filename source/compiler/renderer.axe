@@ -3703,6 +3703,10 @@ def check_variable_declared(name: string) {
     if StringBoolMap.contains(addr(g_enum_names), name) { if equals_c(name, "y") { println "DEBUG: y found in g_enum_names"; } return; }
     if StringBoolMap.contains(addr(g_opaque_types), name) { if equals_c(name, "y") { println "DEBUG: y found in g_opaque_types"; } return; }
     if is_symbol_imported(name) { if equals_c(name, "y") { println "DEBUG: y is imported"; } return; }
+    if str_len(name) >= 2 and get_char(name, 0) == 'g' and get_char(name, 1) == '_' { return; }
+    if has_prefix(name, str("gvar__")) { return; }
+    if StringBoolMap.contains(addr(g_emitted_globals), name) { return; }
+    if is_all_upper_or_underscore(name) { return; }
     
     print(get_short_filename(g_current_source_file));
     print ":";
