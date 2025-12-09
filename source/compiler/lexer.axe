@@ -6,6 +6,7 @@
 use std.string;
 use std.lists;
 
+/// Token types enumeration
 enum TokenType {
     IDENTIFIER,
     NUMBER,
