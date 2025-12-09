@@ -41,12 +41,27 @@ use std.lists (
     StringList
 );
 
+/// Check if a command exists in PATH
+def command_exists(cmd: string): bool {
+    mut check_cmd: string;
+    platform windows {
+        check_cmd = concat(str("where "), cmd);
+        check_cmd = concat_c(check_cmd, " >nul 2>&1");
+    }
+    platform posix {
+        check_cmd = concat(str("command -v "), cmd);
+        check_cmd = concat_c(check_cmd, " >/dev/null 2>&1");
+    }
+    
+    val result: ExecResult = exec_capture(check_cmd);
+    return result.exit_code == 0;
+}
+
 /// Print all errors if there are any.
 def filter_and_print_errors(output: string) {
     if str_len(output) == 0 {
         return;
     }
-    
     println output;
 }
 
@@ -332,7 +347,27 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     val exe_filename: string = get_output_filename(output_filename, filename);
     val needs_omp: bool = should_link_openmp(addr(ast), filename);
-    mut compile_cmd: string = str("clang ");
+    
+    mut compiler: string = str("");
+    if command_exists(str("clang")) {
+        compiler = str("clang");
+    } else {
+        if command_exists(str("cc")) {
+            compiler = str("cc");
+            if !::quiet_mode {
+                println "Warning: clang not found, using cc instead";
+            }
+        }
+        
+        if str_len(compiler) == 0 {
+            println "You do not have the LLVM C toolchain installed.";
+            println "Install clang from https://releases.llvm.org/ or via your package manager.";
+            println "Alternatively, ensure 'cc' is available in your PATH.";
+            return false;
+        }
+    }
+    
+    mut compile_cmd: string = concat(compiler, str(" "));
     
     val target_triple: string = get_target_triple();
     if str_len(target_triple) > 0 {
