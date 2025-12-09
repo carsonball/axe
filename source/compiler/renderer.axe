@@ -2334,7 +2334,9 @@ def rewrite_casts(expr: string): string {
                                 StringBuilder.append(addr(sb), mapped_type);
                                 StringBuilder.append_char(addr(sb), cast[char](41));
 
-                                val inner_full: string = substring_se(expr, a, end_paren + 1);
+                                val inner_expr_str: string = substring_se(expr, a + 1, end_paren);
+                                val rewritten_inner: string = rewrite_casts(inner_expr_str);
+                                val inner_full: string = concat(str("("), concat(rewritten_inner, str(")")));
                                 StringBuilder.append(addr(sb), inner_full);
                                 i = end_paren + 1;
 

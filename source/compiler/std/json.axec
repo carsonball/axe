@@ -14,6 +14,7 @@ val JSON_TYPE_OBJ: i32 = 5;
 
 extern def yyjson_read(json: char*, size: size_t, flags: i32): char*;
 extern def yyjson_doc_free(doc: char*);
+extern def yyjson_doc_get_root(doc: char*): char*;
 
 /// Parse a JSON string and return a document
 def parse(json_str: string): char* {
@@ -32,10 +33,8 @@ def free_doc(doc: char*) {
 /// Get the root value from a JSON document
 def get_root(doc: char*): char* {
     mut root: char* = nil;
-    raw {
-        if (doc != NULL) {
-            root = (char*)yyjson_doc_get_root((yyjson_doc*)doc);
-        }
+    if doc != nil {
+        root = cast[ref char](yyjson_doc_get_root(cast[ref yyjson_doc](doc)));
     }
     return root;
 }
