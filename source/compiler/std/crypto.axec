@@ -455,7 +455,6 @@ pub def base64_decode(data: char*, len: i32, arena: ref Arena): string {
         val c1: i32 = data[i + 1];
         val c2: i32 = data[i + 2];
         val c3: i32 = data[i + 3];
-
         val v0: i32 = base64_value(c0);
         val v1: i32 = base64_value(c1);
 
