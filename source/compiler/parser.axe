@@ -32,6 +32,8 @@ mut g_all_vars_in_scope: list(string);
 mut g_var_actually_used: StringBoolMap;
 mut g_var_declaration_lines: StringIntMap;
 mut g_var_declaration_files: StringStringMap;
+mut g_var_scope_depth: StringIntMap;
+mut g_current_scope_depth: i32;
 mut g_function_has_raw_block: bool;
 mut g_macro_names: list(string);
 mut g_macro_defs: list(MacroDef);
@@ -49,6 +51,8 @@ pub def initialize_all() {
     g_var_actually_used = deref(StringBoolMap.create(addr(arena), 128));
     g_var_declaration_lines = deref(StringIntMap.create(addr(arena), 128));
     g_var_declaration_files = deref(StringStringMap.create(addr(arena), 128));
+    g_var_scope_depth = deref(StringIntMap.create(addr(arena), 128));
+    g_current_scope_depth = 0;
     g_macro_names.len = 0;
     g_macro_defs.len = 0;
 }
@@ -302,15 +306,122 @@ def register_variable(var_name: string, is_mutable: bool, line_num: i32, source_
     } else {
         debug_print_raw "false";
     }
+    
+    if StringBoolMap.contains(addr(g_var_mutability), var_name) {
+        if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+            val prev_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+            
+            if prev_depth < g_current_scope_depth {
+                val prev_line: i32 = StringIntMap.get(addr(g_var_declaration_lines), var_name);
+                val prev_file: string = StringStringMap.get(addr(g_var_declaration_files), var_name);
+                
+                print source_file;
+                print ":";
+                print(i32_to_string(line_num));
+                print ": error: variable '";
+                print var_name;
+                print "' shadows previously declared variable at ";
+                print prev_file;
+                print ":";
+                print(i32_to_string(prev_line));
+                println "";
+                quit(1);
+            }
+        }
+    }
+    
     StringBoolMap.set(addr(g_var_mutability), addr(arena), var_name, is_mutable);
     StringIntMap.set(addr(g_var_declaration_lines), addr(arena), var_name, line_num);
     StringStringMap.set(addr(g_var_declaration_files), addr(arena), var_name, source_file);
+    StringIntMap.set(addr(g_var_scope_depth), addr(arena), var_name, g_current_scope_depth);
     register_for_usage_tracking(var_name);
 }
 
 /// Register a mutable variable for mutation tracking (only for vars with initializers)
 def register_for_mutation_tracking(var_name: string) {
     append(g_mutable_vars_in_scope, var_name);
+}
+
+/// Register a variable for usage tracking
+def register_for_usage_tracking(var_name: string) {
+    append(g_all_vars_in_scope, var_name);
+}
+
+/// Push a new scope level (when entering blocks like loops, if-statements, etc.)
+def push_scope() {
+    g_current_scope_depth = g_current_scope_depth + 1;
+}
+
+/// Pop a scope level and clear variables declared at that depth
+def pop_scope() {
+    if g_current_scope_depth <= 0 {
+        return;
+    }
+    
+    mut i: i32 = 0;
+    loop {
+        if i >= len(g_all_vars_in_scope) {
+            break;
+        }
+        val var_name: string = g_all_vars_in_scope.data[i];
+        if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+            val var_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+            if var_depth == g_current_scope_depth {
+                StringBoolMap.pop(addr(g_var_mutability), var_name);
+                StringIntMap.pop(addr(g_var_declaration_lines), var_name);
+                StringStringMap.pop(addr(g_var_declaration_files), var_name);
+                StringIntMap.pop(addr(g_var_scope_depth), var_name);
+            }
+        }
+        i++;
+    }
+    
+    g_current_scope_depth = g_current_scope_depth - 1;
+}
+
+/// Clear only local variables (scope depth > 0), preserving globals
+def clear_local_variables() {
+    mut new_all_vars: list(string);
+    mut new_mut_vars: list(string);
+    mut i: i32 = 0;
+
+    loop {
+        if i >= len(g_all_vars_in_scope) {
+            break;
+        }
+        val var_name: string = g_all_vars_in_scope.data[i];
+        if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+            val var_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+            if var_depth == 0 {
+                append(new_all_vars, var_name);
+            } else {
+                StringBoolMap.pop(addr(g_var_mutability), var_name);
+                StringBoolMap.pop(addr(g_var_actually_mutated), var_name);
+                StringBoolMap.pop(addr(g_var_actually_used), var_name);
+                StringIntMap.pop(addr(g_var_declaration_lines), var_name);
+                StringStringMap.pop(addr(g_var_declaration_files), var_name);
+                StringIntMap.pop(addr(g_var_scope_depth), var_name);
+            }
+        }
+        i++;
+    }
+    
+    mut j: i32 = 0;
+    loop {
+        if j >= len(new_all_vars) {
+            break;
+        }
+        val var_name: string = new_all_vars.data[j];
+        if StringBoolMap.contains(addr(g_var_mutability), var_name) {
+            if StringBoolMap.get(addr(g_var_mutability), var_name) {
+                append(new_mut_vars, var_name);
+            }
+        }
+        j++;
+    }
+    
+    g_all_vars_in_scope = new_all_vars;
+    g_mutable_vars_in_scope = new_mut_vars;
 }
 
 /// Check if a variable has been declared (tracked in mutability map)
@@ -354,11 +465,6 @@ def mark_variable_mutated(var_name: string) {
 def mark_variable_used(var_name: string) {
     mut arena: Arena = Arena.create(512);
     StringBoolMap.set(addr(g_var_actually_used), addr(arena), var_name, true);
-}
-
-/// Register a variable for usage tracking
-def register_for_usage_tracking(var_name: string) {
-    append(g_all_vars_in_scope, var_name);
 }
 
 /// Scan an expression for variable references and mark them as used
@@ -1025,9 +1131,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
         ctx.pos++; // Skip '{'
         
-        g_mutable_vars_in_scope.len = 0;
-        g_all_vars_in_scope.len = 0;
+        clear_local_variables();
         g_function_has_raw_block = false;
+        g_current_scope_depth = 1;
         
         mut main_node: ASTNode;
         main_node.node_type = str("Function");
@@ -1084,6 +1190,15 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                     break;
                 }
                 val var_name: string = g_mutable_vars_in_scope.data[i_mut];
+                
+                if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+                    val var_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+                    if var_depth == 0 {
+                        i_mut++;
+                        continue;
+                    }
+                }
+                
                 if !StringBoolMap.contains(addr(g_var_actually_mutated), var_name) {
                     print ctx.filename;
                     print ":";
@@ -1104,6 +1219,15 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                     break;
                 }
                 val var_name: string = g_all_vars_in_scope.data[i_unused];
+                
+                if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+                    val var_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+                    if var_depth == 0 {
+                        i_unused++;
+                        continue;
+                    }
+                }
+                
                 if !StringBoolMap.contains(addr(g_var_actually_used), var_name) {
                     mut decl_line: i32 = 1;
                     mut decl_file: string = ctx.filename;
@@ -1125,30 +1249,8 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
             }
         }
         
-        mut clear_idx: i32 = 0;
-        loop {
-            if clear_idx >= len(g_mutable_vars_in_scope) {
-                break;
-            }
-            val var_to_clear: string = g_mutable_vars_in_scope.data[clear_idx];
-            StringBoolMap.pop(addr(g_var_mutability), var_to_clear);
-            StringBoolMap.pop(addr(g_var_actually_mutated), var_to_clear);
-            clear_idx++;
-        }
-        g_mutable_vars_in_scope.len = 0;
-        
-        mut clear_all_idx: i32 = 0;
-        loop {
-            if clear_all_idx >= len(g_all_vars_in_scope) {
-                break;
-            }
-            val var_to_clear_all: string = g_all_vars_in_scope.data[clear_all_idx];
-            StringBoolMap.pop(addr(g_var_actually_used), var_to_clear_all);
-            StringIntMap.pop(addr(g_var_declaration_lines), var_to_clear_all);
-            StringStringMap.pop(addr(g_var_declaration_files), var_to_clear_all);
-            clear_all_idx++;
-        }
-        g_all_vars_in_scope.len = 0;
+        clear_local_variables();
+        g_current_scope_depth = 0;
         
         add_child_to_ast(ast, main_node);
         return;
@@ -1684,6 +1786,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         }
         ctx.pos++; // Skip '{'
         
+        clear_local_variables();
+        g_current_scope_depth = 1;
+        
         mut test_node: ASTNode;
         test_node.node_type = str("Test");
         
@@ -1717,6 +1822,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 test_node.children = heap_list;
             }
         }
+        
+        clear_local_variables();
+        g_current_scope_depth = 0;
         
         add_child_to_ast(ast, test_node);
         return;
@@ -2369,8 +2477,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     func.node_type = str("Function");
     func.line = current_line(ctx);
     
-    g_mutable_vars_in_scope.len = 0;
-    g_all_vars_in_scope.len = 0;
+    clear_local_variables();
+    g_current_scope_depth = 1;
     g_function_has_raw_block = false;
     
     skip_whitespace(ctx);
@@ -2447,13 +2555,13 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 break;
             }
             val tok_dbg: Token = ctx.tokens.data[i_dbg];
-            val buffer: char[64] = {};
+            val buffer2: char[64] = {};
 
             dbg = str("    [");
-            dbg = concat_c(dbg, int_to_str(i_dbg, buffer));
+            dbg = concat_c(dbg, int_to_str(i_dbg, buffer2));
 
             dbg = concat(dbg, str("] type="));
-            dbg = concat_c(dbg, int_to_str(tok_dbg.token_type, buffer));
+            dbg = concat_c(dbg, int_to_str(tok_dbg.token_type, buffer2));
             dbg = concat(dbg, str(", value='"));
             dbg = concat(dbg, tok_dbg.value);
             dbg = concat(dbg, str("'"));
@@ -2608,6 +2716,15 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 break;
             }
             val var_name: string = g_mutable_vars_in_scope.data[i_mut];
+            
+            if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+                val var_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+                if var_depth == 0 {
+                    i_mut++;
+                    continue;
+                }
+            }
+            
             if !StringBoolMap.contains(addr(g_var_actually_mutated), var_name) {
                 print ctx.filename;
                 print ":";
@@ -2628,6 +2745,15 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 break;
             }
             val var_name: string = g_all_vars_in_scope.data[i_unused];
+            
+            if StringIntMap.contains(addr(g_var_scope_depth), var_name) {
+                val var_depth: i32 = StringIntMap.get(addr(g_var_scope_depth), var_name);
+                if var_depth == 0 {
+                    i_unused++;
+                    continue;
+                }
+            }
+            
             if !StringBoolMap.contains(addr(g_var_actually_used), var_name) {
                 mut decl_line: i32 = func.line;
                 mut decl_file: string = ctx.filename;
@@ -2650,30 +2776,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     }
     
     // Clear only the function-local variables from the maps (keep globals)
-    mut clear_idx: i32 = 0;
-    loop {
-        if clear_idx >= len(g_mutable_vars_in_scope) {
-            break;
-        }
-        val var_to_clear: string = g_mutable_vars_in_scope.data[clear_idx];
-        StringBoolMap.pop(addr(g_var_mutability), var_to_clear);
-        StringBoolMap.pop(addr(g_var_actually_mutated), var_to_clear);
-        clear_idx++;
-    }
-    g_mutable_vars_in_scope.len = 0;
-    
-    mut clear_all_idx: i32 = 0;
-    loop {
-        if clear_all_idx >= len(g_all_vars_in_scope) {
-            break;
-        }
-        val var_to_clear_all: string = g_all_vars_in_scope.data[clear_all_idx];
-        StringBoolMap.pop(addr(g_var_actually_used), var_to_clear_all);
-        StringIntMap.pop(addr(g_var_declaration_lines), var_to_clear_all);
-        StringStringMap.pop(addr(g_var_declaration_files), var_to_clear_all);
-        clear_all_idx++;
-    }
-    g_all_vars_in_scope.len = 0;
+    clear_local_variables();
+    g_current_scope_depth = 0;
     
     return func;
 }
@@ -2906,6 +3010,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             return node;
         }
         consume(ctx); // skip '{'
+        
+        push_scope();
 
         mut lnode: ASTNode;
         lnode.node_type = str("Loop");
@@ -2933,6 +3039,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 append(body, stmt);
             }
         }
+        
+        pop_scope();
 
         unsafe {
             val list_size: usize = C.sizeof(list(ASTNode));
@@ -3064,6 +3172,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         consume(ctx); // skip '{'
 
+        push_scope();
+
         // Parse if-body statements into a list of children
         mut if_children: list(ASTNode);
         loop {
@@ -3087,6 +3197,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 append(if_children, stmt);
             }
         }
+
+        pop_scope();
 
         // Support elif/else chains by lowering
         //   if cond1 { ... }
@@ -3166,6 +3278,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             consume(ctx); // skip '{'
 
+            push_scope();
+
             mut elif_children: list(ASTNode);
             loop {
                 if ctx.pos >= len(ctx.tokens) {
@@ -3188,6 +3302,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     append(elif_children, stmt_eb);
                 }
             }
+
+            pop_scope();
 
             mut elif_node: ASTNode;
             elif_node.node_type = str("If");
@@ -3229,6 +3345,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             consume(ctx); // skip '{'
 
+            push_scope();
+
             loop {
                 if ctx.pos >= len(ctx.tokens) {
                     break;
@@ -3250,6 +3368,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     append(final_else_children, stmt2);
                 }
             }
+
+            pop_scope();
         }
 
         mut i_chain: i32 = len(elif_nodes) - 1;
@@ -3455,6 +3575,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             consume(ctx); // skip '{'
             
+            push_scope();
+            
             mut for_in_node: ASTNode;
             for_in_node.node_type = str("ForIn");
             for_in_node.data.for_in.var_name = item_var;
@@ -3478,6 +3600,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     append(body, stmt);
                 }
             }
+            
+            pop_scope();
             
             unsafe {
                 val list_size: usize = C.sizeof(list(ASTNode));
@@ -3589,6 +3713,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         scan_expression_for_usage(cond);
         scan_expression_for_usage(incr);
 
+        push_scope();
+
         mut body: list(ASTNode);
         loop {
             if ctx.pos >= len(ctx.tokens) {
@@ -3610,6 +3736,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 append(body, stmt);
             }
         }
+
+        pop_scope();
 
         unsafe {
             val list_size: usize = C.sizeof(list(ASTNode));
@@ -5475,6 +5603,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         consume(ctx);
         
+        push_scope();
+        
         node.node_type = str("Platform");
         node.data.platform_node.platform_name = platform_name;
         
@@ -5493,6 +5623,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 add_child_to_ast(addr(node), stmt);
             }
         }
+        
+        pop_scope();
         
         return node;
     }
@@ -5631,6 +5763,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             consume(ctx);
             
+            push_scope();
+            
             mut init_str: string = str("");
             if str_len(var_name) > 0 {
                 if equals_c(var_type, "int") or equals_c(var_type, "i32") {
@@ -5663,6 +5797,8 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     append(body, stmt);
                 }
             }
+            
+            pop_scope();
             
             node.node_type = str("ParallelFor");
             node.data.parallel_for.initialization = init_str;

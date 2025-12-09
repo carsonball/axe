@@ -96,6 +96,35 @@ def main() {
 }
 ```
 
+### Tagged Unions
+
+Axe supports tagged unions, allowing a value to take one of several typed forms.
+Each variant has its own fields, and the active variant is determined by the tag:
+
+```axe
+model Expr {
+    tag: string;
+
+    data: union {
+        literal: model { value: i32 };
+        variable: model { name: string };
+        binary: model { op: string; left: Expr; right: Expr };
+    };
+}
+
+def main() {
+    val x = Expr{
+        tag: "literal",
+        data: literal{ value: 42 }
+    };
+
+    println x.data.literal.value;  // 42
+}
+```
+
+Tagged unions provide a safe and expressive way to model AST nodes, protocol messages, and other variant-based structures.
+
+
 ### Game of Life
 
 ```

@@ -5926,8 +5926,8 @@ pub def generate_c(ast: ref ASTNode): string {
             return str("");
         }
         
-        mut arena: Arena = Arena.create(1024);
-        StringBoolMap.set(addr(g_generated_functions), addr(arena), func_name, true);
+        mut func_arena: Arena = Arena.create(1024);
+        StringBoolMap.set(addr(g_generated_functions), addr(func_arena), func_name, true);
         StringStringMap.clear(addr(g_var_types));
         
         validate_type_imported(return_type);
@@ -6254,8 +6254,8 @@ pub def generate_c(ast: ref ASTNode): string {
         // MemberAccess nodes can determine whether the base object should
         // use '.' or '->' in generated C.
         if str_len(var_name) > 0 and str_len(type_name) > 0 {
-            mut arena: Arena = Arena.create(2560);
-            StringStringMap.set(addr(g_var_types), addr(arena), var_name, type_name);
+            mut decl_arena: Arena = Arena.create(2560);
+            StringStringMap.set(addr(g_var_types), addr(decl_arena), var_name, type_name);
 
             if has_prefix(type_name, str("list(")) {
                 mut paren_pos: i32 = 5;
@@ -7609,9 +7609,9 @@ pub def generate_c(ast: ref ASTNode): string {
             return str("");
         }
 
-        mut arena: Arena = Arena.create(1024);
+        mut typedef_arena: Arena = Arena.create(1024);
 
-        StringBoolMap.set(addr(g_generated_typedefs), addr(arena), model_name, true);
+        StringBoolMap.set(addr(g_generated_typedefs), addr(typedef_arena), model_name, true);
 
         mut sb: StringBuilder = StringBuilder.init(4096);
 
@@ -7827,9 +7827,9 @@ pub def generate_c(ast: ref ASTNode): string {
             return str("");
         }
         
-        mut arena: Arena = Arena.create(1024);
-        StringBoolMap.set(addr(g_generated_typedefs), addr(arena), enum_name, true);
-        StringBoolMap.set(addr(g_enum_names), addr(arena), enum_name, true);
+        mut enum_arena: Arena = Arena.create(1024);
+        StringBoolMap.set(addr(g_generated_typedefs), addr(enum_arena), enum_name, true);
+        StringBoolMap.set(addr(g_enum_names), addr(enum_arena), enum_name, true);
         
         mut base_enum_name: string = enum_name;
         mut last_sep_enum: i32 = -1;
@@ -7852,8 +7852,8 @@ pub def generate_c(ast: ref ASTNode): string {
         }
 
         if str_len(base_enum_name) > 0 {
-            StringStringMap.set(addr(g_model_names), addr(arena), base_enum_name, enum_name);
-            StringBoolMap.set(addr(g_enum_names), addr(arena), base_enum_name, true);
+            StringStringMap.set(addr(g_model_names), addr(enum_arena), base_enum_name, enum_name);
+            StringBoolMap.set(addr(g_enum_names), addr(enum_arena), base_enum_name, true);
         }
         
         mut sb_enum: StringBuilder = StringBuilder.init(1024);
@@ -7895,8 +7895,8 @@ pub def generate_c(ast: ref ASTNode): string {
 
     if equals_c(node_type, "Extern") {
         val func_name: string = ast.data.extern_node.function_name;
-        mut arena: Arena = Arena.create(2560);
-        StringBoolMap.set(addr(g_generated_functions), addr(arena), func_name, true);
+        mut extern_arena: Arena = Arena.create(2560);
+        StringBoolMap.set(addr(g_generated_functions), addr(extern_arena), func_name, true);
         return str("");
     }
     
