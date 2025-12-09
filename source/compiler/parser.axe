@@ -1308,6 +1308,17 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
         
         if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.IDENTIFIER {
             val tag_name: string = ctx.tokens.data[ctx.pos].value;
+            
+            if !equals_c(tag_name, "inline") {
+                print ctx.filename;
+                print ":";
+                print(i32_to_string(current_line(ctx)));
+                print ": error: unrecognized function tag '";
+                print tag_name;
+                println "'. Only [inline] is currently supported.";
+                quit(1);
+            }
+            
             append(tags, tag_name);
             ctx.pos++;
             skip_whitespace(ctx);
