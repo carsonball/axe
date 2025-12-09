@@ -119,14 +119,17 @@ def emit_line_directive(line: i32): string {
     if !g_emit_line_directives or line <= 0 {
         return str("");
     }
-    mut result: string = str("#line ");
-    result = concat(result, i32_to_string(line));
+    mut sb: StringBuilder = StringBuilder.init(64);
+    StringBuilder.append_c(addr(sb), "#line ");
+    StringBuilder.append(addr(sb), i32_to_string(line));
     if str_len(g_current_source_file) > 0 {
-        result = concat_c(result, " \"");
-        result = concat(result, g_current_source_file);
-        result = concat_c(result, "\"");
+        StringBuilder.append_c(addr(sb), " \"");
+        StringBuilder.append(addr(sb), g_current_source_file);
+        StringBuilder.append_c(addr(sb), "\"");
     }
-    result = concat_c(result, "\n");
+    StringBuilder.append_c(addr(sb), "\n");
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
     return result;
 }
 
@@ -370,7 +373,7 @@ def register_function_signature(func_name: string, params: ref list(string), ret
         return;
     }
     
-    mut types_str: string = str("");
+    mut sb_types: StringBuilder = StringBuilder.init(256);
     mut i: i32 = 0;
     loop {
         if i >= len(deref(params)) {
@@ -380,21 +383,23 @@ def register_function_signature(func_name: string, params: ref list(string), ret
         
         if equals_c(param, "...") {
             if i > 0 {
-                types_str = concat_c(types_str, ",");
+                StringBuilder.append_c(addr(sb_types), ",");
             }
-            types_str = concat(types_str, str("..."));
+            StringBuilder.append_c(addr(sb_types), "...");
         } else {
             val colon_pos: i32 = find_char_from(param, ':', 0);
             if colon_pos >= 0 {
                 val param_type: string = strip(substr(param, colon_pos + 1, str_len(param) - colon_pos - 1));
                 if i > 0 {
-                    types_str = concat_c(types_str, ",");
+                    StringBuilder.append_c(addr(sb_types), ",");
                 }
-                types_str = concat(types_str, param_type);
+                StringBuilder.append(addr(sb_types), param_type);
             }
         }
         i++;
     }
+    val types_str: string = StringBuilder.to_string(addr(sb_types));
+    StringBuilder.destroy(addr(sb_types));
     StringStringMap.set(addr(g_function_param_types), arena, func_name, types_str);
 }
 
@@ -1288,16 +1293,22 @@ def map_axe_type_to_c(axe_type: string): string {
             val base_elem: string = strip(substr(element_type, 4, str_len(element_type) - 4));
             val mapped_elem: string = map_axe_type_to_c(base_elem);
             add_list_element(mapped_elem);
-            mut struct_name: string = str("__list_");
-            struct_name = concat(struct_name, mapped_elem);
-            struct_name = concat(struct_name, str("_t*"));
+            mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 10);
+            StringBuilder.append_c(addr(sb_struct), "__list_");
+            StringBuilder.append(addr(sb_struct), mapped_elem);
+            StringBuilder.append_c(addr(sb_struct), "_t*");
+            val struct_name: string = StringBuilder.to_string(addr(sb_struct));
+            StringBuilder.destroy(addr(sb_struct));
             return struct_name;
         } else {
             val mapped_elem: string = map_axe_type_to_c(element_type);
             add_list_element(mapped_elem);
-            mut struct_name: string = str("__list_");
-            struct_name = concat(struct_name, mapped_elem);
-            struct_name = concat(struct_name, str("_t"));
+            mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 10);
+            StringBuilder.append_c(addr(sb_struct), "__list_");
+            StringBuilder.append(addr(sb_struct), mapped_elem);
+            StringBuilder.append_c(addr(sb_struct), "_t");
+            val struct_name: string = StringBuilder.to_string(addr(sb_struct));
+            StringBuilder.destroy(addr(sb_struct));
             return struct_name;
         }
     }
@@ -1408,8 +1419,12 @@ def extract_base_model_name(type_str: string): string {
 /// Look up a field's type from g_field_types by trying various model prefixes.
 /// Returns the field type if found, or empty string if not found.
 def lookup_field_type(model_name: string, field_name: string): string {
-    mut field_key: string = concat(model_name, str("."));
-    field_key = concat(field_key, field_name);
+    mut sb_key: StringBuilder = StringBuilder.init(str_len(model_name) + str_len(field_name) + 1);
+    StringBuilder.append(addr(sb_key), model_name);
+    StringBuilder.append_c(addr(sb_key), ".");
+    StringBuilder.append(addr(sb_key), field_name);
+    val field_key: string = StringBuilder.to_string(addr(sb_key));
+    StringBuilder.destroy(addr(sb_key));
 
     if StringStringMap.contains(addr(g_field_types), field_key) {
         return StringStringMap.get(addr(g_field_types), field_key);
@@ -1417,8 +1432,12 @@ def lookup_field_type(model_name: string, field_name: string): string {
     
     if StringStringMap.contains(addr(g_model_names), model_name) {
         val canonical_name: string = StringStringMap.get(addr(g_model_names), model_name);
-        mut canon_key: string = concat(canonical_name, str("."));
-        canon_key = concat(canon_key, field_name);
+        mut sb_canon: StringBuilder = StringBuilder.init(str_len(canonical_name) + str_len(field_name) + 1);
+        StringBuilder.append(addr(sb_canon), canonical_name);
+        StringBuilder.append_c(addr(sb_canon), ".");
+        StringBuilder.append(addr(sb_canon), field_name);
+        val canon_key: string = StringBuilder.to_string(addr(sb_canon));
+        StringBuilder.destroy(addr(sb_canon));
         if StringStringMap.contains(addr(g_field_types), canon_key) {
             return StringStringMap.get(addr(g_field_types), canon_key);
         }
@@ -1435,16 +1454,24 @@ def lookup_field_type(model_name: string, field_name: string): string {
 
 /// Check if a field is a pointer type by looking it up in g_pointer_fields
 def is_pointer_field(model_name: string, field_name: string): bool {
-    mut field_key: string = concat(model_name, str("."));
-    field_key = concat(field_key, field_name);
+    mut sb_fkey: StringBuilder = StringBuilder.init(str_len(model_name) + str_len(field_name) + 1);
+    StringBuilder.append(addr(sb_fkey), model_name);
+    StringBuilder.append_c(addr(sb_fkey), ".");
+    StringBuilder.append(addr(sb_fkey), field_name);
+    val field_key: string = StringBuilder.to_string(addr(sb_fkey));
+    StringBuilder.destroy(addr(sb_fkey));
     if StringBoolMap.contains(addr(g_pointer_fields), field_key) {
         return true;
     }
     
     if StringStringMap.contains(addr(g_model_names), model_name) {
         val canonical_name: string = StringStringMap.get(addr(g_model_names), model_name);
-        mut canon_key: string = concat(canonical_name, str("."));
-        canon_key = concat(canon_key, field_name);
+        mut sb_ckey: StringBuilder = StringBuilder.init(str_len(canonical_name) + str_len(field_name) + 1);
+        StringBuilder.append(addr(sb_ckey), canonical_name);
+        StringBuilder.append_c(addr(sb_ckey), ".");
+        StringBuilder.append(addr(sb_ckey), field_name);
+        val canon_key: string = StringBuilder.to_string(addr(sb_ckey));
+        StringBuilder.destroy(addr(sb_ckey));
         if StringBoolMap.contains(addr(g_pointer_fields), canon_key) {
             return true;
         }
