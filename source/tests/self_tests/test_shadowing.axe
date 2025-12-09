@@ -1,0 +1,13 @@
+/// Test file to check if shadowing detection works
+/// Expected: error about shadowing imported symbol
+
+use std.arena (Arena);
+
+// This should trigger an error: function 'Arena' shadows imported symbol 'Arena'
+def Arena() {
+    println "This is a function named Arena";
+}
+
+def main() {
+    Arena();
+}
