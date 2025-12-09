@@ -561,11 +561,11 @@ def scan_expression_for_addr(expr: string) {
                     if ch != ' ' and ch != '\t' {
                         break;
                     }
-                    scan_pos = scan_pos + 1;
+                    scan_pos++;
                 }
                 
                 if scan_pos < str_len(expr) and get_char(expr, scan_pos) == '(' {
-                    scan_pos = scan_pos + 1;
+                    scan_pos++;
                     
                     val arg_start: i32 = scan_pos;
                     mut arg_end: i32 = scan_pos;
@@ -584,7 +584,7 @@ def scan_expression_for_addr(expr: string) {
                                 break;
                             }
                         }
-                        arg_end = arg_end + 1;
+                        arg_end++;
                     }
                     
                     if arg_end > arg_start {
@@ -609,7 +609,7 @@ def scan_expression_for_addr(expr: string) {
             }
         }
         
-        pos = pos + 1;
+        pos++;
     }
 }
 
