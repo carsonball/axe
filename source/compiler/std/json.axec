@@ -12,21 +12,20 @@ val JSON_TYPE_STR: i32 = 3;
 val JSON_TYPE_ARR: i32 = 4;
 val JSON_TYPE_OBJ: i32 = 5;
 
+extern def yyjson_read(json: char*, size: size_t, flags: i32): char*;
+extern def yyjson_doc_free(doc: char*);
+
 /// Parse a JSON string and return a document
 def parse(json_str: string): char* {
     mut doc: char* = nil;
-    raw {
-        doc = (char*)yyjson_read(json_str.data, json_str.len, 0);
-    }
+    doc = cast[ref char](yyjson_read(json_str.data, json_str.len, 0));
     return doc;
 }
 
 /// Free a JSON document
 def free_doc(doc: char*) {
-    raw {
-        if (doc != NULL) {
-            yyjson_doc_free((yyjson_doc*)doc);
-        }
+    if doc != nil {
+        yyjson_doc_free(cast[ref yyjson_doc](doc));
     }
 }
 
