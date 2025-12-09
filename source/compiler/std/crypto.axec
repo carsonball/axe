@@ -432,7 +432,7 @@ pub def base64_value(c: i32): i32 {
     return -1;
 }
 
-/// Base64 decode, matching your string + arena style.
+/// Base64 decode, matching the string + arena style.
 pub def base64_decode(data: char*, len: i32, arena: ref Arena): string {
     if len < 0 {
         panic(error.create("base64_decode: negative length"));
