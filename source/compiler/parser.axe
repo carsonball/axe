@@ -2267,16 +2267,9 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
     }
     
     if token_type == TokenType.FOREIGN {
-        ctx.pos++;
-        loop {
-            if ctx.pos >= len(ctx.tokens) {
-                break;
-            }
-            if ctx.tokens.data[ctx.pos].token_type == TokenType.SEMICOLON {
-                ctx.pos++;
-                break;
-            }
-            ctx.pos++;
+        mut node: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+        if str_len(node.node_type) > 0 {
+            add_child_to_ast(ast, node);
         }
         return;
     }
