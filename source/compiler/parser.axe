@@ -7064,7 +7064,7 @@ test {
     assert str_contains_c(stmt32.data.array_access.index2, "j"), "Expected second index to contain 'j'";
 
     println "\nTest 33: parse_statement_helper with increment";
-    mut tokens33: list(Token) = lex(str("x++;"));
+    mut tokens33: list(Token) = lex(str("def main() { x++; }"));
     mut ctx33: ParserContext;
     ctx33.tokens = addr(tokens33);
     ctx33.pos = 0;
