@@ -122,6 +122,11 @@ pub def set_source_file(filename: string) {
     g_current_source_file = filename;
 }
 
+/// Enable or disable emitting `#line` directives in generated C.
+pub def set_emit_line_directives(v: bool) {
+    g_emit_line_directives = v;
+}
+
 /// Check if a specific external header was used (e.g., "pcre.h", "curl/curl.h")
 pub def has_external_header(header_name: string): bool {
     if StringList.contains(g_global_external_headers, header_name) {

@@ -25,6 +25,7 @@ def main() {
         println("  -ast              Print the parsed AST and exit");
         println("  -dll              Build shared instead of standalone executable");
         println("  --release         Build in release mode");
+        println("  --bootstrap       Emit without line directives");
         println("  -l, --loud        Loud debug output");
         println("  -q, --quiet       Suppress all output");
         println("  -I<path>          Pass a C include directory");
@@ -70,6 +71,11 @@ def main() {
             val target: string = StringList.get(args, i + 1);
             set_target_triple(target);
             i += 2;
+            continue;
+        }
+        if equals_c(arg, "--bootstrap") {
+            set_bootstrap_mode(true);
+            i++;
             continue;
         }
         if equals_c(arg, "--sysroot") and i + 1 < args.len {

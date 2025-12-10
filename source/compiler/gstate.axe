@@ -13,6 +13,7 @@ pub mut run_after_compile: bool = false;
 pub mut print_tokens: bool = false;
 pub mut print_ast: bool = false;
 pub mut build_shared_lib: bool = false;
+pub mut bootstrap_mode: bool = false;
 pub mut include_paths: ref StringList = nil;
 pub mut quiet_mode: bool = false;
 pub mut syntax_check_only: bool = false;
@@ -62,6 +63,11 @@ pub def set_print_ast(v: bool) {
 /// Set build shared library flag
 pub def set_build_shared_lib(v: bool) {
     build_shared_lib = v;
+}
+
+/// Set bootstrap mode (emit raw C without line directives, write `axe.c`)
+pub def set_bootstrap_mode(v: bool) {
+    bootstrap_mode = v;
 }
 
 /// Set include paths list

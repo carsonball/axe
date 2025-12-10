@@ -25,6 +25,7 @@ use renderer (
     has_external_header, 
     initialize_renderer, 
     set_source_file, 
+    set_emit_line_directives,
     generate_c
 );
 use std.os (
@@ -326,6 +327,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     prefix_root_enums(addr(ast), module_prefix);
     initialize_renderer();
     set_source_file(filename);
+    if ::bootstrap_mode {
+        set_emit_line_directives(false);
+    }
 
     if !::quiet_mode {
         println "11| GEN";
@@ -340,6 +344,10 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     val c_filename: string = replace_extension(filename, str(".c"));
     write_file(c_filename, c_code);
+    
+    if ::bootstrap_mode {
+        return true;
+    }
     
     if !::quiet_mode {
         println "12| Last compilation pass";
