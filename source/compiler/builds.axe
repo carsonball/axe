@@ -480,7 +480,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             compile_cmd = concat_c(compile_cmd, "/external/x64-windows/yyjson.lib");
         }
         platform posix {
-            compile_cmd = concat_c(compile_cmd, " -lyyjson");
+            compile_cmd = concat_c(compile_cmd, " ");
+            compile_cmd = concat(compile_cmd, toolchain_root);
+            compile_cmd = concat_c(compile_cmd, "/external/lib-linux/libyyjson.a");
         }
     }
     
