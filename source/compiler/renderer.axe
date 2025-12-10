@@ -93,6 +93,8 @@ mut g_renderer_sb: ref StringBuilder;
 
 /// Track emitted global variable names to avoid duplicates
 mut g_emitted_globals: StringBoolMap;
+/// Track emitted function prototypes to avoid emitting conflicting duplicates
+mut g_emitted_prototypes: StringBoolMap;
 
 /// Global variable prefixes mapping (logical name -> C symbol like gvar__name)
 mut g_global_var_prefixes: StringStringMap;
@@ -233,6 +235,7 @@ pub def initialize_renderer() {
     g_global_var_prefixes = deref(StringStringMap.create(addr(arena), 128));
     g_function_param_types = deref(StringStringMap.create(addr(arena), 256));
     g_extern_functions = deref(StringBoolMap.create(addr(arena), 128));
+    g_emitted_prototypes = deref(StringBoolMap.create(addr(arena), 1024));
     g_emit_line_directives = false;
     g_current_source_file = str("");
     g_current_line = 0;
@@ -5605,12 +5608,22 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 val proto_child: ref ASTNode = addr(children.data[i_proto]);
-                if equals_c(proto_child.node_type, "Function") {
-                    val proto_code: string = generate_function_prototype(proto_child);
-                    if str_len(proto_code) > 0 {
-                        StringBuilder.append(addr(sb_prog), proto_code);
+                    if equals_c(proto_child.node_type, "Function") {
+                        val proto_code: string = generate_function_prototype(proto_child);
+                        if str_len(proto_code) > 0 {
+                            val proto_name: string = proto_child.data.function.name;
+                            if !equals_c(proto_name, "main") {
+                                mut canon_name: string = proto_name;
+                                if StringStringMap.contains(addr(g_function_prefixes), proto_name) {
+                                    canon_name = StringStringMap.get(addr(g_function_prefixes), proto_name);
+                                }
+                                if !StringBoolMap.contains(addr(g_emitted_prototypes), canon_name) {
+                                    StringBoolMap.set(addr(g_emitted_prototypes), addr(global_arena), canon_name, true);
+                                    StringBuilder.append(addr(sb_prog), proto_code);
+                                }
+                            }
+                        }
                     }
-                }
                 if equals_c(proto_child.node_type, "Platform") {
                     val platform_name: string = proto_child.data.platform_node.platform_name;
                     val plat_dir: string = platform_macro_start(platform_name);

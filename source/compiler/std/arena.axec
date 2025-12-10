@@ -17,11 +17,11 @@ use std.errors (
 /// Arena for memory allocation.
 pub model Arena {
     buffer: usize;
-    capacity: i32;
+    capacity: usize;
     offset: i32;
 
     /// Creates a new arena with the specified size.
-    pub def create(size: i32): Arena {
+    pub def create(size: usize): Arena {
         mut arena: Arena;
         
         unsafe {
