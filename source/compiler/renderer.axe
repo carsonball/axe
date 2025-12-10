@@ -70,6 +70,24 @@ mut g_windows_external_headers: ref StringList;
 /// POSIX-specific external headers
 mut g_posix_external_headers: ref StringList;
 
+/// Linux-specific external headers
+mut g_linux_external_headers: ref StringList;
+
+/// macOS-specific external headers
+mut g_macos_external_headers: ref StringList;
+
+/// FreeBSD-specific external headers
+mut g_freebsd_external_headers: ref StringList;
+
+/// OpenBSD-specific external headers
+mut g_openbsd_external_headers: ref StringList;
+
+/// NetBSD-specific external headers
+mut g_netbsd_external_headers: ref StringList;
+
+/// DragonFly BSD-specific external headers
+mut g_dragonflybsd_external_headers: ref StringList;
+
 /// Global SB.
 mut g_renderer_sb: ref StringBuilder;
 
@@ -113,7 +131,48 @@ pub def has_external_header(header_name: string): bool {
     if StringList.contains(g_posix_external_headers, header_name) {
         return true;
     }
+    if StringList.contains(g_linux_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_macos_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_freebsd_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_openbsd_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_netbsd_external_headers, header_name) {
+        return true;
+    }
+    if StringList.contains(g_dragonflybsd_external_headers, header_name) {
+        return true;
+    }
     return false;
+}
+
+/// Return the platform-specific starting preprocessor directive for a
+/// given platform name. Empty string if none.
+def platform_macro_start(platform_name: string): string {
+    if equals_c(platform_name, "windows") {
+        return str("#ifdef _WIN32\n");
+    } elif equals_c(platform_name, "posix") {
+        return str("#ifndef _WIN32\n");
+    } elif equals_c(platform_name, "linux") {
+        return str("#ifdef __linux__\n");
+    } elif equals_c(platform_name, "macos") {
+        return str("#ifdef __APPLE__\n");
+    } elif equals_c(platform_name, "freebsd") {
+        return str("#ifdef __FreeBSD__\n");
+    } elif equals_c(platform_name, "openbsd") {
+        return str("#ifdef __OpenBSD__\n");
+    } elif equals_c(platform_name, "netbsd") {
+        return str("#ifdef __NetBSD__\n");
+    } elif equals_c(platform_name, "dragonflybsd") {
+        return str("#ifdef __DragonFly__\n");
+    }
+    return str("");
 }
 
 /// Emit a #line directive for error mapping
@@ -162,6 +221,12 @@ pub def initialize_renderer() {
     g_global_external_headers = StringList.create(addr(arena), 32);
     g_windows_external_headers = StringList.create(addr(arena), 32);
     g_posix_external_headers = StringList.create(addr(arena), 32);
+    g_linux_external_headers = StringList.create(addr(arena), 32);
+    g_macos_external_headers = StringList.create(addr(arena), 32);
+    g_freebsd_external_headers = StringList.create(addr(arena), 32);
+    g_openbsd_external_headers = StringList.create(addr(arena), 32);
+    g_netbsd_external_headers = StringList.create(addr(arena), 32);
+    g_dragonflybsd_external_headers = StringList.create(addr(arena), 32);
     g_emitted_globals = deref(StringBoolMap.create(addr(arena), 128));
     g_global_var_prefixes = deref(StringStringMap.create(addr(arena), 128));
     g_function_param_types = deref(StringStringMap.create(addr(arena), 256));
@@ -775,7 +840,9 @@ def build_function_signatures(ast: ref ASTNode) {
 }
 
 /// Collect external imports from AST recursively.
-/// current_platform is "" for global, "windows" or "posix" for platform-specific.
+/// `current_platform` is "" for global or a platform name (e.g. "windows",
+/// "posix", "linux", "macos", "freebsd", "openbsd", "netbsd",
+/// "dragonflybsd") for platform-specific imports.
 def collect_external_imports(node: ref ASTNode, current_platform: string, arena: ref Arena) {
     if node == nil {
         return;
@@ -795,6 +862,30 @@ def collect_external_imports(node: ref ASTNode, current_platform: string, arena:
         } elif equals_c(current_platform, "posix") {
             if !StringList.contains(g_posix_external_headers, header) {
                 StringList.push(g_posix_external_headers, arena, header);
+            }
+        } elif equals_c(current_platform, "linux") {
+            if !StringList.contains(g_linux_external_headers, header) {
+                StringList.push(g_linux_external_headers, arena, header);
+            }
+        } elif equals_c(current_platform, "macos") {
+            if !StringList.contains(g_macos_external_headers, header) {
+                StringList.push(g_macos_external_headers, arena, header);
+            }
+        } elif equals_c(current_platform, "freebsd") {
+            if !StringList.contains(g_freebsd_external_headers, header) {
+                StringList.push(g_freebsd_external_headers, arena, header);
+            }
+        } elif equals_c(current_platform, "openbsd") {
+            if !StringList.contains(g_openbsd_external_headers, header) {
+                StringList.push(g_openbsd_external_headers, arena, header);
+            }
+        } elif equals_c(current_platform, "netbsd") {
+            if !StringList.contains(g_netbsd_external_headers, header) {
+                StringList.push(g_netbsd_external_headers, arena, header);
+            }
+        } elif equals_c(current_platform, "dragonflybsd") {
+            if !StringList.contains(g_dragonflybsd_external_headers, header) {
+                StringList.push(g_dragonflybsd_external_headers, arena, header);
             }
         }
         return;
@@ -4685,6 +4776,8 @@ pub def generate_c(ast: ref ASTNode): string {
             ghi = ghi + 1;
         }
         
+        // Emit platform-specific headers grouped under appropriate preprocessor
+        // guards.
         if g_windows_external_headers*.len > 0 {
             StringBuilder.append_c(addr(sb), "#ifdef _WIN32\n");
             mut whi: i32 = 0;
@@ -4700,7 +4793,7 @@ pub def generate_c(ast: ref ASTNode): string {
             }
             StringBuilder.append_c(addr(sb), "#endif\n");
         }
-        
+
         if g_posix_external_headers*.len > 0 {
             StringBuilder.append_c(addr(sb), "#ifndef _WIN32\n");
             mut phi: i32 = 0;
@@ -4713,6 +4806,102 @@ pub def generate_c(ast: ref ASTNode): string {
                 StringBuilder.append(addr(sb), ph);
                 StringBuilder.append_c(addr(sb), ">\n");
                 phi = phi + 1;
+            }
+            StringBuilder.append_c(addr(sb), "#endif\n");
+        }
+
+        if g_linux_external_headers*.len > 0 {
+            StringBuilder.append_c(addr(sb), "#ifdef __linux__\n");
+            mut i_l: i32 = 0;
+            loop {
+                if i_l >= g_linux_external_headers*.len {
+                    break;
+                }
+                val h: string = StringList.get(g_linux_external_headers, i_l);
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), h);
+                StringBuilder.append_c(addr(sb), ">\n");
+                i_l = i_l + 1;
+            }
+            StringBuilder.append_c(addr(sb), "#endif\n");
+        }
+
+        if g_macos_external_headers*.len > 0 {
+            StringBuilder.append_c(addr(sb), "#ifdef __APPLE__\n");
+            mut i_m: i32 = 0;
+            loop {
+                if i_m >= g_macos_external_headers*.len {
+                    break;
+                }
+                val h: string = StringList.get(g_macos_external_headers, i_m);
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), h);
+                StringBuilder.append_c(addr(sb), ">\n");
+                i_m = i_m + 1;
+            }
+            StringBuilder.append_c(addr(sb), "#endif\n");
+        }
+
+        if g_freebsd_external_headers*.len > 0 {
+            StringBuilder.append_c(addr(sb), "#ifdef __FreeBSD__\n");
+            mut i_fb: i32 = 0;
+            loop {
+                if i_fb >= g_freebsd_external_headers*.len {
+                    break;
+                }
+                val h: string = StringList.get(g_freebsd_external_headers, i_fb);
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), h);
+                StringBuilder.append_c(addr(sb), ">\n");
+                i_fb = i_fb + 1;
+            }
+            StringBuilder.append_c(addr(sb), "#endif\n");
+        }
+
+        if g_openbsd_external_headers*.len > 0 {
+            StringBuilder.append_c(addr(sb), "#ifdef __OpenBSD__\n");
+            mut i_ob: i32 = 0;
+            loop {
+                if i_ob >= g_openbsd_external_headers*.len {
+                    break;
+                }
+                val h: string = StringList.get(g_openbsd_external_headers, i_ob);
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), h);
+                StringBuilder.append_c(addr(sb), ">\n");
+                i_ob = i_ob + 1;
+            }
+            StringBuilder.append_c(addr(sb), "#endif\n");
+        }
+
+        if g_netbsd_external_headers*.len > 0 {
+            StringBuilder.append_c(addr(sb), "#ifdef __NetBSD__\n");
+            mut i_nb: i32 = 0;
+            loop {
+                if i_nb >= g_netbsd_external_headers*.len {
+                    break;
+                }
+                val h: string = StringList.get(g_netbsd_external_headers, i_nb);
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), h);
+                StringBuilder.append_c(addr(sb), ">\n");
+                i_nb = i_nb + 1;
+            }
+            StringBuilder.append_c(addr(sb), "#endif\n");
+        }
+
+        if g_dragonflybsd_external_headers*.len > 0 {
+            StringBuilder.append_c(addr(sb), "#ifdef __DragonFly__\n");
+            mut i_df: i32 = 0;
+            loop {
+                if i_df >= g_dragonflybsd_external_headers*.len {
+                    break;
+                }
+                val h: string = StringList.get(g_dragonflybsd_external_headers, i_df);
+                StringBuilder.append_c(addr(sb), "#include <");
+                StringBuilder.append(addr(sb), h);
+                StringBuilder.append_c(addr(sb), ">\n");
+                i_df = i_df + 1;
             }
             StringBuilder.append_c(addr(sb), "#endif\n");
         }
@@ -4998,10 +5187,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                     
                     if has_opaque {
-                        if equals_c(platform_name, "windows") {
-                            StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
-                        } elif equals_c(platform_name, "posix") {
-                            StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
+                        val plat_dir: string = platform_macro_start(platform_name);
+                        if str_len(plat_dir) > 0 {
+                            StringBuilder.append(addr(sb_prog), plat_dir);
                         }
                         val plat_children2: ref list(ASTNode) = op_plat.children;
                         mut oc2: i32 = 0;
@@ -5019,7 +5207,9 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             oc2++;
                         }
-                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                        if str_len(plat_dir) > 0 {
+                            StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                        }
                     }
                 }
                 i_opaque_plat++;
@@ -5414,10 +5604,9 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 if equals_c(proto_child.node_type, "Platform") {
                     val platform_name: string = proto_child.data.platform_node.platform_name;
-                    if equals_c(platform_name, "windows") {
-                        StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
-                    } elif equals_c(platform_name, "posix") {
-                        StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
+                    val plat_dir: string = platform_macro_start(platform_name);
+                    if str_len(plat_dir) > 0 {
+                        StringBuilder.append(addr(sb_prog), plat_dir);
                     }
                     if proto_child.children != nil {
                         val plat_children: ref list(ASTNode) = proto_child.children;
@@ -5436,7 +5625,9 @@ pub def generate_c(ast: ref ASTNode): string {
                             pi++;
                         }
                     }
-                    StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                    if str_len(plat_dir) > 0 {
+                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                    }
                 }
                 i_proto++;
             }
@@ -5471,10 +5662,9 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 if equals_c(fn_child.node_type, "Platform") {
                     val platform_name: string = fn_child.data.platform_node.platform_name;
-                    if equals_c(platform_name, "windows") {
-                        StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
-                    } elif equals_c(platform_name, "posix") {
-                        StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
+                    val plat_dir: string = platform_macro_start(platform_name);
+                    if str_len(plat_dir) > 0 {
+                        StringBuilder.append(addr(sb_prog), plat_dir);
                     }
                     if fn_child.children != nil {
                         val plat_children: ref list(ASTNode) = fn_child.children;
@@ -5494,7 +5684,9 @@ pub def generate_c(ast: ref ASTNode): string {
                             pi++;
                         }
                     }
-                    StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                    if str_len(plat_dir) > 0 {
+                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                    }
                 }
                 i++;
             }
@@ -5558,10 +5750,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                     
                     if has_non_func_content {
-                        if equals_c(platform_name, "windows") {
-                            StringBuilder.append_c(addr(sb_prog), "#ifdef _WIN32\n");
-                        } elif equals_c(platform_name, "posix") {
-                            StringBuilder.append_c(addr(sb_prog), "#ifndef _WIN32\n");
+                        val plat_dir: string = platform_macro_start(platform_name);
+                        if str_len(plat_dir) > 0 {
+                            StringBuilder.append(addr(sb_prog), plat_dir);
                         }
                         if plat_node.children != nil {
                             val plat_children2: ref list(ASTNode) = plat_node.children;
@@ -5579,7 +5770,9 @@ pub def generate_c(ast: ref ASTNode): string {
                                 pc2 = pc2 + 1;
                             }
                         }
-                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                        if str_len(plat_dir) > 0 {
+                            StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                        }
                     }
                 }
                 i++;
@@ -7183,10 +7376,9 @@ pub def generate_c(ast: ref ASTNode): string {
         val platform_name: string = ast.data.platform_node.platform_name;
 
         mut sb_plat: StringBuilder = StringBuilder.init(1024);
-        if equals_c(platform_name, "windows") {
-            StringBuilder.append_c(addr(sb_plat), "#ifdef _WIN32\n");
-        } elif equals_c(platform_name, "posix") {
-            StringBuilder.append_c(addr(sb_plat), "#ifndef _WIN32\n");
+        val plat_dir: string = platform_macro_start(platform_name);
+        if str_len(plat_dir) > 0 {
+            StringBuilder.append(addr(sb_plat), plat_dir);
         }
 
         if ast.children != nil {
@@ -7202,7 +7394,9 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
-        StringBuilder.append_c(addr(sb_plat), "#endif\n");
+        if str_len(plat_dir) > 0 {
+            StringBuilder.append_c(addr(sb_plat), "#endif\n");
+        }
         return StringBuilder.to_string(addr(sb_plat));
     }
     

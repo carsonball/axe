@@ -64,8 +64,9 @@ enum TokenType {
     PARALLEL,
     LOCAL,
     SINGLE,
-    WINDOWS,
-    POSIX,
+    // WINDOWS and POSIX were previously lexed as special tokens here.
+    // Treat platform names (windows, posix, linux, macos, etc.) as identifiers
+    // so platform handling is done at the parser/renderer level instead.
     TO,
     REDUCE,
     OPAQUE,
@@ -656,9 +657,6 @@ pub def lex(source: string): list(Token) {
             } elif str_equals(source, "parallel", pos, 8, source_len) and check_boundary(source, pos + 8, source_len) {
                 append(tokens, create_token(TokenType.PARALLEL, "parallel"));
                 pos = pos + 8;
-            } elif str_equals(source, "posix", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
-                append(tokens, create_token(TokenType.POSIX, "posix"));
-                pos = pos + 5;
             } elif str_equals(source, "pub", pos, 3, source_len) and check_boundary(source, pos + 3, source_len) {
                 append(tokens, create_token(TokenType.PUB, "pub"));
                 pos = pos + 3;
@@ -819,10 +817,7 @@ pub def lex(source: string): list(Token) {
                 append(tokens, create_token(TokenType.IDENTIFIER, substring_scse(source, start, pos)));
             }
         } elif ch == 'w' {
-            if str_equals(source, "windows", pos, 7, source_len) and check_boundary(source, pos + 7, source_len) {
-                append(tokens, create_token(TokenType.WINDOWS, "windows"));
-                pos = pos + 7;
-            } elif str_equals(source, "while", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
+            if str_equals(source, "while", pos, 5, source_len) and check_boundary(source, pos + 5, source_len) {
                 append(tokens, create_token(TokenType.WHILE, "while"));
                 pos = pos + 5;
             } else {

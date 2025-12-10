@@ -5681,9 +5681,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
     if token_type == TokenType.PLATFORM {
         consume(ctx);
         skip_whitespace(ctx);
-        
-        if !expect(ctx, TokenType.WINDOWS) and !expect(ctx, TokenType.POSIX) {
-            mut err: string = format_error(ctx, str("Expected 'windows' or 'posix' after 'platform'"));
+
+        if !expect(ctx, TokenType.IDENTIFIER) {
+            mut err: string = format_error(ctx, str("Expected platform name after 'platform'"));
             enforce_raw(false, err.data);
             return node;
         }
