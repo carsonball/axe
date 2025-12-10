@@ -4763,7 +4763,10 @@ pub def generate_c(ast: ref ASTNode): string {
     
     if equals_c(node_type, "Program") {
         // Note: g_current_source_file should be set before calling generate_c
-        g_emit_line_directives = true;
+
+        if !::bootstrap_mode {
+            g_emit_line_directives = true;
+        }
         
         mut ext_arena: Arena = Arena.create(4096);
         StringList.clear(g_global_external_headers);
