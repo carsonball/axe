@@ -446,7 +446,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         platform posix {
             compile_cmd = concat_c(compile_cmd, " -I");
             compile_cmd = concat(compile_cmd, toolchain_root);
-            compile_cmd = concat_c(compile_cmd, "/external/pcre/include -lpcre");
+            compile_cmd = concat_c(compile_cmd, "/external/pcre/include ");
+            compile_cmd = concat(compile_cmd, toolchain_root);
+            compile_cmd = concat_c(compile_cmd, "/external/lib-linux/libpcre.a");
         }
     }
     
