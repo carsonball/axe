@@ -238,7 +238,7 @@ pub def is_directory(path: string): bool {
 
 /// Determine if a path is a regular file.
 pub def is_file(path: string): bool {
-    mut val out: bool = false;
+    mut out: bool = false;
 
     platform posix {
         raw {
