@@ -16,15 +16,6 @@ use std.arena (
     Arena
 );
 
-// pub def PLATFORM_NAME_windows(): string { return str("windows") }
-// pub def PLATFORM_NAME_posix(): string { return str("posix") }
-// pub def PLATFORM_NAME_linux(): string { return str("linux") }
-// pub def PLATFORM_NAME_macos(): string { return str("macos") }
-// pub def PLATFORM_NAME_freebsd(): string { return str("freebsd") }
-// pub def PLATFORM_NAME_openbsd(): string { return str("openbsd") }
-// pub def PLATFORM_NAME_netbsd(): string { return str("netbsd") }
-// pub def PLATFORM_NAME_dragonflybsd(): string { return str("dragonflybsd") }
-
 /// Execute a shell command. Returns exit status.
 pub def exec_from_string(cmd: string): i32 {
     mut val result: i32 = 0;
