@@ -6495,6 +6495,15 @@ pub def generate_c(ast: ref ASTNode): string {
             }
         }
 
+        // Infer type from initializer expression, this can be some kind of function call or whatever.
+        if str_len(type_name) == 0 and str_len(initializer) > 0 {
+            val inferred: string = infer_expression_type(strip(initializer));
+            if str_len(inferred) > 0 {
+                type_name = inferred;
+                mapped_type = map_axe_type_to_c(type_name);
+            }
+        }
+
         // Record the declared Axe type for this variable so that later
         // MemberAccess nodes can determine whether the base object should
         // use '.' or '->' in generated C.

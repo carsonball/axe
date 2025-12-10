@@ -128,16 +128,18 @@ Tagged unions provide a safe and expressive way to model AST nodes, protocol mes
 ### Game of Life
 
 ```
+use std.io;
+
 /// Convert 2D coordinate (x, y) into 1D index
 def idx(x: i32, y: i32, width: i32): i32 {
     return y * width + x;
 }
 
-/// Print the grid (1-D array)
-def print_grid(grid: ref i32[], width: i32, height: i32) {
+/// Print the grid (1-D list)
+def print_grid(grid: ref list(i32), width: i32, height: i32) {
     for mut y = 0; y < height; y++ {
         for mut x = 0; x < width; x++ {
-            if grid[idx(x, y, width)] == 1 {
+            if grid.data[idx(x, y, width)] == 1 {
                 print "■";
             } else {
                 print "□";
@@ -148,7 +150,7 @@ def print_grid(grid: ref i32[], width: i32, height: i32) {
 }
 
 /// Count live neighbors around (x, y)
-def count_neighbors(grid: ref i32[], x: i32, y: i32, width: i32, height: i32): i32 {
+def count_neighbors(grid: ref list(i32), x: i32, y: i32, width: i32, height: i32): i32 {
     mut count: i32 = 0;
 
     for mut dy = -1; dy <= 1; dy++ {
@@ -161,7 +163,7 @@ def count_neighbors(grid: ref i32[], x: i32, y: i32, width: i32, height: i32): i
             val ny = y + dy;
 
             if nx >= 0 and nx < width and ny >= 0 and ny < height {
-                if grid[idx(nx, ny, width)] == 1 {
+                if grid.data[idx(nx, ny, width)] == 1 {
                     count = count + 1;
                 }
             }
@@ -172,24 +174,24 @@ def count_neighbors(grid: ref i32[], x: i32, y: i32, width: i32, height: i32): i
 }
 
 /// Compute next generation
-def next_generation(grid: ref i32[], new_grid: ref i32[], width: i32, height: i32) {
+def next_generation(grid: ref list(i32), new_grid: ref list(i32), width: i32, height: i32) {
     for mut y = 0; y < height; y++ {
         for mut x = 0; x < width; x++ {
 
             val i = idx(x, y, width);
             val neighbors = count_neighbors(grid, x, y, width, height);
 
-            if grid[i] == 1 {
+            if grid.data[i] == 1 {
                 if neighbors == 2 or neighbors == 3 {
-                    new_grid[i] = 1;
+                    new_grid.data[i] = 1;
                 } else {
-                    new_grid[i] = 0;
+                    new_grid.data[i] = 0;
                 }
             } else {
                 if neighbors == 3 {
-                    new_grid[i] = 1;
+                    new_grid.data[i] = 1;
                 } else {
-                    new_grid[i] = 0;
+                    new_grid.data[i] = 0;
                 }
             }
         }
@@ -197,9 +199,9 @@ def next_generation(grid: ref i32[], new_grid: ref i32[], width: i32, height: i3
 }
 
 /// Copy new_grid back into grid
-def copy_grid(src: ref i32[], dst: ref i32[], size: i32) {
+def copy_grid(src: ref list(i32), dst: ref list(i32), size: i32) {
     for mut i = 0; i < size; i++ {
-        dst[i] = src[i];
+        dst.data[i] = src.data[i];
     }
 }
 
@@ -208,19 +210,19 @@ def main() {
     val height: i32 = 20;
     val size: i32 = width * height;
 
-    mut grid: i32[size];
-    mut new_grid: i32[size];
+    mut grid: list(i32);
+    mut new_grid: list(i32);
 
     for mut i = 0; i < size; i++ {
-        grid[i] = 0;
-        new_grid[i] = 0;
+        append(grid, 0);
+        append(new_grid, 0);
     }
 
-    grid[idx(2,1,width)] = 1;
-    grid[idx(3,2,width)] = 1;
-    grid[idx(1,3,width)] = 1;
-    grid[idx(2,3,width)] = 1;
-    grid[idx(3,3,width)] = 1;
+    grid.data[idx(2,1,width)] = 1;
+    grid.data[idx(3,2,width)] = 1;
+    grid.data[idx(1,3,width)] = 1;
+    grid.data[idx(2,3,width)] = 1;
+    grid.data[idx(3,3,width)] = 1;
 
     println "Conway's Game of Life\n";
 
@@ -229,10 +231,10 @@ def main() {
         println gen;
         println "";
 
-        print_grid(grid, width, height);
+        print_grid(addr(grid), width, height);
 
-        next_generation(grid, new_grid, width, height);
-        copy_grid(new_grid, grid, size);
+        next_generation(addr(grid), addr(new_grid), width, height);
+        copy_grid(addr(new_grid), addr(grid), size);
 
         println "\n---\n";
     }
