@@ -359,7 +359,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         if command_exists(str("cc")) {
             compiler = str("cc");
             if !::quiet_mode {
-                println "\nWarning: clang not found, using cc instead";
+                println "\nWarning: Linking with cc.";
             }
         }
         
