@@ -2825,6 +2825,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     mut when_branch_types: list(string);
     mut when_branch_counts: list(i32);
     mut common_count: i32 = 0;
+    mut common_stmts: list(ASTNode);
+    mut when_stmts: list(ASTNode);
     
     if func.data.function.is_generic {
         loop {
@@ -2846,7 +2848,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             if ctx.tokens.data[ctx.pos].token_type != TokenType.WHEN {
                 val common_stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(common_stmt.node_type) > 0 {
-                    append(children, common_stmt);
+                    append(common_stmts, common_stmt);
                     common_count++;
                 }
                 continue;
@@ -2907,13 +2909,26 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 
                 val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
                 if str_len(stmt.node_type) > 0 {
-                    append(children, stmt);
+                    append(when_stmts, stmt);
                     branch_child_count++;
                 }
             }
             
             append(when_branch_counts, branch_child_count);
             skip_whitespace(ctx);
+        }
+        
+        mut cs_idx: i32 = 0;
+        loop {
+            if cs_idx >= len(common_stmts) { break; }
+            append(children, common_stmts.data[cs_idx]);
+            cs_idx++;
+        }
+        mut ws_idx: i32 = 0;
+        loop {
+            if ws_idx >= len(when_stmts) { break; }
+            append(children, when_stmts.data[ws_idx]);
+            ws_idx++;
         }
         
         if len(when_branch_types) == 0 {

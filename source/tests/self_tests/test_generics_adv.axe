@@ -10,9 +10,11 @@ model SomeModel {
         when T is f32 {
             return arg * 2.0;
         }
+        println("hello");
         when T is string {
             return concat_c(arg, "!\n");
         }
+        println("will never print");
     }
 }
 
