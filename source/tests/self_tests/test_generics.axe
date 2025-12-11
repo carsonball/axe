@@ -1,5 +1,6 @@
 use std.io;
 
+[inline]
 def some_func[T](arg: T): T {
     when T is i32 {
         return arg + 1;

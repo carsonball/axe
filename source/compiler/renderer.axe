@@ -6309,7 +6309,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 
                 if StringBoolMap.contains(addr(g_generated_functions), spec_func_name) {
                     child_offset = child_offset + child_count;
-                    branch_idx = branch_idx + 1;
+                    branch_idx++;
                     continue;
                 }
                 
@@ -6325,6 +6325,28 @@ pub def generate_c(ast: ref ASTNode): string {
                 mut sb_func: StringBuilder = StringBuilder.init(4096);
                 
                 StringBuilder.append(addr(sb_func), emit_line_directive(ast.line));
+                
+                val func_tags: ref list(string) = ast.data.function.tags;
+                if func_tags != nil {
+                    mut tag_idx: i32 = 0;
+                    loop {
+                        if tag_idx >= len(deref(func_tags)) {
+                            break;
+                        }
+                        val tag: string = func_tags.data[tag_idx];
+                        if equals_c(tag, "inline") {
+                            StringBuilder.append_c(addr(sb_func), "inline ");
+                        } elif equals_c(tag, "noinline") {
+                            StringBuilder.append_c(addr(sb_func), "__attribute__((noinline)) ");
+                        } elif equals_c(tag, "cold") {
+                            StringBuilder.append_c(addr(sb_func), "__attribute__((cold)) ");
+                        } elif equals_c(tag, "hot") {
+                            StringBuilder.append_c(addr(sb_func), "__attribute__((hot)) ");
+                        }
+                        tag_idx++;
+                    }
+                }
+                
                 StringBuilder.append(addr(sb_func), mapped_ret);
                 StringBuilder.append_char(addr(sb_func), ' ');
                 StringBuilder.append(addr(sb_func), spec_func_name);
