@@ -6577,10 +6577,10 @@ pub def generate_c(ast: ref ASTNode): string {
             if sep2 >= 0 and sep2 + 2 < n2 {
                 val model_part2: string = substring_se(func_name, 0, sep2);
                 val method_part2: string = substring_se(func_name, sep2 + 2, n2);
-
                 mut has_inner_sep2: bool = false;
                 mut j2: i32 = 0;
                 val mlen2: i32 = str_len(model_part2);
+                
                 loop {
                     if j2 + 1 >= mlen2 {
                         break;
