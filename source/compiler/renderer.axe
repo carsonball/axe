@@ -8360,7 +8360,6 @@ pub def generate_c(ast: ref ASTNode): string {
 
                 StringStringMap.set(addr(g_field_types), addr(arena), field_key, field_type);
                 
-                // Mark pointer fields in g_pointer_fields (similar to D compiler)
                 if has_prefix(field_type, str("ref ")) {
                     StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
                 } elif has_suffix(field_type, str("*")) {
