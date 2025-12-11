@@ -15,7 +15,7 @@ model Person {
 
 def main() {
     parallel for mut i = 0 to 10 {
-        mut person = Person{name: "Alice", age: i};
+        val person = Person{name: "Alice", age: i};
         println person.age;
     }
 }
@@ -54,10 +54,16 @@ def main() {
 
 ### Building from Source
 
+There are two ways to build from source without already having an `axe` binary, one involves cloning tag v0.0.0, and building with `dub build`, though you can also clone https://github.com/axelang/axe-bootstrap.git to get axe latest on POSIX systems. 
+
+If you already have an axe binary (recommended - download from release v0.0.5), the build process is simply:
+
 ```bash
-git clone https://github.com/navid-m/axe.git
-cd axe
-dub build
+git clone https://github.com/axelang/axe.git
+cd axe/source/compiler
+axe axc -o axe --release
+
+# or use "saw build --release" with the saw build tool
 ```
 
 This will create the `axe` executable.
@@ -124,6 +130,37 @@ def main() {
 
 Tagged unions provide a safe and expressive way to model AST nodes, protocol messages, and other variant-based structures.
 
+### Generics
+
+Generics in Axe allow writing of functions and models that operate on different types while maintaining type safety. You can specify type parameters using square brackets `[T]`, and use type-specific logic with `when` clauses.
+
+```
+use std.io;
+use std.string;
+
+model SomeModel {
+    pub def some_function[T](arg: T): T {
+        when T is i32 {
+            return arg + 1;
+        }
+        when T is f32 {
+            return arg * 2.0;
+        }
+        when T is string {
+            return concat_c(arg, "!\n");
+        }
+    }
+}
+
+def main() {
+    println(SomeModel.some_function[i32](5));
+    println(SomeModel.some_function[f32](5.0));
+    println(SomeModel.some_function[string](str("Hello")));
+    println(SomeModel.some_function(3.0));
+}
+```
+
+Note that when clauses are REQUIRED in generic functions.
 
 ### Game of Life
 
@@ -251,4 +288,3 @@ def main() {
 - [x] Syntax (`single { ... }`) for isolating single threaded behaviours in parallel contexts
 - [x] Map and reduce clauses
 - [x] Smart type inference based on RHS of exprs.
-- [ ] Further memory models beyond arena allocation.
