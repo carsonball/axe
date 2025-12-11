@@ -5230,11 +5230,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         node.data.array_assign.index = member_index_expr;
                         node.data.array_assign.index2 = member_index2_expr;
                         node.data.array_assign.value = member_array_value_expr;
+
                         scan_expression_for_usage(member_index_expr);
                         scan_expression_for_usage(member_index2_expr);
                         scan_expression_for_usage(member_array_value_expr);
-                        // Mark the base variable as mutated
                         mark_variable_mutated(ident_name);
+
                         return node;
                     }
                 }
