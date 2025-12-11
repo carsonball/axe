@@ -50,7 +50,7 @@ macro make_list(
 
         pub def push(lst: ref name, arena: ref Arena, value: type) {
             if lst.len >= lst.cap {
-                val new_cap: i32 = lst.cap * 2;
+                val new_cap: usize = lst.cap * 2;
                 mut new_data: ref type;
                 unsafe {
                     new_data = Arena.alloc_array(arena, C.sizeof(type), new_cap);
