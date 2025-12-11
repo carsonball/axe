@@ -208,7 +208,7 @@ def emit_line_directive(line: i32): string {
 ///
 /// This must be called before using the renderer at all.
 pub def initialize_renderer() {
-    mut arena: Arena = Arena.create(1024 * 1024 * 100);
+    mut arena: Arena = Arena.create(1024 * 100);
     
     g_type_mappings = deref(StringStringMap.create(addr(arena), 128));
     g_function_return_types = deref(StringStringMap.create(addr(arena), 1024));
