@@ -10,5 +10,5 @@ def some_func[T](arg: T): T {
 }
 
 def main() {
-    println(some_func[i32](5));
+    println(some_func[f32](5));
 }

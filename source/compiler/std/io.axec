@@ -7,6 +7,10 @@ overload println(x: generic) {
     char*  => println_chrptr;
     i32    => println_i32;
     char   => println_char;
+    f32    => println_f32;
+    f64    => println_f64;
+    i64    => println_i64;
+    bool   => println_bool;
 }(x);
 
 /// Print out some value with no newline
@@ -15,6 +19,10 @@ overload print(x: generic) {
     char*  => print_chrptr;
     i32    => print_i32;
     char   => print_char;
+    f32    => print_f32;
+    f64    => print_f64;
+    i64    => print_i64;
+    bool   => print_bool;
 }(x);
 
 /// Print out some char
