@@ -2824,6 +2824,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     mut children: list(ASTNode);
     mut when_branch_types: list(string);
     mut when_branch_counts: list(i32);
+    mut common_count: i32 = 0;
     
     if func.data.function.is_generic {
         loop {
@@ -2843,9 +2844,12 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             }
             
             if ctx.tokens.data[ctx.pos].token_type != TokenType.WHEN {
-                mut err: string = format_error(ctx, str("Expected 'when' branch in generic function"));
-                enforce_raw(false, err.data);
-                return func;
+                val common_stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
+                if str_len(common_stmt.node_type) > 0 {
+                    append(children, common_stmt);
+                    common_count++;
+                }
+                continue;
             }
             ctx.pos++; // Skip 'when'
             skip_whitespace(ctx);
@@ -2921,6 +2925,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             println "' must have at least one 'when' branch";
             quit(1);
         }
+        
+        func.data.function.common_child_count = common_count;
         
         unsafe {
             val types_size: usize = C.sizeof(list(string));

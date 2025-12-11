@@ -99,6 +99,7 @@ pub model ASTNode {
             is_generic: bool;
             when_branch_types: ref list(string);
             when_branch_counts: ref list(i32);
+            common_child_count: i32;
         };
         
         macro_node: model {

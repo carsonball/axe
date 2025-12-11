@@ -3,6 +3,7 @@ use std.string;
 
 model SomeModel {
     pub def some_function[T](arg: T): T {
+        println("Will always print.");
         when T is i32 {
             return arg + 1;
         }

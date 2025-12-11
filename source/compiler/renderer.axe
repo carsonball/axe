@@ -6502,12 +6502,27 @@ pub def generate_c(ast: ref ASTNode): string {
                 
                 if ast.children != nil {
                     val children: ref list(ASTNode) = ast.children;
+                    val common_count: i32 = ast.data.function.common_child_count;
+                    mut cc: i32 = 0;
+
+                    loop {
+                        if cc >= common_count {
+                            break;
+                        }
+                        if cc < len(deref(children)) {
+                            val common_code: string = generate_c(addr(children.data[cc]));
+                            StringBuilder.append(addr(sb_func), common_code);
+                        }
+                        cc++;
+                    }
+                    
+                    val branch_offset: i32 = common_count + child_offset;
                     mut ci: i32 = 0;
                     loop {
                         if ci >= child_count {
                             break;
                         }
-                        val child_idx: i32 = child_offset + ci;
+                        val child_idx: i32 = branch_offset + ci;
                         if child_idx < len(deref(children)) {
                             val child_code: string = generate_c(addr(children.data[child_idx]));
                             StringBuilder.append(addr(sb_func), child_code);
