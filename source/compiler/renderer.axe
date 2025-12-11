@@ -7611,7 +7611,6 @@ pub def generate_c(ast: ref ASTNode): string {
     
     if equals_c(node_type, "FunctionCall") {
         val func_name: string = ast.data.func_call.function_name;
-        
         val has_module_sep: bool = str_contains_c(func_name, "__");
         val is_method_call: bool = find_char_from(func_name, '.', 0) >= 0;
         val is_c_call: bool = has_prefix(func_name, str("C."));
