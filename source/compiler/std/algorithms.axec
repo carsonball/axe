@@ -3,6 +3,22 @@ use std.io;
 use std.string;
 use std.lists;
 
+// def list_contains[T, T2](lst: T, value: T2): bool {
+//     for mut i = 0; i < lst.len; i++ {
+//         when T2 is i32 and T is IntList {
+//             if lst.data[i] == cast[i32](value) {
+//                 return true;
+//             }
+//         } 
+//         when T2 is string and T is StringList {
+//             if compare(lst.data[i], cast[string](value)) == 0 {
+//                 return true;
+//             }
+//         }
+//     }
+//     return false;
+// }
+
 /// Check if some StringList contains a value
 def strlst_contains(lst: StringList, value: string): bool {
     for mut i = 0; i < lst.len; i++ {
