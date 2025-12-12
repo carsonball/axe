@@ -239,7 +239,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             base_dir = substring_se(filename, 0, idx);
             break;
         }
-        idx = idx - 1;
+        idx--;
     }
 
     val module_name: string = str("");
