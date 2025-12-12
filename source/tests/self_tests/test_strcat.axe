@@ -1,0 +1,9 @@
+use std.io;
+
+def strcat() {
+    println("hello");
+}
+
+def main() {
+    strcat();
+}
