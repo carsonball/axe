@@ -2968,16 +2968,6 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             skip_whitespace(ctx);
         }
         
-        if len(when_branch_types) == 0 {
-            print ctx.filename;
-            print ":";
-            print(i32_to_string(func.line));
-            print ": error: generic function '";
-            print func_name;
-            println "' must have at least one 'when' branch";
-            quit(1);
-        }
-        
         unsafe {
             val types_size: usize = C.sizeof(list(string));
             val heap_types: ref list(string) = cast[ref list(string)](C.malloc(types_size));

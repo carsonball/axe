@@ -118,6 +118,10 @@ mut g_current_source_file: string;
 /// Current source line number
 mut g_current_line: i32;
 
+/// Current type mapping for generic function specialization
+/// Used by WhenBranch nodes to check if their constraints match
+mut g_current_type_mapping: ref StringStringMap;
+
 /// Whether to emit #line directives
 mut g_emit_line_directives: bool;
 
@@ -6389,22 +6393,104 @@ pub def generate_c(ast: ref ASTNode): string {
             val when_starts: ref list(i32) = ast.data.function.when_branch_starts;
             val type_params: ref list(string) = ast.data.function.type_params;
             
-            if when_types == nil or when_counts == nil or when_starts == nil or type_params == nil {
+            if type_params == nil {
                 return str("");
             }
             
+            mut collected_constraints: list(string);
+            mut has_top_level_when: bool = false;
+            
+            if when_types != nil and len(deref(when_types)) > 0 {
+                has_top_level_when = true;
+            }
+            
+            if !has_top_level_when {
+                if ast.children != nil {
+                    mut scan_stack: list(i64);
+                    val root_children: ref list(ASTNode) = ast.children;
+                    mut ri: i32 = 0;
+                    loop {
+                        if ri >= len(deref(root_children)) { break; }
+                        append(scan_stack, cast[i64](addr(root_children.data[ri])));
+                        ri++;
+                    }
+                    
+                    loop {
+                        if len(scan_stack) == 0 { break; }
+                        val scan_node: ref ASTNode = cast[ref ASTNode](scan_stack.data[len(scan_stack) - 1]);
+                        scan_stack.len = scan_stack.len - 1;
+                        
+                        if equals_c(scan_node.node_type, "WhenBranch") {
+                            val tp_list: ref list(string) = scan_node.data.when_branch.type_params;
+                            val ct_list: ref list(string) = scan_node.data.when_branch.concrete_types;
+                            if tp_list != nil and ct_list != nil {
+                                mut constraint_str: string = str("");
+                                mut cti: i32 = 0;
+                                loop {
+                                    if cti >= len(deref(tp_list)) { break; }
+                                    if cti > 0 {
+                                        constraint_str = concat(constraint_str, str(","));
+                                    }
+                                    constraint_str = concat(constraint_str, tp_list.data[cti]);
+                                    constraint_str = concat(constraint_str, str(":"));
+                                    constraint_str = concat(constraint_str, ct_list.data[cti]);
+                                    cti++;
+                                }
+                                mut found: bool = false;
+                                mut fi: i32 = 0;
+                                loop {
+                                    if fi >= len(collected_constraints) { break; }
+                                    if equals_c(collected_constraints.data[fi], constraint_str.data) {
+                                        found = true;
+                                        break;
+                                    }
+                                    fi++;
+                                }
+                                if !found {
+                                    append(collected_constraints, constraint_str);
+                                }
+                            }
+                        }
+                        
+                        if scan_node.children != nil {
+                            val sub_children: ref list(ASTNode) = scan_node.children;
+                            mut sci: i32 = 0;
+                            loop {
+                                if sci >= len(deref(sub_children)) { break; }
+                                append(scan_stack, cast[i64](addr(sub_children.data[sci])));
+                                sci++;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if !has_top_level_when and len(collected_constraints) == 0 {
+                return str("");
+            }
             
             mut sb_all_funcs: StringBuilder = StringBuilder.init(8192);
-
             mut branch_idx: i32 = 0;
+            mut constraint_list_len: i32 = 0;
+
+            if has_top_level_when {
+                constraint_list_len = len(deref(when_types));
+            } else {
+                constraint_list_len = len(collected_constraints);
+            }
             
             loop {
-                if branch_idx >= len(deref(when_types)) {
+                if branch_idx >= constraint_list_len {
                     break;
                 }
                 
-                val constraint_str: string = when_types.data[branch_idx];
-                val child_count: i32 = when_counts.data[branch_idx];
+                mut constraint_str: string = str("");
+                if has_top_level_when {
+                    constraint_str = when_types.data[branch_idx];
+                } else {
+                    constraint_str = collected_constraints.data[branch_idx];
+                }
+                val child_count: i32 = 0;
                 
                 mut sb_spec_name: StringBuilder = StringBuilder.init(256);
                 StringBuilder.append(addr(sb_spec_name), func_name);
@@ -6562,47 +6648,60 @@ pub def generate_c(ast: ref ASTNode): string {
                 if ast.children != nil {
                     val children: ref list(ASTNode) = ast.children;
                     mut ci: i32 = 0;
-                    mut next_check_branch: i32 = 0;
+                    
+                    if has_top_level_when {
+                        mut next_check_branch: i32 = 0;
 
-                    loop {
-                        if ci >= len(deref(children)) {
-                            break;
-                        }
-
-                        mut is_branch_start: bool = false;
-                        if next_check_branch < len(deref(when_starts)) {
-                             if ci == when_starts.data[next_check_branch] {
-                                 is_branch_start = true;
-                             }
-                        }
-
-                        if is_branch_start {
-                            val branch_constraint: string = when_types.data[next_check_branch];
-                            val b_count: i32 = when_counts.data[next_check_branch];
-                            
-                            // Compare the branch constraint with current constraint_str
-                            val is_match: bool = equals_c(branch_constraint, constraint_str.data);
-                            
-                            if is_match {
-                                mut bi: i32 = 0;
-                                loop {
-                                     if bi >= b_count { break; }
-                                     val child_idx: i32 = ci + bi;
-                                     if child_idx < len(deref(children)) {
-                                         val child_code: string = generate_c(addr(children.data[child_idx]));
-                                         StringBuilder.append(addr(sb_func), child_code);
-                                     }
-                                     bi++;
-                                }
+                        loop {
+                            if ci >= len(deref(children)) {
+                                break;
                             }
-                            ci = ci + b_count;
-                            next_check_branch++;
-                            continue;
-                        }
 
-                        val common_code: string = generate_c(addr(children.data[ci]));
-                        StringBuilder.append(addr(sb_func), common_code);
-                        ci++;
+                            mut is_branch_start: bool = false;
+                            if when_starts != nil and next_check_branch < len(deref(when_starts)) {
+                                 if ci == when_starts.data[next_check_branch] {
+                                     is_branch_start = true;
+                                 }
+                            }
+
+                            if is_branch_start {
+                                val branch_constraint: string = when_types.data[next_check_branch];
+                                val b_count: i32 = when_counts.data[next_check_branch];
+                                val is_match: bool = equals_c(branch_constraint, constraint_str.data);
+                                
+                                if is_match {
+                                    mut bi: i32 = 0;
+                                    loop {
+                                         if bi >= b_count { break; }
+                                         val child_idx: i32 = ci + bi;
+                                         if child_idx < len(deref(children)) {
+                                             val child_code: string = generate_c(addr(children.data[child_idx]));
+                                             StringBuilder.append(addr(sb_func), child_code);
+                                         }
+                                         bi++;
+                                    }
+                                }
+                                ci = ci + b_count;
+                                next_check_branch++;
+                                continue;
+                            }
+
+                            val common_code: string = generate_c(addr(children.data[ci]));
+                            StringBuilder.append(addr(sb_func), common_code);
+                            ci++;
+                        }
+                    } else {
+                        g_current_type_mapping = addr(type_mapping);
+                        loop {
+                            if ci >= len(deref(children)) {
+                                break;
+                            }
+                            val child: ref ASTNode = addr(children.data[ci]);
+                            val child_code: string = generate_c(child);
+                            StringBuilder.append(addr(sb_func), child_code);
+                            ci++;
+                        }
+                        g_current_type_mapping = nil;
                     }
                 }
                 
@@ -7894,6 +7993,41 @@ pub def generate_c(ast: ref ASTNode): string {
     }
     
     if equals_c(node_type, "WhenBranch") {
+        // Check if all type constraints match the current type mapping context
+        if g_current_type_mapping != nil {
+            val tp_list: ref list(string) = ast.data.when_branch.type_params;
+            val ct_list: ref list(string) = ast.data.when_branch.concrete_types;
+            
+            if tp_list != nil and ct_list != nil {
+                mut all_match: bool = true;
+                mut ci: i32 = 0;
+                loop {
+                    if ci >= len(deref(tp_list)) { break; }
+                    val tp: string = tp_list.data[ci];
+                    val ct_expected: string = ct_list.data[ci];
+                    
+                    if StringStringMap.contains(g_current_type_mapping, tp) {
+                        val ct_actual: string = StringStringMap.get(g_current_type_mapping, tp);
+                        if !equals_c(ct_actual, ct_expected.data) {
+                            all_match = false;
+                            break;
+                        }
+                    } else {
+                        // Type param not in mapping - doesn't match
+                        all_match = false;
+                        break;
+                    }
+                    ci++;
+                }
+                
+                if !all_match {
+                    // Constraints don't match - don't emit any code
+                    return str("");
+                }
+            }
+        }
+        
+        // Constraints match (or no context) - emit children
         mut sb_when: StringBuilder = StringBuilder.init(1024);
         
         if ast.children != nil {
