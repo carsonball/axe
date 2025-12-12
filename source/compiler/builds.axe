@@ -147,6 +147,28 @@ def print_ast_node(node: ref ASTNode, indent: i32) {
     }
 }
 
+/// Check if AST contains an entry point (a 'Test' node or a 'Function' named 'main')
+def ast_has_entry_point(node: ref ASTNode): bool {
+    if node == nil { return false; }
+    if node.children == nil { return false; }
+
+    val children: ref list(ASTNode) = node.children;
+    mut i: i32 = 0;
+    loop {
+        if i >= len(deref(children)) { break; }
+        val child: ASTNode = children.data[i];
+        if equals_c(child.node_type, "Test") { return true; }
+        if equals_c(child.node_type, "Function") {
+            if equals_c(child.data.function.name, "main") { return true; }
+        }
+        if child.children != nil {
+            if ast_has_entry_point(addr(child)) { return true; }
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
 /// Compile an Axe source file to an executable
 def compile_file(filename: string, is_axec: bool, output_filename: string): bool {
     if !::quiet_mode {
@@ -220,6 +242,12 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     val module_name: string = str("");
     ast = process_imports(addr(ast), base_dir, is_axec, filename, true, module_name);
+
+    if !ast_has_entry_point(addr(ast)) {
+        println(concat(str("error: no entry point in compilation unit '"), filename));
+        println ". add either 'test { }' or 'def main() { }' to the file.";
+        return false;
+    }
     
     val syntax_only: bool = ::syntax_check_only;
     if syntax_only {
