@@ -4749,6 +4749,26 @@ def generate_function_prototype(ast: ref ASTNode): string {
     val mapped_return_type: string = map_axe_type_to_c(return_type);
     mut sb: StringBuilder = StringBuilder.init(1512);
 
+    mut is_inline: bool = false;
+    val tags: ref list(string) = ast.data.function.tags;
+    if tags != nil {
+        mut ti: i32 = 0;
+        loop {
+            if ti >= len(deref(tags)) {
+                break;
+            }
+            if equals_c(tags.data[ti], "inline") {
+                is_inline = true;
+                break;
+            }
+            ti++;
+        }
+    }
+
+    if is_inline {
+        StringBuilder.append_c(addr(sb), "static ");
+    }
+
     StringBuilder.append(addr(sb), mapped_return_type);
     StringBuilder.append_char(addr(sb), ' ');
     StringBuilder.append(addr(sb), func_name);
