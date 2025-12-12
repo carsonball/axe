@@ -138,6 +138,12 @@ pub def set_emit_line_directives(v: bool) {
     g_emit_line_directives = v;
 }
 
+/// Register a function prefix mapping (original -> prefixed)
+pub def renderer_add_prefix(original: string, prefixed: string) {
+    mut arena: Arena = Arena.create(1024);
+    StringStringMap.set(addr(g_function_prefixes), addr(arena), original, prefixed);
+}
+
 /// Check if a specific external header was used (e.g., "pcre.h", "curl/curl.h")
 pub def has_external_header(header_name: string): bool {
     return StringList.contains(g_global_external_headers, header_name)

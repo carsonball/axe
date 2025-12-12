@@ -26,7 +26,8 @@ use renderer (
     initialize_renderer, 
     set_source_file, 
     set_emit_line_directives,
-    generate_c
+    generate_c,
+    renderer_add_prefix
 );
 use std.os (
     ExecResult, 
@@ -112,6 +113,41 @@ def prefix_root_enums(node: ref ASTNode, mprefix: string) {
                 break;
             }
             prefix_root_enums(addr(chs.data[ci]), mprefix);
+            ci = ci + 1;
+        }
+    }
+}
+
+/// Prefix root functions (those without an existing module-style prefix)
+/// and register them in the renderer so that calls are rewritten.
+def prefix_root_functions(node: ref ASTNode, mprefix: string) {
+    if node == nil {
+        return;
+    }
+
+    val nt: string = node.node_type;
+    if equals_c(nt, "Function") {
+        val fname: string = node.data.function.name;
+        if !equals_c(fname, "main") {
+             if str_len(mprefix) > 0 and !has_double_underscore(fname) {
+                mut new_name: string = mprefix;
+                new_name = concat(new_name, str("__"));
+                new_name = concat(new_name, fname);
+                
+                node.data.function.name = new_name;
+                renderer_add_prefix(fname, new_name);
+            }
+        }
+    }
+
+    if node.children != nil {
+        val chs: ref list(ASTNode) = node.children;
+        mut ci: i32 = 0;
+        loop {
+            if ci >= len(deref(chs)) {
+                break;
+            }
+            prefix_root_functions(addr(chs.data[ci]), mprefix);
             ci = ci + 1;
         }
     }
@@ -357,7 +393,9 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
 
     prefix_root_enums(addr(ast), module_prefix);
     initialize_renderer();
+    prefix_root_functions(addr(ast), module_prefix);
     set_source_file(filename);
+
     if ::bootstrap_mode {
         set_emit_line_directives(false);
     }
