@@ -1,8 +1,5 @@
-use std.string (
-    string
-);
-
-use std.io(println_str);
+use std.string  (string);
+use std.io      (println_str);
 use std.random;
 
 /// Generates a random UUID v4 string.
