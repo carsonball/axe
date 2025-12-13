@@ -24,6 +24,7 @@ extern def pcre_compile(pattern: ref char,
     errptr: addr ref char,
     erroffset: addr i32,
     tableptr: ref void): ref pcre;
+
 extern def pcre_exec(code: ref pcre,
     extra: ref void,
     subject: ref char,
@@ -32,6 +33,7 @@ extern def pcre_exec(code: ref pcre,
     options: i32,
     ovector: ref i32,
     ovecsize: i32): i32;
+
 extern def pcre_free(ptr: ref void);
 
 /// Returns true if the given text contains pattern as a substring.
