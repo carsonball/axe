@@ -32,6 +32,7 @@ pub def wait(ms: i32) {
 /// Returns the current date and time
 pub def now(): DateTime {
     platform posix {
+        foreign {time_t. tm};
         unsafe {
             C.gettimeofday(addr(tv), nil);
             mut epoch_ms: i64 = cast[i64](tv.tv_sec) * 1000 + cast[i64](tv.tv_usec) / 1000;
@@ -50,6 +51,7 @@ pub def now(): DateTime {
         }
     }
     platform windows {
+        foreign {SYSTEMTIME, FILETIME, ULARGE_INTEGER};
         unsafe {
             mut st: SYSTEMTIME;
             C.GetLocalTime(addr(st));
@@ -58,9 +60,9 @@ pub def now(): DateTime {
             mut uli: ULARGE_INTEGER;
             uli.LowPart = ft.dwLowDateTime;
             uli.HighPart = ft.dwHighDateTime;
-            mut win_time_100ns: i64 = uli.QuadPart;
-            mut unix_time_100ns: i64 = win_time_100ns - 116444736000000000;
-            mut epoch_ms: i64 = unix_time_100ns / 10000;
+            val win_time_100ns: i64 = uli.QuadPart;
+            val unix_time_100ns: i64 = win_time_100ns - 116444736000000000;
+            val epoch_ms: i64 = unix_time_100ns / 10000;
             mut dt: DateTime;
             dt.year = st.wYear;
             dt.month = st.wMonth;
