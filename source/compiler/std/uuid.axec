@@ -76,10 +76,10 @@ test {
 
     println_str(generate_uuid());
     
-    mut hex16: string = generate_random_hex(16);
+    mut hex16: string = generate_random_hex(cast[usize](16));
     assert str_len(hex16) == 16, "Random hex string should be 16 characters long";
     
-    mut hex32: string = generate_random_hex(32);
+    mut hex32: string = generate_random_hex(cast[usize](32));
     assert str_len(hex32) == 32, "Random hex string should be 32 characters long";
 
     println_str(hex16);
