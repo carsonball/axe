@@ -7436,7 +7436,7 @@ test {
     assert equals_c(ast16.node_type, "Program"), "Expected Program node with test block";
 
     println "\nTest 17: parse_type with pointer syntax";
-    mut tokens17: list(Token) = lex(str("i32*"));
+    mut tokens17: list(Token) = lex(str("ref i32"));
     mut ctx17: ParserContext;
     ctx17.tokens = addr(tokens17);
     ctx17.pos = 0;
