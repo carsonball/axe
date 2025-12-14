@@ -2774,7 +2774,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                 print ctx.filename;
                 print ":";
                 print(i32_to_string(current_line(ctx)));
-                print ": error: raw pointer syntax (e.g., 'char*') is not allowed.";
+                print ": error: raw pointer syntax is not allowed.";
                 println " Use 'ref' instead (e.g., 'ref char').";
                 print "(in parameter: ";
                 print param;
@@ -2807,7 +2807,7 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             print ctx.filename;
             print ":";
             print(i32_to_string(current_line(ctx)));
-            print ": error: raw pointer syntax (e.g., 'char*') is not allowed. ";
+            print ": error: raw pointer syntax is not allowed. ";
             println "Use 'ref' instead (e.g., 'ref char').";
             print "(in return type: ";
             print return_type;
