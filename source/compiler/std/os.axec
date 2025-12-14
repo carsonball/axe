@@ -208,21 +208,19 @@ use external("sys/types.h");
 pub def is_directory(path: string): bool {
     mut out: bool = false;
 
+    foreign {_S_IFDIR, stat, _stat};
+    
     platform posix {
-        raw {
-            struct stat sb;
-            if (stat(path.data, &sb) == 0) {
-                out = S_ISDIR(sb.st_mode);
-            }
+        mut sb: $(stat);
+        if C.stat(path.data, addr(sb)) == 0 {
+            out = C.S_ISDIR(sb.st_mode);
         }
     }
 
     platform windows {
-        raw {
-            struct _stat sb;
-            if (_stat(path.data, &sb) == 0) {
-                out = (sb.st_mode & _S_IFDIR) != 0;
-            }
+        mut sb: $(_stat);
+        if C._stat(path.data, addr(sb)) == 0 {
+            out = (sb.st_mode & _S_IFDIR) != 0;
         }
     }
 

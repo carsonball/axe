@@ -393,7 +393,8 @@ def is_valid_symbol(symbol_name: string): bool {
         or StringBoolMap.contains(addr(g_foreign_types), symbol_name)
         or is_symbol_imported(symbol_name)
         or StringStringMap.contains(addr(g_model_names), symbol_name)
-        or StringBoolMap.contains(addr(g_enum_names), symbol_name);
+        or StringBoolMap.contains(addr(g_enum_names), symbol_name)
+        or has_prefix(symbol_name, str("struct "));
 }
 
 /// Validate that a type is properly imported (call this for user-facing types)

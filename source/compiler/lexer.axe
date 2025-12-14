@@ -85,7 +85,8 @@ enum TokenType {
     SWITCH,
     XOR,
     WHEN,
-    IS
+    IS,
+    DOLLAR
 }
 
 /// Representation of some token
@@ -322,6 +323,9 @@ pub def lex(source: string): list(Token) {
                 wrapped = concat(wrapped, str("__INTERPOLATED__"));
                 append(tokens, create_token(TokenType.INTERPOLATED_STR, wrapped.data));
                 pos = ending + 1;
+            } else {
+                append(tokens, create_token(TokenType.DOLLAR, "$"));
+                pos = pos + 1;
             }
         } elif ch == '"' {
             mut ending: i32 = pos + 1;
