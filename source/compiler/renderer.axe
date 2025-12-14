@@ -7703,7 +7703,7 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
 
                         if first_field {
-                            StringBuilder.append_c(addr(sb_decl), " = {0}");
+                            StringBuilder.append_c(addr(sb_decl), "}");
                         } else {
                             StringBuilder.append_c(addr(sb_decl), "}");
                         }
@@ -7784,7 +7784,7 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
 
                         if first_field2 {
-                            StringBuilder.append_c(addr(sb_decl), " = {0}");
+                            StringBuilder.append_c(addr(sb_decl), "}");
                         } else {
                             StringBuilder.append_c(addr(sb_decl), "}");
                         }
