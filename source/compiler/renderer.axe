@@ -5231,6 +5231,8 @@ def generate_global_decl(ast: ref ASTNode): string {
 }
 
 /// Generate C from AST.
+///
+/// Note: g_current_source_file should be set before calling generate_c.
 pub def generate_c(ast: ref ASTNode): string {
     if ast == nil {
         return str("");
@@ -5338,8 +5340,6 @@ pub def generate_c(ast: ref ASTNode): string {
     }
     
     if equals_c(node_type, "Program") {
-        // Note: g_current_source_file should be set before calling generate_c
-
         if !::bootstrap_mode {
             g_emit_line_directives = true;
         }
