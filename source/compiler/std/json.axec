@@ -281,10 +281,8 @@ def stringify_pretty(doc: ref char): string {
 /// Read JSON from a file
 def read_file(path: string): ref char {
     mut doc: ref char = nil;
-    raw {
-        if (path.data != NULL) {
-            doc = (char*)yyjson_read_file(path.data, 0, NULL, NULL);
-        }
+    if path.data != nil {
+        doc = cast[ref char](yyjson_read_file(path.data, 0, nil, nil));
     }
     return doc;
 }
@@ -292,10 +290,8 @@ def read_file(path: string): ref char {
 /// Write JSON to a file
 def write_file(path: string, doc: ref char): bool {
     mut success: bool = false;
-    raw {
-        if (path.data != NULL && doc != NULL) {
-            success = yyjson_write_file(path.data, (yyjson_doc*)doc, 0, NULL, NULL);
-        }
+    if path.data != nil and doc != nil {
+        success = yyjson_write_file(path.data, cast[ref yyjson_doc](doc), 0, nil, nil);
     }
     return success;
 }
