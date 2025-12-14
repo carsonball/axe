@@ -426,6 +426,11 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             dir_name = substring_se(filename, 0, last_sep);
         }
     }
+
+    if equals_c(dir_name, ".") {
+        dir_name = str("");
+    }
+
     if !::quiet_mode {
         println "9 | PFCCG IV";
     }
