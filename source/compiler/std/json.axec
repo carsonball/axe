@@ -221,19 +221,16 @@ def arr_get_last(arr: char*): char* {
 /// Serialize a JSON document to a string
 def stringify(doc: char*): string {
     mut result: string;
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
-        
-        if (doc != NULL) {
-            size_t len;
-            char* json = yyjson_write((yyjson_doc*)doc, 0, &len);
-            if (json != NULL) {
-                result.data = json;
-                result.len = len;
-                result.cap = len + 1;
-            }
+    result.data = nil;
+    result.len = 0;
+    result.cap = 0;
+    if doc != nil {
+        mut len: usize;
+        val json: ref char = yyjson_write(cast[ref yyjson_doc](doc), 0, addr(len));
+        if json != nil {
+            result.data = json;
+            result.len = len;
+            result.cap = len + 1;
         }
     }
     return result;
