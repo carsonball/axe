@@ -175,7 +175,7 @@ pub def sha256_process_block(block: ref i32, h: ref i32) {
 }
 
 /// Compute SHA-256 hash of input data
-pub def sha256(data: char*, len: i32): SHA256Digest {
+pub def sha256(data: ref char, len: i32): SHA256Digest {
     if len < 0 {
         panic(error.create("sha256: length cannot be negative"));
     }
@@ -233,7 +233,7 @@ pub def sha256(data: char*, len: i32): SHA256Digest {
 }
 
 /// Simple hash function for demonstration (NOT cryptographically secure - use sha256 instead)
-pub def simple_hash(data: char*, len: i32): SHA256Digest {
+pub def simple_hash(data: ref char, len: i32): SHA256Digest {
     if len < 0 {
         panic(error.create("simple_hash: length cannot be negative"));
     }
@@ -264,7 +264,7 @@ pub def byte_to_hex(byte_val: i32, arena: ref Arena): string {
     if byte_val < 0 { panic(error.create("byte_to_hex: byte value cannot be negative")); }
     if byte_val > 255 { panic(error.create("byte_to_hex: byte value must be 0-255")); }
     
-    val hex_chars: char* = "0123456789abcdef";
+    val hex_chars: ref char = "0123456789abcdef";
     mut result: string = string.create_with_capacity(arena, 2);
     
     val high: i32 = (byte_val >> 4) & 0xf;
@@ -285,7 +285,7 @@ pub def sha256_to_hex(digest: SHA256Digest, arena: ref Arena): string {
     }
     
     mut result: string = string.create_with_capacity(arena, 64);
-    val hex_chars: char* = "0123456789abcdef";
+    val hex_chars: ref char = "0123456789abcdef";
     
     mut pos: i32 = 0;
     for mut i = 0; i < SHA256_DIGEST_SIZE; i++ {
@@ -353,13 +353,13 @@ pub def sha256_validate(digest: SHA256Digest): bool {
 }
 
 /// Base64 encoding table
-val BASE64_ENC_TABLE: char* = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+val BASE64_ENC_TABLE: ref char = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /// Base64-encode a block of bytes.
 ///
 /// Input: raw bytes (char*) and length.
 /// Output: newly allocated string in arena.
-pub def base64_encode(data: char*, len: i32, arena: ref Arena): string {
+pub def base64_encode(data: ref char, len: i32, arena: ref Arena): string {
     if len < 0 {
         panic(error.create("base64_encode: length cannot be negative"));
     }
@@ -431,7 +431,7 @@ pub def base64_value(c: i32): i32 {
 }
 
 /// Base64 decode, matching the string + arena style.
-pub def base64_decode(data: char*, len: i32, arena: ref Arena): string {
+pub def base64_decode(data: ref char, len: i32, arena: ref Arena): string {
     if len < 0 {
         panic(error.create("base64_decode: negative length"));
     }
