@@ -36,12 +36,12 @@ model HttpResponse {
 
 /// Memory struct for curl write callback
 model MemoryStruct {
-    memory: char*;
+    memory: ref char;
     size: usize;
 }
 
 /// Internal write callback function for curl - grows buffer as needed
-def write_callback(contents: char*, size: usize, nmemb: usize, userp: char*): usize {
+def write_callback(contents: ref char, size: usize, nmemb: usize, userp: ref char): usize {
     mut realsize: usize = 0;
     raw {
         realsize = size * nmemb;
