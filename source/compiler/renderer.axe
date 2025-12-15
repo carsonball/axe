@@ -765,9 +765,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         }
     }
     
-    if equals_c(func_name, "add") {
-        println($"DEBUG241: Validating call to '{func_name}");
-    }
     val expected_types_str: string = StringStringMap.get(addr(g_function_param_types), lookup_name);
     if str_len(expected_types_str) == 0 {
         if len(arg_list) > 0 {
@@ -788,9 +785,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         return;
     }
         
-    if equals_c(func_name, "add") {
-        println($"DEBUG242: Validating call to '{func_name}");
-    }
     mut expected_types: list(string);
     mut sb_type: StringBuilder = StringBuilder.init(128);
     mut j: usize = 0;
@@ -824,9 +818,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         }
     }
     
-    if equals_c(func_name, "add") {
-        println($"DEBUG23: Validating call to '{func_name}");
-    }
     mut arg_count_ok: bool = false;
     if is_variadic {
         if len(arg_list) >= len(expected_types) - 1 {
@@ -860,11 +851,6 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
     }
     
     mut arg_idx: i32 = 0;
-
-    
-    if equals_c(func_name, "add") {
-        println($"DEBUG24: Validating call to '{func_name}");
-    }
 
     loop {
         if arg_idx >= len(arg_list) {
