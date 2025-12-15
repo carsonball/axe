@@ -7,13 +7,14 @@ def arr_length(a: list(i32)): usize {
 }
 
 def func_that_takes_arr_literal(a: list(i32)) {
-    for mut i = 0; i < arr_length(a); i++ {
-        print_i32(a.data[i]);
+    for mut i = 0; i <= arr_length(a); i++ {
+        print_i32(a*.data[i]);
         print " ";
     }
     println "";
 }
 
 def main() {
-    func_that_takes_arr_literal([i32][10, 20, 30, 40]);
+    val thing: list(i32) = [1, 2, 3, 4, 5];
+    func_that_takes_arr_literal(addr(thing));
 }
