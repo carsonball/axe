@@ -474,7 +474,7 @@ def prefix_types_in_node(node: ref ASTNode, module_prefix: string, exported: ref
                     }
                     params.data[i] = newp;
                 }
-                i = i + 1;
+                i++;
             }
         }
     } elif equals_c(nt, "Declaration") {
