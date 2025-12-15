@@ -4125,8 +4125,10 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 collection = concat(collection, ct.value);
                 consume(ctx);
             }
-            collection = strip(collection);
             
+            collection = strip(collection);
+            scan_expression_for_usage(collection);
+
             if !expect(ctx, TokenType.LBRACE) {
                 mut err: string = format_error(ctx, str("Expected '{' after for-in header"));
                 enforce_raw(false, err.data);

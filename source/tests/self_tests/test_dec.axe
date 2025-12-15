@@ -1,0 +1,15 @@
+use std.arena(Arena);
+use std.os(get_cmdline_args);
+use std.io;
+
+def main() {
+    mut arena: Arena = Arena.create(65536);
+    for arg in get_cmdline_args(addr(arena)) {
+        print_str(arg);
+        print " ";
+    }
+    val nums: list(i32) = [123, 142, 123123];
+    for n in nums {
+        println n;
+    }
+}
