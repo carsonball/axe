@@ -522,6 +522,73 @@ def infer_expression_type(expr: string): string {
         return StringStringMap.get(addr(g_var_types), trimmed);
     }
 
+    if has_prefix(trimmed, str("&")) {
+        mut inner: string = strip(substr(trimmed, 1, str_len(trimmed) - 1));
+        if str_len(inner) > 0 {
+            if has_prefix(inner, str("(")) and has_suffix(inner, str(")")) {
+                inner = strip(substr(inner, 1, str_len(inner) - 1));
+            }
+            mut inner_type: string = str("");
+            if StringStringMap.contains(addr(g_var_types), inner) {
+                inner_type = StringStringMap.get(addr(g_var_types), inner);
+            } else {
+                inner_type = infer_expression_type(inner);
+            }
+            if str_len(inner_type) > 0 {
+                return concat(str("ref "), inner_type);
+            }
+        }
+    }
+
+    if has_prefix(trimmed, str("addr")) and str_len(trimmed) > 4 {
+        val after_addr: i32 = 4;
+        mut k: i32 = after_addr;
+        loop {
+            if k >= str_len(trimmed) {
+                break;
+            }
+            val ws: char = get_char(trimmed, k);
+            if ws != ' ' and ws != '\t' and ws != '\n' {
+                break;
+            }
+            k++;
+        }
+        if k < str_len(trimmed) and get_char(trimmed, k) == '(' {
+            val paren_start: i32 = k + 1;
+            mut paren_end: i32 = paren_start;
+            mut depth: i32 = 1;
+            mut in_arg_str: bool = false;
+            mut in_arg_char: bool = false;
+            loop {
+                if paren_end >= str_len(trimmed) or depth == 0 {
+                    break;
+                }
+                val pc: char = get_char(trimmed, paren_end);
+                if pc == '"' and !in_arg_char {
+                    in_arg_str = !in_arg_str;
+                } elif pc == '\'' and !in_arg_str {
+                    in_arg_char = !in_arg_char;
+                } elif !in_arg_str and !in_arg_char {
+                    if pc == '(' {
+                        depth++;
+                    } elif pc == ')' {
+                        depth--;
+                    }
+                }
+                if depth > 0 {
+                    paren_end++;
+                }
+            }
+            if depth == 0 and paren_end == str_len(trimmed) - 1 {
+                val inner_expr: string = strip(substring_se(trimmed, paren_start, paren_end));
+                val inner_type: string = infer_expression_type(inner_expr);
+                if str_len(inner_type) > 0 {
+                    return concat(str("ref "), inner_type);
+                }
+            }
+        }
+    }
+
     // Function call
     val paren_idx: i32 = find_char_from(trimmed, '(', cast[usize](0));
     if paren_idx > 0 and has_suffix(trimmed, str(")")) {
@@ -792,6 +859,9 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         val arg_expr: string = arg_list.data[arg_idx];
         val inferred_type: string = infer_expression_type(arg_expr);
         val expected_type: string = expected_types.data[arg_idx];
+
+        // Debug: show raw argument and inferred type
+        print("[DBG-ARG] func="); print(replace_all(func_name, str("__"), str("."))); print(" arg="); print(i32_to_string(arg_idx + 1)); print(" expr="); print(arg_expr); print(" inferred="); print(inferred_type); println("");
         
         if equals_c(expected_type, "...") {
             arg_idx++;
@@ -810,6 +880,31 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
         }
         
         if !StringBoolMap.contains(addr(g_extern_functions), func_name) and !is_generic_func {
+            // Debug: print addr-related types
+        if str_len(inferred_type) > 0 and has_prefix(inferred_type, str("ref ")) {
+            print("[DBG] func="); print(replace_all(func_name, str("__"), str("."))); print(" arg="); print(i32_to_string(arg_idx + 1)); print(" inferred="); print(inferred_type); print(" expected="); print(expected_type); println("");
+        }
+
+        // If caller passed an address (addr(...)) but the parameter doesn't expect a ref, emit a specific error.
+        if str_len(inferred_type) > 0 and has_prefix(inferred_type, str("ref ")) and !has_prefix(expected_type, str("ref ")) {
+            print(get_short_filename(g_current_source_file));
+            print ":";
+            print(i32_to_string(g_current_line));
+            print ": error: cannot pass address to non-ref parameter in call to '";
+            print(replace_all(func_name, str("__"), str(".")));
+            print "': argument ";
+            print(i32_to_string(arg_idx + 1));
+            print " expects type '";
+            print expected_type;
+            print "' but got '";
+            print inferred_type;
+            println "' (did you mean to declare the parameter as 'ref ...'?)";
+            unsafe {
+                C.exit(1);
+            }
+        }
+
+        if !StringBoolMap.contains(addr(g_extern_functions), func_name) and !is_generic_func {
             if str_len(inferred_type) > 0 and !equals_c(inferred_type, "auto") and compare(mapped_inferred, mapped_expected) != 0 {
                 print(get_short_filename(g_current_source_file));
                 print ":";
@@ -827,6 +922,7 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
                     C.exit(1);
                 }
             }
+        }
         }
 
         arg_idx++;
@@ -5447,6 +5543,8 @@ pub def generate_c(ast: ref ASTNode): string {
     g_current_source_file = ast.source_file;
 
     val node_type: string = ast.node_type;
+
+
     mut result: string = str("");
     mut arena: Arena = Arena.create(1024);
 
@@ -8325,6 +8423,7 @@ pub def generate_c(ast: ref ASTNode): string {
         val func_name_ast: string = ast.data.func_call.function_name;
         mut func_name: string = func_name_ast;
 
+
         val t_pos_chk: i32 = find_substr(func_name, str("__T_"));
         if t_pos_chk > 0 {
              val base_chk: string = substring_se(func_name, 0, t_pos_chk);
@@ -8353,7 +8452,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         val has_module_sep: bool = str_contains_c(func_name, "__");
         val is_method_call: bool = find_char_from(func_name, '.', cast[usize](0)) >= 0;
-        val is_c_call: bool = has_prefix(func_name, str("C."));
+        val is_c_call: bool = (str_len(func_name) >= 2 and get_char(func_name, 0) == 'C' and get_char(func_name, 1) == '.');
         
         if !has_module_sep and !is_method_call and !is_c_call and !is_builtin_function(func_name) {
             if !StringStringMap.contains(addr(g_function_prefixes), func_name) {
