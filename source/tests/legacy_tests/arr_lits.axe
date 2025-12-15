@@ -2,11 +2,11 @@ use std.io (
     print_i32
 );
 
-def arr_length(a: list(i32)): usize {
+def arr_length(a: ref list(i32)): usize {
     return 4;
 }
 
-def func_that_takes_arr_literal(a: list(i32)) {
+def func_that_takes_arr_literal(a: ref list(i32)) {
     for mut i = 0; i <= arr_length(a); i++ {
         print_i32(a.data[i]);
         print " ";
