@@ -2663,169 +2663,169 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         }
     }
 
-    if !expect(ctx, TokenType.LPAREN) {
-        println "DEBUG parse_function: missing '(' after function name";
-
-        mut dbg: string = str("  func_name = ");
-        dbg = concat(dbg, func_name);
-        debug_print_str dbg;
-        
-        val buffer: char[64] = {};
-        dbg = str("  ctx.pos = ");
-        dbg = concat_c(dbg, int_to_str(ctx.pos, cast[ref char](buffer)));
-        dbg = concat(dbg, str(" / "));
-        dbg = concat_c(dbg, int_to_str(len(ctx.tokens), cast[ref char](buffer)));
-        debug_print_str dbg;
-
-        if ctx.pos < len(ctx.tokens) {
-            dbg = str("  current token type = ");
-            dbg = concat_c(dbg, int_to_str(ctx.tokens.data[ctx.pos].token_type, cast[ref char](buffer)));
-            dbg = concat(dbg, str(", value = '"));
-            dbg = concat(dbg, ctx.tokens.data[ctx.pos].value);
-            dbg = concat(dbg, str("'"));
-            debug_print_str dbg;
-        } else {
-            debug_print_raw "  current token = <eof>";
-        }
-
-        mut start_dbg: i32 = ctx.pos - 5;
-        if start_dbg < 0 {
-            start_dbg = 0;
-        }
-        mut end_dbg: i32 = ctx.pos + 5;
-        val total_tokens: i32 = len(ctx.tokens);
-        if end_dbg > total_tokens {
-            end_dbg = total_tokens;
-        }
-        println "  Surrounding tokens:";
-        mut i_dbg: i32 = start_dbg;
-        loop {
-            if i_dbg >= end_dbg {
-                break;
-            }
-            val tok_dbg: Token = ctx.tokens.data[i_dbg];
-            val buffer2: char[64] = {};
-
-            dbg = str("    [");
-            dbg = concat_c(dbg, int_to_str(i_dbg, cast[ref char](buffer2)));
-
-            dbg = concat(dbg, str("] type="));
-            dbg = concat_c(dbg, int_to_str(tok_dbg.token_type, cast[ref char](buffer2)));
-            dbg = concat(dbg, str(", value='"));
-            dbg = concat(dbg, tok_dbg.value);
-            dbg = concat(dbg, str("'"));
-            debug_print_str dbg;
-            i_dbg = i_dbg + 1;
-        }
-
-        mut err: string = str("Expected '(' after function name");
-        if ctx.pos < len(ctx.tokens) {
-            err = concat(err, str(" instead got "));
-            err = concat(err, ctx.tokens.data[ctx.pos].value);
-        } else {
-            err = concat(err, str(" instead got <eof>"));
-        }
-        err = concat(err, str(" in function "));
-        err = concat(err, func_name);
-        enforce_raw(false, err.data);
-        return func;
-    }
-    consume(ctx);
-
+    skip_whitespace(ctx);
     mut params: list(string);
-    mut current_param: string = str("");
-    mut paren_depth_params: i32 = 0;
-
-    loop {
-        if ctx.pos >= len(ctx.tokens) {
-            break;
-        }
-
-        val t: Token = ctx.tokens.data[ctx.pos];
-
-        if t.token_type == TokenType.RPAREN and paren_depth_params == 0 {
-            val trimmed: string = strip(current_param);
-            if str_len(trimmed) > 0 {
-                append(params, trimmed);
-            }
-            ctx.pos++;
-            break;
-        }
-
-        if t.token_type == TokenType.LPAREN {
-            paren_depth_params = paren_depth_params + 1;
-            current_param = concat(current_param, t.value);
-            consume(ctx);
-            continue;
-        }
-
-        if t.token_type == TokenType.RPAREN {
-            paren_depth_params = paren_depth_params - 1;
-            current_param = concat(current_param, t.value);
-            consume(ctx);
-            continue;
-        }
-
-        if t.token_type == TokenType.COMMA and paren_depth_params == 0 {
-            val trimmed_param: string = strip(current_param);
-            if str_len(trimmed_param) > 0 {
-                append(params, trimmed_param);
-            }
-            current_param = str("");
-            consume(ctx);
-            continue;
-        }
-
-        if t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
-            consume(ctx);
-            continue;
-        }
-
-        // Preserve spacing for ref/mut prefixes so types like 'ref char'
-        // and 'ref ref char' are not squashed into 'refchar'. The renderer
-        // relies on a 'ref ' prefix (with space) to map these to pointers.
-        
-        if t.token_type == TokenType.REF {
-            current_param = concat(current_param, str("ref "));
-        } elif t.token_type == TokenType.MUT {
-            current_param = concat(current_param, str("mut "));
-        } else {
-            current_param = concat(current_param, t.value);
-        }
+    if expect(ctx, TokenType.LPAREN) {
         consume(ctx);
-    }
 
-    if !ctx.is_axec and len(params) > 0 {
-        mut param_idx: i32 = 0;
+        mut current_param: string = str("");
+        mut paren_depth_params: i32 = 0;
+
         loop {
-            if param_idx >= len(params) {
+            if ctx.pos >= len(ctx.tokens) {
                 break;
             }
-            val param: string = params.data[param_idx];
-            if has_pointer_syntax(param) {
-                print ctx.filename;
-                print ":";
-                print(i32_to_string(current_line(ctx)));
-                print ": error: raw pointer syntax is not allowed.";
-                println " Use 'ref' instead (e.g., 'ref char').";
-                print "(in parameter: ";
-                print param;
-                println ")";
-                quit(1);
+
+            val t: Token = ctx.tokens.data[ctx.pos];
+
+            if t.token_type == TokenType.RPAREN and paren_depth_params == 0 {
+                val trimmed: string = strip(current_param);
+                if str_len(trimmed) > 0 {
+                    append(params, trimmed);
+                }
+                ctx.pos++;
+                break;
             }
-            param_idx++;
+
+            if t.token_type == TokenType.LPAREN {
+                paren_depth_params = paren_depth_params + 1;
+                current_param = concat(current_param, t.value);
+                consume(ctx);
+                continue;
+            }
+
+            if t.token_type == TokenType.RPAREN {
+                paren_depth_params = paren_depth_params - 1;
+                current_param = concat(current_param, t.value);
+                consume(ctx);
+                continue;
+            }
+
+            if t.token_type == TokenType.COMMA and paren_depth_params == 0 {
+                val trimmed_param: string = strip(current_param);
+                if str_len(trimmed_param) > 0 {
+                    append(params, trimmed_param);
+                }
+                current_param = str("");
+                consume(ctx);
+                continue;
+            }
+
+            if t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+                consume(ctx);
+                continue;
+            }
+
+            if t.token_type == TokenType.REF {
+                current_param = concat(current_param, str("ref "));
+            } elif t.token_type == TokenType.MUT {
+                current_param = concat(current_param, str("mut "));
+            } else {
+                current_param = concat(current_param, t.value);
+            }
+            consume(ctx);
         }
-    }
-    
-    // Store parameters on function node (if any)
-    if len(params) > 0 {
-        unsafe {
-            val params_size: usize = C.sizeof(list(string));
-            val heap_params: ref list(string) = cast[ref list(string)](C.malloc(params_size));
-            if heap_params != nil {
-                C.memcpy(heap_params, addr(params), params_size);
-                func.data.function.params = heap_params;
+
+        if !ctx.is_axec and len(params) > 0 {
+            mut param_idx: i32 = 0;
+            loop {
+                if param_idx >= len(params) {
+                    break;
+                }
+                val param: string = params.data[param_idx];
+                if has_pointer_syntax(param) {
+                    print ctx.filename;
+                    print ":";
+                    print(i32_to_string(current_line(ctx)));
+                    print ": error: raw pointer syntax is not allowed.";
+                    println " Use 'ref' instead (e.g., 'ref char').";
+                    print "(in parameter: ";
+                    print param;
+                    println ")";
+                    quit(1);
+                }
+                param_idx++;
             }
+        }
+
+        if len(params) > 0 {
+            unsafe {
+                val params_size: usize = C.sizeof(list(string));
+                val heap_params: ref list(string) = cast[ref list(string)](C.malloc(params_size));
+                if heap_params != nil {
+                    C.memcpy(heap_params, addr(params), params_size);
+                    func.data.function.params = heap_params;
+                }
+            }
+        }
+    } else {
+        skip_whitespace(ctx);
+        if ctx.pos < len(ctx.tokens) and ctx.tokens.data[ctx.pos].token_type == TokenType.LBRACE {
+            // leave params empty (zero-arg function)
+        } else {
+            mut dbg: string = str("  func_name = ");
+            dbg = concat(dbg, func_name);
+            debug_print_str dbg;
+            
+            val buffer: char[64] = {};
+            dbg = str("  ctx.pos = ");
+            dbg = concat_c(dbg, int_to_str(ctx.pos, cast[ref char](buffer)));
+            dbg = concat(dbg, str(" / "));
+            dbg = concat_c(dbg, int_to_str(len(ctx.tokens), cast[ref char](buffer)));
+            debug_print_str dbg;
+
+            if ctx.pos < len(ctx.tokens) {
+                dbg = str("  current token type = ");
+                dbg = concat_c(dbg, int_to_str(ctx.tokens.data[ctx.pos].token_type, cast[ref char](buffer)));
+                dbg = concat(dbg, str(", value = '"));
+                dbg = concat(dbg, ctx.tokens.data[ctx.pos].value);
+                dbg = concat(dbg, str("'"));
+                debug_print_str dbg;
+            } else {
+                debug_print_raw "  current token = <eof>";
+            }
+
+            mut start_dbg: i32 = ctx.pos - 5;
+            if start_dbg < 0 {
+                start_dbg = 0;
+            }
+            mut end_dbg: i32 = ctx.pos + 5;
+            val total_tokens: i32 = len(ctx.tokens);
+            if end_dbg > total_tokens {
+                end_dbg = total_tokens;
+            }
+            println "  Surrounding tokens:";
+            mut i_dbg: i32 = start_dbg;
+            loop {
+                if i_dbg >= end_dbg {
+                    break;
+                }
+                val tok_dbg: Token = ctx.tokens.data[i_dbg];
+                val buffer2: char[64] = {};
+
+                dbg = str("    [");
+                dbg = concat_c(dbg, int_to_str(i_dbg, cast[ref char](buffer2)));
+
+                dbg = concat(dbg, str("] type="));
+                dbg = concat_c(dbg, int_to_str(tok_dbg.token_type, cast[ref char](buffer2)));
+                dbg = concat(dbg, str(", value='"));
+                dbg = concat(dbg, tok_dbg.value);
+                dbg = concat(dbg, str("'"));
+                debug_print_str dbg;
+                i_dbg = i_dbg + 1;
+            }
+
+            mut err: string = str("Expected '(' after function name");
+            if ctx.pos < len(ctx.tokens) {
+                err = concat(err, str(" instead got "));
+                err = concat(err, ctx.tokens.data[ctx.pos].value);
+            } else {
+                err = concat(err, str(" instead got <eof>"));
+            }
+            err = concat(err, str(" in function "));
+            err = concat(err, func_name);
+            enforce_raw(false, err.data);
+            return func;
         }
     }
 

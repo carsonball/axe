@@ -10,7 +10,7 @@ def greet(name: ref char, t: i32) {
 }
 
 def main() {
-    mut nums: list(i32) = [123, 142, 123123];
+    val nums: list(i32) = [123, 142, 123123];
     for n in nums {
         println n;
     }
