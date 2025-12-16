@@ -1,9 +1,10 @@
-def main() {
-    val x: int = 10;
-    mut val y: ref int = addr(x);
-    val z: ref ref int = addr(y);
+use std.io;
 
-    println y;                          // Auto-dereference: prints 10
-    y = 20;                             // Auto-dereference: sets x to 20
-    val addr: long = addr(x);        // Get raw address as integer
+def main() {
+    val x: i32 = 10;
+    mut y: ref i32 = addr(x);
+
+    println(deref(y));                   
+    deref(y) = 20;                      
+    val addr: i64 = addr(x);
 }
