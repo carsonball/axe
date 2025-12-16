@@ -34,7 +34,7 @@ pub def free_json_doc(doc: ref char) {
 }
 
 /// Get the root value from a JSON document
-def get_root(doc: ref char): ref char {
+pub def json_get_root(doc: ref char): ref char {
     mut root: ref char = nil;
     if doc != nil {
         root = cast[ref char](yyjson_doc_get_root(cast[ref yyjson_doc](doc)));
@@ -301,7 +301,7 @@ test {
     assert doc != nil, "Should parse valid JSON";
     
     if doc != nil {
-        mut root: ref char = get_root(doc);
+        mut root: ref char = json_get_root(doc);
         assert root != nil, "Should get root value";
         assert is_object(root), "Root should be an object";
         
@@ -335,7 +335,7 @@ test {
     assert arr_doc != nil, "Should parse JSON array";
     
     if arr_doc != nil {
-        mut arr_root: ref char = get_root(arr_doc);
+        mut arr_root: ref char = json_get_root(arr_doc);
         assert is_array(arr_root), "Root should be an array";
         
         mut len: usize = get_len(arr_root);
