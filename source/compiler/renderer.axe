@@ -3510,6 +3510,58 @@ def get_type_format_specifier(var_type: string): string {
 
 def lookup_expression_type(expr: string): string {
     val e: string = strip(expr);
+    val dot_pos: i32 = find_char_from(e, '.', cast[usize](0));
+    if dot_pos > 0 {
+        val base_expr: string = strip(substring_se(e, 0, dot_pos));
+        val remaining_expr: string = strip(substr(e, dot_pos + 1, str_len(e) - dot_pos - 1));
+        mut base_type: string;
+        if StringStringMap.contains(addr(g_var_types), base_expr) {
+            base_type = StringStringMap.get(addr(g_var_types), base_expr);
+        } else {
+            base_type = base_expr;
+        }
+        if str_len(base_type) == 0 {
+            return str("i32");
+        }
+
+        val next_dot_pos: i32 = find_char_from(remaining_expr, '.', cast[usize](0));
+        mut field_to_lookup: string;
+        mut remaining_after_lookup: string;
+
+        if next_dot_pos > 0 {
+            field_to_lookup = strip(substring_se(remaining_expr, 0, next_dot_pos));
+            remaining_after_lookup = strip(substr(remaining_expr, next_dot_pos, str_len(remaining_expr) - next_dot_pos));
+        } else {
+            field_to_lookup = remaining_expr;
+            remaining_after_lookup = str("");
+        }
+
+        val field_type: string = lookup_field_type(base_type, field_to_lookup);
+        mut actual_field_type: string;
+        if str_len(field_type) == 0 {
+            if StringStringMap.contains(addr(g_model_names), base_type) {
+                val canonical_name: string = StringStringMap.get(addr(g_model_names), base_type);
+                val canonical_field_type: string = lookup_field_type(canonical_name, field_to_lookup);
+                if str_len(canonical_field_type) > 0 {
+                    actual_field_type = canonical_field_type;
+                } else {
+                    return str("i32");
+                }
+            } else {
+                return str("i32");
+            }
+        } else {
+            actual_field_type = field_type;
+        }
+
+        if str_len(remaining_after_lookup) > 0 and has_prefix(remaining_after_lookup, str(".")) {
+            val next_remaining: string = strip(substr(remaining_after_lookup, 1, str_len(remaining_after_lookup) - 1));
+            val next_expr: string = concat(concat(actual_field_type, str(".")), next_remaining);
+            return lookup_expression_type(next_expr);
+        }
+
+        return actual_field_type;
+    }
 
     if StringStringMap.contains(addr(g_var_types), e) {
         return StringStringMap.get(addr(g_var_types), e);
@@ -3664,12 +3716,31 @@ def process_interpolated_string(interp_content: string, return_struct: bool): st
                 code = concat(code, str("{ struct std__string__string _s = "));
                 code = concat(code, processed_e);
                 code = concat(code, str("; memcpy(_axe_interp_p, _s.data, _s.len); _axe_interp_p += _s.len; } "));
-            } else {
-                code = concat(code, str("{ int _len = snprintf(_axe_interp_p, 32, \""));
-                code = concat(code, get_type_format_specifier(etype));
-                code = concat(code, str("\", "));
+            } elif str_len(etype) > 0 and (has_prefix(etype, str("ref char")) or has_suffix(etype, str("char*"))) {
+                code = concat(code, str("memcpy(_axe_interp_p, "));
                 code = concat(code, processed_e);
-                code = concat(code, str("); _axe_interp_p += _len; } "));
+                code = concat(code, str(", strlen("));
+                code = concat(code, processed_e);
+                code = concat(code, str(")); _axe_interp_p += strlen("));
+                code = concat(code, processed_e);
+                code = concat(code, str("); "));
+            } else {
+                val format_spec: string = get_type_format_specifier(etype);
+                if equals_c(format_spec, "%s") {
+                    code = concat(code, str("memcpy(_axe_interp_p, "));
+                    code = concat(code, processed_e);
+                    code = concat(code, str(", strlen("));
+                    code = concat(code, processed_e);
+                    code = concat(code, str(")); _axe_interp_p += strlen("));
+                    code = concat(code, processed_e);
+                    code = concat(code, str("); "));
+                } else {
+                    code = concat(code, str("{ int _len = snprintf(_axe_interp_p, 32, \""));
+                    code = concat(code, format_spec);
+                    code = concat(code, str("\", "));
+                    code = concat(code, processed_e);
+                    code = concat(code, str("); _axe_interp_p += _len; } "));
+                }
             }
         }
 
