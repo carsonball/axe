@@ -11,5 +11,5 @@ def main() {
     md.data = str("The answer to life, the universe, and everything.");
     
     println $"Model hi: {md.hi}";
-    println $"Model data: {md.data.data}";
+    println $"Model data: {md.data}";
 }
