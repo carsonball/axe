@@ -3713,33 +3713,33 @@ def process_interpolated_string(interp_content: string, return_struct: bool): st
             val processed_e: string = process_expression(e);
 
             if str_len(etype) > 0 and (equals_c(etype, "string") or has_suffix(etype, str("_string")) or equals_c(etype, "std__string__string")) {
-                code = concat(code, str("{ struct std__string__string _s = "));
+                code = concat_c(code, "{ struct std__string__string _s = ");
                 code = concat(code, processed_e);
-                code = concat(code, str("; memcpy(_axe_interp_p, _s.data, _s.len); _axe_interp_p += _s.len; } "));
+                code = concat_c(code,  "; memcpy(_axe_interp_p, _s.data, _s.len); _axe_interp_p += _s.len; } ");
             } elif str_len(etype) > 0 and (has_prefix(etype, str("ref char")) or has_suffix(etype, str("char*"))) {
-                code = concat(code, str("memcpy(_axe_interp_p, "));
+                code = concat_c(code, "memcpy(_axe_interp_p, ");
                 code = concat(code, processed_e);
-                code = concat(code, str(", strlen("));
+                code = concat_c(code, ", strlen(");
                 code = concat(code, processed_e);
-                code = concat(code, str(")); _axe_interp_p += strlen("));
+                code = concat_c(code, ")); _axe_interp_p += strlen(");
                 code = concat(code, processed_e);
-                code = concat(code, str("); "));
+                code = concat_c(code, "); ");
             } else {
                 val format_spec: string = get_type_format_specifier(etype);
                 if equals_c(format_spec, "%s") {
-                    code = concat(code, str("memcpy(_axe_interp_p, "));
+                    code = concat_c(code, "memcpy(_axe_interp_p, ");
                     code = concat(code, processed_e);
-                    code = concat(code, str(", strlen("));
+                    code = concat_c(code, ", strlen(");
                     code = concat(code, processed_e);
-                    code = concat(code, str(")); _axe_interp_p += strlen("));
+                    code = concat_c(code, ")); _axe_interp_p += strlen(");
                     code = concat(code, processed_e);
-                    code = concat(code, str("); "));
+                    code = concat_c(code, "); ");
                 } else {
-                    code = concat(code, str("{ int _len = snprintf(_axe_interp_p, 32, \""));
+                    code = concat_c(code, "{ int _len = snprintf(_axe_interp_p, 32, \"");
                     code = concat(code, format_spec);
-                    code = concat(code, str("\", "));
+                    code = concat_c(code, "\", ");
                     code = concat(code, processed_e);
-                    code = concat(code, str("); _axe_interp_p += _len; } "));
+                    code = concat_c(code, "); _axe_interp_p += _len; } ");
                 }
             }
         }
