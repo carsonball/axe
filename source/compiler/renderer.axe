@@ -1678,6 +1678,12 @@ def map_axe_type_to_c(axe_type: string): string {
         result = strip(substr(result, 4, str_len(result) - 4));
         return map_axe_type_to_c(result);
     }
+
+    if has_prefix(result, str("val ")) {
+        val base: string = strip(substr(result, 4, str_len(result) - 4));
+        val mapped_base: string = map_axe_type_to_c(base);
+        return concat(str("const "), mapped_base);
+    }
     
     if has_prefix(result, str("list(")) {
         val close_paren: i32 = find_char_from(result, cast[char](41), cast[usize](0));

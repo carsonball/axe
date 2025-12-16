@@ -1956,14 +1956,44 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 break;
             }
             
+            skip_whitespace(ctx);
+            mut saw_val: bool = false;
+            mut saw_ref: bool = false;
+            loop {
+                if ctx.pos >= len(ctx.tokens) {
+                    break;
+                }
+                val tt: i32 = ctx.tokens.data[ctx.pos].token_type;
+                if tt == TokenType.VAL {
+                    saw_val = true;
+                    ctx.pos++;
+                    skip_whitespace(ctx);
+                    continue;
+                } elif tt == TokenType.REF {
+                    saw_ref = true;
+                    ctx.pos++;
+                    skip_whitespace(ctx);
+                    continue;
+                }
+                break;
+            }
+
             if !expect(ctx, TokenType.IDENTIFIER) {
                 mut err: string = format_error(ctx, str("Expected type name in overload mapping"));
                 enforce_raw(false, err.data);
                 return;
             }
-            val type_token: Token = consume(ctx);
-            append(type_names, type_token.value);
-            // Support pointer types like "char*" by optionally consuming a STAR
+            val base_type_token: Token = consume(ctx);
+            mut prefix: string = str("");
+            if saw_val {
+                prefix = concat(prefix, str("val "));
+            }
+            if saw_ref {
+                prefix = concat(prefix, str("ref "));
+            }
+            val stored_type: string = concat(prefix, base_type_token.value);
+            append(type_names, stored_type);
+
             skip_whitespace(ctx);
             if expect(ctx, TokenType.STAR) {
                 consume(ctx);
