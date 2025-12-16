@@ -1,8 +1,8 @@
-val PI: f64           = 3.141592653589793;
-val HALF_PI: f64      = PI / 2.0;
-val QUARTER_PI: f64   = PI / 4.0;
-val TWO_PI: f64       = PI * 2.0;
-val E: f64            = 2.718281828459045;
+pub val PI: f64           = 3.141592653589793;
+pub val HALF_PI: f64      = PI / 2.0;
+pub val QUARTER_PI: f64   = PI / 4.0;
+pub val TWO_PI: f64       = PI * 2.0;
+pub val E: f64            = 2.718281828459045;
 
 /// Clamp integer
 pub def clamp(value: i32, min: i32, max: i32): i32 {
