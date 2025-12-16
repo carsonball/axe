@@ -4,7 +4,6 @@ use std.string (
 
 use external("yyjson.h");
 
-/// JSON value types
 val JSON_TYPE_NULL: i32 = 0;
 val JSON_TYPE_BOOL: i32 = 1;
 val JSON_TYPE_NUM: i32 = 2;
