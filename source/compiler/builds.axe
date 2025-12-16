@@ -165,7 +165,7 @@ def print_ast_node(node: ref ASTNode, indent: i32) {
             break;
         }
         print "  ";
-        ii = ii + 1;
+        ii++;
     }
     
     println node.node_type;
