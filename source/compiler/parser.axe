@@ -6300,7 +6300,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         
         node.node_type = str("Platform");
         node.data.platform_node.platform_name = platform_name;
-        
+
         loop {
             if ctx.pos >= len(ctx.tokens) {
                 break;
@@ -6313,6 +6313,11 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             }
             val stmt: ASTNode = parse_statement_helper(ctx, addr(ctx.current_scope));
             if str_len(stmt.node_type) > 0 {
+                if equals_c(stmt.node_type, "Function") {
+                    mut err: string = format_error(ctx, str("top-level platform blocks cannot contain functions, move the function outside the platform block"));
+                    println err;
+                    quit(1);
+                }
                 add_child_to_ast(addr(node), stmt);
             }
         }
