@@ -1,0 +1,78 @@
+#!/bin/sh
+
+cd .. || exit 1
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+cd "$SCRIPT_DIR" || exit 1
+
+if [ ! -x "axc" ]; then
+    echo "ERROR: axc not found in $PWD/axc"
+    exit 1
+fi
+
+failed=0
+total=0
+passed=0
+failed_count=0
+failed_files=""
+folders="../tests/self_tests ../tests/legacy_tests"
+
+for folder in $folders; do
+    if [ ! -d "$folder" ]; then
+        echo "Skipping missing folder: $folder"
+        continue
+    fi
+
+    echo ""
+    echo "Running tests in $folder..."
+
+    find "$folder" -type f -name "*.axe" | while IFS= read -r file; do
+        total=$((total + 1))
+        echo "------------------------------"
+        echo "Running $file"
+
+        ./axc "$file"
+        exit_code=$?
+
+        case "$file" in
+            *_error.axe)
+                if [ $exit_code -ne 0 ]; then
+                    echo "OK (expected failure): $file"
+                    passed=$((passed + 1))
+                else
+                    echo "FAILED (expected error but succeeded): $file"
+                    failed=$((failed + 1))
+                    failed_count=$((failed_count + 1))
+                    failed_files="$failed_files
+$file"
+                fi
+                ;;
+            *)
+                if [ $exit_code -ne 0 ]; then
+                    echo "FAILED: $file"
+                    failed=$((failed + 1))
+                    failed_count=$((failed_count + 1))
+                    failed_files="$failed_files
+$file"
+                else
+                    echo "OK: $file"
+                    passed=$((passed + 1))
+                fi
+                ;;
+        esac
+    done
+done
+
+echo ""
+echo "Summary: Total=$total Passed=$passed Failed=$failed_count"
+
+if [ "$failed" -eq 0 ]; then
+    echo "All tests passed."
+else
+    echo "Some tests failed."
+    echo ""
+    echo "Failed files:"
+    echo "$failed_files" | sed '/^$/d' | sed 's/^/ - /'
+fi
+
+exit "$failed"
