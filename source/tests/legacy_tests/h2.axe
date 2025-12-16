@@ -1,1 +1,7 @@
+use std.io;
+
 pub val g_global: i32 = 20;
+
+def main() {
+    println g_global;
+}
