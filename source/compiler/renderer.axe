@@ -7114,9 +7114,25 @@ pub def generate_c(ast: ref ASTNode): string {
                     StringBuilder.append_c(addr(sb_test), "\\n\");\n        failed++;\n    }\n\n");
                 } elif equals_c(child.node_type, "Declaration") {
                     val var_name: string = child.data.declaration.name;
-                    val type_name: string = child.data.declaration.type_name;
+                    mut type_name: string = child.data.declaration.type_name;
                     val is_mutable: bool = child.data.declaration.is_mutable;
                     val initializer: string = child.data.declaration.initializer;
+
+                    if str_len(type_name) == 0 and str_len(initializer) > 0 {
+                        val inferred_tt: string = infer_expression_type(strip(initializer));
+                        if str_len(inferred_tt) > 0 {
+                            type_name = inferred_tt;
+                        } else {
+                            val trimmed_i2: string = strip(initializer);
+                            val pidx2: i32 = find_char_from(trimmed_i2, '(', cast[usize](0));
+                            if pidx2 > 0 {
+                                val call_name_raw2: string = strip(substring_se(trimmed_i2, 0, pidx2));
+                                if str_len(call_name_raw2) > 0 and is_ident_start(get_char(call_name_raw2, 0)) {
+                                    type_name = str("auto");
+                                }
+                            }
+                        }
+                    }
 
                     if str_len(var_name) > 0 and str_len(type_name) > 0 {
                         mut arena_decl: Arena = Arena.create(2560);
@@ -7124,6 +7140,9 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
 
                     mut mapped_type: string = map_axe_type_to_c(type_name);
+                    if str_len(type_name) > 0 and equals_c(type_name, "auto") {
+                        mapped_type = str("__auto_type");
+                    }
                     mut array_suffix: string = str("");
                     val br: i32 = find_char_from(type_name, '[', cast[usize](0));
 
@@ -7950,6 +7969,18 @@ pub def generate_c(ast: ref ASTNode): string {
             if str_len(inferred) > 0 {
                 type_name = inferred;
                 mapped_type = map_axe_type_to_c(type_name);
+            }
+
+            if str_len(type_name) == 0 {
+                val trimmed_init2: string = strip(initializer);
+                val pidx2: i32 = find_char_from(trimmed_init2, '(', cast[usize](0));
+                if pidx2 > 0 {
+                    val call_name_raw: string = strip(substring_se(trimmed_init2, 0, pidx2));
+                    if str_len(call_name_raw) > 0 and is_ident_start(get_char(call_name_raw, 0)) {
+                        mapped_type = str("__auto_type");
+                        type_name = str("auto");
+                    }
+                }
             }
         }
 
