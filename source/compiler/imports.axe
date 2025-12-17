@@ -783,12 +783,12 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
 
 pub def process_imports(ast: ref ASTNode, base_dir: string, is_axec: bool, current_file: string, is_top_level: bool, module_name: string): ASTNode {
     if !equals_c(ast.node_type, "Program") {
-        return *ast;
+        return deref(ast);
     }
 
     if str_len(current_file) > 0 {
         if is_module_processed(current_file) {
-            return *ast;
+            return deref(ast);
         }
         add_processed_module(current_file);
     }
@@ -803,7 +803,7 @@ pub def process_imports(ast: ref ASTNode, base_dir: string, is_axec: bool, curre
     }
 
     if ast.children == nil {
-        return *ast;
+        return deref(ast);
     }
 
     val program_children: ref list(ASTNode) = ast.children;
@@ -930,7 +930,7 @@ pub def process_imports(ast: ref ASTNode, base_dir: string, is_axec: bool, curre
         idx++;
     }
 
-    return *ast;
+    return deref(ast);
 }
 
 test {

@@ -990,6 +990,52 @@ def has_pointer_syntax(type_str: string): bool {
     return false;
 }
 
+/// Check for disallowed C-style deref usage: '*var' outside of raw blocks.
+def check_star_deref(ctx: ref ParserContext, start_pos: i32, end_pos: i32) {
+    mut prev_sig: i32 = -1;
+    mut i: i32 = start_pos;
+    loop {
+        if i >= end_pos {
+            break;
+        }
+        val t: Token = ctx.tokens.data[i];
+        if t.token_type == TokenType.WHITESPACE or t.token_type == TokenType.NEWLINE {
+            i = i + 1;
+            continue;
+        }
+
+        if t.token_type == TokenType.STAR {
+            mut j: i32 = i + 1;
+            mut next_t: Token;
+            loop {
+                if j >= end_pos {
+                    break;
+                }
+                next_t = ctx.tokens.data[j];
+                if next_t.token_type == TokenType.WHITESPACE or next_t.token_type == TokenType.NEWLINE {
+                    j = j + 1;
+                    continue;
+                }
+                break;
+            }
+
+            if j < end_pos and next_t.token_type == TokenType.IDENTIFIER {
+                if !(prev_sig == TokenType.IDENTIFIER or prev_sig == TokenType.NUMBER or prev_sig == TokenType.CHAR or prev_sig == TokenType.STR or prev_sig == TokenType.RPAREN or prev_sig == TokenType.RBRACKET) {
+                    print ctx.filename;
+                    print ":";
+                    print(i32_to_string(current_line(ctx)));
+                    println ": error: C-style dereference '*var' is not allowed. Use deref(var) instead.";
+                    quit(1);
+                }
+            }
+        }
+        if t.token_type != TokenType.WHITESPACE and t.token_type != TokenType.NEWLINE {
+            prev_sig = t.token_type;
+        }
+        i++;
+    }
+}
+
 /// Add a child AST node to a parent AST node
 pub def add_child_to_ast(ast: ref ASTNode, child: ASTNode) {
     if ast.children == nil {
@@ -3518,6 +3564,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             consume(ctx);
         }
         
+        val condition_start: i32 = ctx.pos;
         mut condition: string = str("");
         mut paren_depth: i32 = 0;
         
@@ -3557,6 +3604,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             consume(ctx);
         }
         
+        check_star_deref(ctx, condition_start, ctx.pos);
         condition = expand_macros_in_expression(condition);
         
         if !expect(ctx, TokenType.COMMA) {
@@ -3611,6 +3659,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         consume(ctx);
         skip_whitespace(ctx);
         
+        val return_start: i32 = ctx.pos;
         mut expr: string = str("");
         loop {
             if ctx.pos >= len(ctx.tokens) {
@@ -3653,6 +3702,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         }
         consume(ctx);
         
+        check_star_deref(ctx, return_start, ctx.pos);
         expr = expand_macros_in_expression(expr);
         
         node.node_type = str("Return");
@@ -4530,6 +4580,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
                 skip_whitespace(ctx);
 
+                val initializer_start: i32 = ctx.pos;
                 // mut rhs_has_function_call: bool = false;
                 // mut last_non_ws_token_type: i32 = -1;
                 mut first_non_ws_token: Token;
@@ -4594,6 +4645,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     return node;
                 }
 
+                check_star_deref(ctx, initializer_start, ctx.pos);
                 initializer = expand_macros_in_expression(initializer);
 
                 if !has_explicit_type {
@@ -4707,6 +4759,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
                 // mut rhs_has_function_call_mut: bool = false;
                 // mut last_non_ws_token_type_mut: i32 = -1;
+                val initializer_start_mut: i32 = ctx.pos;
                 mut first_non_ws_token_mut: Token;
                 mut non_ws_count_mut: i32 = 0;
                 mut found_semicolon_mut: bool = false;
@@ -4769,6 +4822,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     return node;
                 }
 
+                check_star_deref(ctx, initializer_start_mut, ctx.pos);
                 initializer = expand_macros_in_expression(initializer);
 
                 if !has_explicit_type_mut {
@@ -5080,6 +5134,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         if next_token.token_type == TokenType.LPAREN {
             consume(ctx);            
             mut paren_depth: i32 = 1;
+            val args_start: i32 = ctx.pos;
             mut args_str: string = str("");
             loop {
                 if ctx.pos >= len(ctx.tokens) {
@@ -5116,13 +5171,11 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx);
             }
             
-            skip_whitespace(ctx);
-            
-            // Scan function arguments for addr() calls
+            skip_whitespace(ctx);            
+            check_star_deref(ctx, args_start, ctx.pos);
             scan_expression_for_addr(args_str);
             scan_expression_for_c_calls(args_str, ctx);
             scan_expression_for_usage(args_str);
-            // Scan for variables passed as arguments (potential ref params)
             scan_function_args_for_ref_params(args_str);
             
             mut is_assignment: bool = false;
@@ -5137,6 +5190,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 consume(ctx); // Skip '='
                 skip_whitespace(ctx);
                 
+                val value_start: i32 = ctx.pos;
                 mut value_str: string = str("");
                 loop {
                     if ctx.pos >= len(ctx.tokens) {
@@ -5172,6 +5226,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 }
                 consume(ctx);
                 
+                check_star_deref(ctx, value_start, ctx.pos);
                 value_str = expand_macros_in_expression(value_str);
                 
                 mut left_side: string = concat(ident_name, str("("));
@@ -5719,6 +5774,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                     consume(ctx);
                     skip_whitespace(ctx);
                     
+                    val value_start: i32 = ctx.pos;
                     mut value_expr: string = str("");
                     mut found_semicolon_member: bool = false;
                     loop {
@@ -5757,6 +5813,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                         return node;
                     }
                     
+                    check_star_deref(ctx, value_start, ctx.pos);
                     node.node_type = str("MemberAccess");
                     node.data.member_access.object_name = ident_name;
                     node.data.member_access.member_name = member_name;
@@ -6090,6 +6147,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             consume(ctx);
             skip_whitespace(ctx);
 
+            val compound_start: i32 = ctx.pos;
             mut expr: string = str("");
             mut found_semicolon_compound: bool = false;
             loop {
@@ -6130,6 +6188,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 return node;
             }
 
+            check_star_deref(ctx, compound_start, ctx.pos);
             expr = expand_macros_in_expression(expr);
             scan_expression_for_addr(expr);
             scan_expression_for_c_calls(expr, ctx);
@@ -6166,6 +6225,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             consume(ctx);
             skip_whitespace(ctx);
 
+            val assign_start: i32 = ctx.pos;
             mut expr: string = str("");
             mut found_semicolon_assign: bool = false;
             loop {
@@ -6228,6 +6288,7 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
             debug_print_raw "\n[DEBUG]   final RHS expr:";
             debug_print_str expr;
 
+            check_star_deref(ctx, assign_start, ctx.pos);
             expr = expand_macros_in_expression(expr);
 
             mut trimmed_assign: string = strip(expr);
