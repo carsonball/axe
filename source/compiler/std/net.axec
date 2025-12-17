@@ -977,8 +977,8 @@ def create_http_response(status_code: i32, content_type: string, body: string): 
 
 /// Send an HTTP response to a client
 def send_http_response(client: Socket, status_code: i32, content_type: string, body: string): bool {
-    mut response_str: string = create_http_response(status_code, content_type, body);
-    mut success: bool = socket_send(client, response_str);
+    val response_str: string = create_http_response(status_code, content_type, body);
+    val success: bool = socket_send(client, response_str);
     
     if response_str.data != nil {
         unsafe {
