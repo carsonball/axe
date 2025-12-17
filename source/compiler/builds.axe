@@ -155,30 +155,37 @@ def prefix_root_functions(node: ref ASTNode, mprefix: string) {
 }
 
 /// Print AST node with indentation for debugging
-def print_ast_node(node: ref ASTNode, indent: i32) {
+def print_ast_node(node: ref ASTNode, prefix: string, is_last: bool) {
     if node == nil {
         return;
     }
-    
-    mut ii: i32 = 0;
-    loop {
-        if ii >= indent {
-            break;
+
+    mut line: string = str("");
+        if is_last {
+            line = concat(prefix, str("└─ "));
+        } else {
+            line = concat(prefix, str("├─ "));
         }
-        print "  ";
-        ii++;
-    }
-    
-    println node.node_type;
-    
+
+    println(concat(line, node.node_type));
+
     if node.children != nil {
         val chs: ref list(ASTNode) = node.children;
         mut ci: i32 = 0;
+        val total: i32 = len(deref(chs));
         loop {
-            if ci >= len(deref(chs)) {
+            if ci >= total {
                 break;
             }
-            print_ast_node(addr(chs.data[ci]), indent + 1);
+            val child_is_last: bool = (ci == total - 1);
+                mut new_prefix: string;
+                if is_last {
+                    new_prefix = concat(prefix, str("   "));
+                } else {
+                    new_prefix = concat(prefix, str("│  "));
+                }
+
+            print_ast_node(addr(chs.data[ci]), new_prefix, child_is_last);
             ci++;
         }
     }
@@ -347,7 +354,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
     
     val do_print_ast: bool = ::print_ast;
     if do_print_ast {
-        print_ast_node(addr(ast), 0);
+        print_ast_node(addr(ast), str(""), true);
         quit(0);
     }
 
