@@ -811,11 +811,11 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
 }
 
 pub def process_imports(
-    ast: ref ASTNode, 
-    base_dir: string, 
-    is_axec: bool, 
-    current_file: string, 
-    is_top_level: bool, 
+    ast: ref ASTNode,
+    base_dir: string,
+    is_axec: bool,
+    current_file: string,
+    is_top_level: bool,
     module_name: string
 ): ASTNode {
     if !equals_c(ast.node_type, "Program") {
