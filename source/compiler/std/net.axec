@@ -183,7 +183,7 @@ def http_post(url: string, data: string): HttpResponse {
 
             val res: CURLcode = C.curl_easy_perform(curl);
 
-            if curl != nil {
+            if res == CURLE_OK {
                 mut response_code: i64 = 0;
                 C.curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, addr(response_code));
                 response.status_code = cast[i32](response_code);
@@ -510,22 +510,22 @@ def url_decode(input: string): string {
 
 /// Check if a response status code indicates success (2xx)
 def is_success_status(status_code: i32): bool {
-    return status_code >= 200 && status_code < 300;
+    return status_code >= 200 and status_code < 300;
 }
 
 /// Check if a response status code indicates a redirect (3xx)
 def is_redirect_status(status_code: i32): bool {
-    return status_code >= 300 && status_code < 400;
+    return status_code >= 300 and status_code < 400;
 }
 
 /// Check if a response status code indicates a client error (4xx)
 def is_client_error_status(status_code: i32): bool {
-    return status_code >= 400 && status_code < 500;
+    return status_code >= 400 and status_code < 500;
 }
 
 /// Check if a response status code indicates a server error (5xx)
 def is_server_error_status(status_code: i32): bool {
-    return status_code >= 500 && status_code < 600;
+    return status_code >= 500 and status_code < 600;
 }
 
 /// Free the memory allocated for an HttpResponse
@@ -1040,8 +1040,8 @@ test {
     mut encoded_special: string = url_encode(special);
     assert encoded_special.len >= special.len, "Encoded special chars should be at least as long";
     
-    mut response: HttpResponse = http_get(string.create("http://example.com"));
-    
+    mut response: HttpResponse = http_get(string.create("http://httpbin.org/get"));
+
     if response.success {
         assert response.status_code > 0, "Response should have status code";
         assert response.body.len > 0, "Response body should have content";
