@@ -78,6 +78,7 @@ foreign {
     CURLOPT_URL,
     CURLOPT_WRITEFUNCTION,
     CURLOPT_WRITEDATA,
+    CURLOPT_NOBODY,
     CURLOPT_HEADERFUNCTION,
     CURLOPT_HEADERDATA,
     CURLOPT_FOLLOWLOCATION,
@@ -380,54 +381,48 @@ def http_patch(url: string, data: string): HttpResponse {
 def http_head(url: string): HttpResponse {
     mut response: HttpResponse;
     
-    raw {
-        response.status_code = 0;
-        response.success = false;
-        response.body.data = NULL;
-        response.body.len = 0;
-        response.body.cap = 0;
-        response.headers.data = NULL;
-        response.headers.len = 0;
-        response.headers.cap = 0;
-        
-        CURL *curl = curl_easy_init();
-        if (curl) {
-            MemoryStruct header_chunk;
-            header_chunk.memory = (char*)malloc(1);
+    response.status_code = 0;
+    response.success = false;
+    response.body.data = nil;
+    response.body.len = 0;
+    response.body.cap = 0;
+    response.headers.data = nil;
+    response.headers.len = 0;
+    response.headers.cap = 0;
+
+    unsafe {
+        mut curl: ref CURL = C.curl_easy_init();
+        if curl != nil {
+            mut header_chunk: MemoryStruct;
+            header_chunk.memory = cast[ref char](C.malloc(1));
             header_chunk.size = 0;
-            
-            curl_easy_setopt(curl, CURLOPT_URL, url.data);
-            curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
-            curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, std__net__write_callback);
-            curl_easy_setopt(curl, CURLOPT_HEADERDATA, (void *)&header_chunk);
-            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-            curl_easy_setopt(curl, CURLOPT_USERAGENT, "axe-std.1.0");
-            
-            CURLcode res = curl_easy_perform(curl);
-            
-            if (res == CURLE_OK) {
-                long response_code;
-                curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-                response.status_code = (int32_t)response_code;
+
+            C.curl_easy_setopt(curl, CURLOPT_URL, url.data);
+            C.curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
+            C.curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, std__net__write_callback);
+            C.curl_easy_setopt(curl, CURLOPT_HEADERDATA, cast[ref void](addr(header_chunk)));
+            C.curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+            C.curl_easy_setopt(curl, CURLOPT_USERAGENT, "axe-std.1.0");
+
+            val res: CURLcode = C.curl_easy_perform(curl);
+            if res == CURLE_OK {
+                mut response_code: i64 = 0;
+                C.curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, addr(response_code));
+                response.status_code = cast[i32](response_code);
                 response.success = true;
-                
                 response.headers.data = header_chunk.memory;
                 response.headers.len = header_chunk.size;
                 response.headers.cap = header_chunk.size + 1;
-                
-                // HEAD has no body
-                response.body.data = (char*)malloc(1);
+                response.body.data = cast[ref char](C.malloc(1));
                 response.body.data[0] = '\0';
                 response.body.len = 0;
                 response.body.cap = 1;
             } else {
-                free(header_chunk.memory);
+                C.free(cast[ref void](header_chunk.memory));
             }
-            
-            curl_easy_cleanup(curl);
+            C.curl_easy_cleanup(curl);
         }
     }
-    
     return response;
 }
 
@@ -493,26 +488,26 @@ def url_encode(input: string): string {
 def url_decode(input: string): string {
     mut result: string;
     
-    raw {
-        result.data = NULL;
+    unsafe {
+        result.data = nil;
         result.len = 0;
         result.cap = 0;
-        
-        CURL *curl = curl_easy_init();
-        if (curl) {
-            int outlength;
-            char *decoded = curl_easy_unescape(curl, input.data, input.len, &outlength);
-            if (decoded) {
-                result.data = (char*)malloc(outlength + 1);
-                if (result.data) {
-                    memcpy(result.data, decoded, outlength);
+
+        mut curl: ref CURL = C.curl_easy_init();
+        if curl != nil {
+            mut outlength: i32 = 0;
+            mut decoded: ref char = C.curl_easy_unescape(curl, input.data, input.len, addr(outlength));
+            if decoded != nil {
+                result.data = cast[ref char](C.malloc(outlength + 1));
+                if result.data != nil {
+                    C.memcpy(result.data, decoded, outlength);
                     result.data[outlength] = '\0';
                     result.len = outlength;
                     result.cap = outlength + 1;
                 }
-                curl_free(decoded);
+                C.curl_free(decoded);
             }
-            curl_easy_cleanup(curl);
+            C.curl_easy_cleanup(curl);
         }
     }
     
