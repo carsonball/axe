@@ -906,54 +906,64 @@ def parse_http_request(rdata: string): HttpRequest {
 /// Create an HTTP response string
 def create_http_response(status_code: i32, content_type: string, body: string): string {
     mut response: string;
+    response.data = nil;
+    response.len = 0;
+    response.cap = 0;
     
-    raw {
-        response.data = NULL;
-        response.len = 0;
-        response.cap = 0;
+    unsafe {
+        mut status_msg: ref char = "Unknown";
         
-        const char* status_msg = "Unknown";
-        switch (status_code) {
-            case 200: status_msg = "OK"; break;
-            case 201: status_msg = "Created"; break;
-            case 204: status_msg = "No Content"; break;
-            case 301: status_msg = "Moved Permanently"; break;
-            case 302: status_msg = "Found"; break;
-            case 400: status_msg = "Bad Request"; break;
-            case 401: status_msg = "Unauthorized"; break;
-            case 403: status_msg = "Forbidden"; break;
-            case 404: status_msg = "Not Found"; break;
-            case 500: status_msg = "Internal Server Error"; break;
-            case 501: status_msg = "Not Implemented"; break;
-            case 503: status_msg = "Service Unavailable"; break;
+        if status_code == 200 {
+            status_msg = "OK";
+        } elif status_code == 201 {
+            status_msg = "Created";
+        } elif status_code == 204 {
+            status_msg = "No Content";
+        } elif status_code == 301 {
+            status_msg = "Moved Permanently";
+        } elif status_code == 302 {
+            status_msg = "Found";
+        } elif status_code == 400 {
+            status_msg = "Bad Request";
+        } elif status_code == 401 {
+            status_msg = "Unauthorized";
+        } elif status_code == 403 {
+            status_msg = "Forbidden";
+        } elif status_code == 404 {
+            status_msg = "Not Found";
+        } elif status_code == 500 {
+            status_msg = "Internal Server Error";
+        } elif status_code == 501 {
+            status_msg = "Not Implemented";
+        } elif status_code == 503 {
+            status_msg = "Service Unavailable";
         }
         
-        char content_len_str[32];
-        snprintf(content_len_str, sizeof(content_len_str), "%zu", (size_t)body.len);
+        mut content_len_str: char[32];
+        C.snprintf(&content_len_str[0], 32, "%zu", cast[usize](body.len));
         
-        size_t response_size = 
-            strlen("HTTP/1.1 ") + 3 + strlen(" ") + strlen(status_msg) + strlen("\r\n") +
-            strlen("Content-Type: ") + content_type.len + strlen("\r\n") +
-            strlen("Content-Length: ") + strlen(content_len_str) + strlen("\r\n") +
-            strlen("Server: axe-std.1.0\r\n") +
-            strlen("Connection: close\r\n") +
-            strlen("\r\n") +
+        val response_size: usize = 
+            C.strlen("HTTP/1.1 ") + 3 + C.strlen(" ") + C.strlen(status_msg) + C.strlen("\r\n") +
+            C.strlen("Content-Type: ") + content_type.len + C.strlen("\r\n") +
+            C.strlen("Content-Length: ") + C.strlen(&content_len_str[0]) + C.strlen("\r\n") +
+            C.strlen("Server: axe-std.1.0\r\n") +
+            C.strlen("Connection: close\r\n") +
+            C.strlen("\r\n") +
             body.len;
         
-        response.data = (char*)malloc(response_size + 1);
-        if (response.data) {
-            char* ptr = response.data;
+        response.data = cast[ref char](C.malloc(response_size + 1));
+        if response.data != nil {
+            mut ptr: ref char = response.data;
+            ptr = ptr + C.sprintf(ptr, "HTTP/1.1 %d %s\r\n", status_code, status_msg);
+            ptr = ptr + C.sprintf(ptr, "Content-Type: %.*s\r\n", cast[i32](content_type.len), content_type.data);
+            ptr = ptr + C.sprintf(ptr, "Content-Length: %s\r\n", &content_len_str[0]);
+            ptr = ptr + C.sprintf(ptr, "Server: axe-std.1.0\r\n");
+            ptr = ptr + C.sprintf(ptr, "Connection: close\r\n");
+            ptr = ptr + C.sprintf(ptr, "\r\n");
             
-            ptr += sprintf(ptr, "HTTP/1.1 %d %s\r\n", status_code, status_msg);
-            ptr += sprintf(ptr, "Content-Type: %.*s\r\n", (int)content_type.len, content_type.data);
-            ptr += sprintf(ptr, "Content-Length: %s\r\n", content_len_str);
-            ptr += sprintf(ptr, "Server: axe-std.1.0\r\n");
-            ptr += sprintf(ptr, "Connection: close\r\n");
-            ptr += sprintf(ptr, "\r\n");
-            
-            if (body.len > 0) {
-                memcpy(ptr, body.data, body.len);
-                ptr += body.len;
+            if body.len > 0 {
+                C.memcpy(ptr, body.data, body.len);
+                ptr = ptr + body.len;
             }
             
             response.len = ptr - response.data;
