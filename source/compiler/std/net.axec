@@ -86,6 +86,7 @@ foreign {
     CURLOPT_POSTFIELDS,
     CURLINFO_RESPONSE_CODE,
     CURL,
+    FILE,
     CURLcode,
     CURLOPT_CUSTOMREQUEST
 }
@@ -434,25 +435,25 @@ def http_head(url: string): HttpResponse {
 def download_file(url: string, output_path: string): bool {
     mut success: bool = false;
     
-    raw {
-        CURL *curl = curl_easy_init();
-        if (curl) {
-            FILE *fp = fopen(output_path.data, "wb");
-            if (fp) {
-                curl_easy_setopt(curl, CURLOPT_URL, url.data);
-                curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-                curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-                curl_easy_setopt(curl, CURLOPT_USERAGENT, "axe-std.1.0");
+    unsafe {
+        mut curl: ref CURL = C.curl_easy_init();
+        if curl != nil {
+            mut fp: ref FILE = C.fopen(output_path.data, "wb");
+            if fp != nil {
+                C.curl_easy_setopt(curl, CURLOPT_URL, url.data);
+                C.curl_easy_setopt(curl, CURLOPT_WRITEDATA, cast[ref void](fp));
+                C.curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+                C.curl_easy_setopt(curl, CURLOPT_USERAGENT, "axe-std.1.0");
                 
-                CURLcode res = curl_easy_perform(curl);
+                val res: CURLcode = C.curl_easy_perform(curl);
                 
-                if (res == CURLE_OK) {
+                if res == CURLE_OK {
                     success = true;
                 }
                 
-                fclose(fp);
+                C.fclose(fp);
             }
-            curl_easy_cleanup(curl);
+            C.curl_easy_cleanup(curl);
         }
     }
     
