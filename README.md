@@ -1,6 +1,6 @@
 # Axe
 
-Axe is a compiled programming language with a focus on type safety, ease of concurrency, and performance. 
+Axe is a compiled programming language with a focus on type safety, ease of concurrency, and performance.
 
 It provides a clean syntax for systems programming with modern and parallel language features.
 
@@ -59,10 +59,10 @@ Without already having an `axe` binary, clone https://github.com/axelang/axe-boo
 Bootstrapping process:
 
 ```bash
-git clone https://github.com/axelang/axe-bootstrap.git 
+git clone https://github.com/axelang/axe-bootstrap.git
 cd axe-bootstrap
 chmod +x install.sh
-./install.sh
+sudo ./install.sh
 ```
 
 If you already have an axe binary (Windows users can download the .zip from GitHub releases), the build process is simply:
