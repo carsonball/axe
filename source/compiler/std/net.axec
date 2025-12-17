@@ -730,34 +730,34 @@ def server_accept(server: WebServer): Socket {
 def socket_recv(socket: Socket, buffer_size: i32): string {
     mut result: string;
     
-    raw {
-        result.data = NULL;
-        result.len = 0;
-        result.cap = 0;
-        
-        if (!socket.is_valid) {
-            return result;
-        }
-        
-        char* buffer = (char*)malloc(buffer_size);
-        if (!buffer) {
-            return result;
-        }
-        
-        #ifdef _WIN32
-            int bytes_received = recv((SOCKET)socket.fd, buffer, buffer_size - 1, 0);
-        #else
-            ssize_t bytes_received = recv(socket.fd, buffer, buffer_size - 1, 0);
-        #endif
-        
-        if (bytes_received > 0) {
-            buffer[bytes_received] = '\0';
-            result.data = buffer;
-            result.len = bytes_received;
-            result.cap = buffer_size;
-        } else {
-            free(buffer);
-        }
+    result.data = nil;
+    result.len = 0;
+    result.cap = 0;
+
+    if !socket.is_valid {
+        return result;
+    }
+
+    mut buffer: ref char = cast[ref char](C.malloc(buffer_size));
+    if !buffer {
+        return result;
+    }
+
+    mut bytes_received: usize = 0;
+    platform windows {
+        bytes_received = C.recv(cast[SOCKET](socket.fd), buffer, buffer_size - 1, 0);
+    }
+    platform posix {
+        bytes_received = C.recv(socket.fd, buffer, buffer_size - 1, 0);
+    }
+
+    if bytes_received > 0 {
+        buffer[bytes_received] = '\0';
+        result.data = buffer;
+        result.len = bytes_received;
+        result.cap = buffer_size;
+    } else {
+        C.free(cast[ref void](buffer));
     }
     
     return result;
