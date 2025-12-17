@@ -1,0 +1,33 @@
+use std.io;
+use std.random;
+use std.string;
+def fn_main() {
+    randomize();
+    val secret = random(1, 100);
+    println $"random: {secret}";
+
+    print $"i32: {SomeModel.some_func(secret)}";
+    println $" {SomeModel.some_func[i32](secret)}";
+    println $", {SomeModel.some_func[i32](secret)}"; // <-- compile error ", {func...}" when add ','
+    print $"f32: {SomeModel.some_func[f32](6.6)}";
+    println $" {SomeModel.some_func(6.6)}";
+    val s = str("test string");
+    print $"string: {SomeModel.some_func[string](s)}";
+}
+model SomeModel {
+    pub def some_func[T](arg: T): T {
+        when T is i32 {
+            return arg + 1;
+        }
+        when T is f32 {
+            return arg + 1.0;
+        }
+        when T is string {
+            //return arg;
+            return concat(arg, str("!\n"));
+        }
+    }
+}
+def main() {
+    println "hello";
+}

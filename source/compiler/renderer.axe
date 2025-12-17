@@ -782,7 +782,8 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
     val expected_types_str: string = StringStringMap.get(addr(g_function_param_types), lookup_name);
     if str_len(expected_types_str) == 0 {
         if len(arg_list) > 0 {
-            if !has_prefix(func_name, str("__INTERPOLATED__")) {
+            val has_brace: bool = find_char_from(func_name, '{', cast[usize](0)) >= 0;
+            if !has_prefix(func_name, str("__INTERPOLATED__")) and !has_brace {
                 print(get_short_filename(g_current_source_file));
                 print ":";
                 print(i32_to_string(g_current_line));
