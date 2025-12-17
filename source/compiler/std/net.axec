@@ -598,75 +598,83 @@ def net_cleanup() {
     }
 }
 
+foreign {
+    SOCKET,
+    INVALID_SOCKET,
+    SOCKET_ERROR,
+    AF_INET,
+    SOCK_STREAM,
+    IPPROTO_TCP,
+    INADDR_ANY,
+    SOL_SOCKET,
+    SO_REUSEADDR
+}
+
 /// Create a server socket and bind to port
 def server_create(port: i32): WebServer {
     mut server: WebServer;
     
-    raw {
+    unsafe {
         server.config.port = port;
         server.config.max_connections = 100;
         server.config.timeout_seconds = 30;
         server.is_running = false;
         server.socket.is_valid = false;
         server.socket.fd = -1;
-        
-        #ifdef _WIN32
-            SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+        platform windows {
+            mut sock: SOCKET = C.socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
             if (sock == INVALID_SOCKET) {
                 return server;
             }
-
-            int opt = 1;
-            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
             
-            struct sockaddr_in address;
+            mut opt: i32 = 1;
+            
+            C.setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, cast[val ref char](addr(opt)), C.sizeof(i32));
+            
+            mut address: $(sockaddr_in);
             address.sin_family = AF_INET;
             address.sin_addr.s_addr = INADDR_ANY;
-            address.sin_port = htons((u_short)port);
-            
-            if (bind(sock, (struct sockaddr*)&address, sizeof(address)) == SOCKET_ERROR) {
-                closesocket(sock);
+            address.sin_port = C.htons(cast[u_short](port));
+            if (C.bind(sock, cast[ref $(sockaddr)](addr(address)), C.sizeof(sockaddr_in)) == SOCKET_ERROR) {
+                C.closesocket(sock);
                 return server;
             }
-            
-            if (listen(sock, server.config.max_connections) == SOCKET_ERROR) {
-                closesocket(sock);
+            if (C.listen(sock, server.config.max_connections) == SOCKET_ERROR) {
+                C.closesocket(sock);
                 return server;
             }
-            
-            server.socket.fd = (int32_t)sock;
+            server.socket.fd = cast[i32](sock);
             server.socket.is_valid = true;
-        #else
-            int sock = socket(AF_INET, SOCK_STREAM, 0);
+        }
+
+        platform posix {
+            mut sock: i32 = C.socket(AF_INET, SOCK_STREAM, 0);
             if (sock < 0) {
                 return server;
             }
             
-            int opt = 1;
-            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+            mut opt: i32 = 1;
+            C.setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, addr(opt), C.sizeof(i32));
             
-            struct sockaddr_in address;
+            mut address: $(sockaddr_in);
             address.sin_family = AF_INET;
             address.sin_addr.s_addr = INADDR_ANY;
-            address.sin_port = htons((uint16_t)port);
-            
-            if (bind(sock, (struct sockaddr*)&address, sizeof(address)) < 0) {
-                close(sock);
+            address.sin_port = C.htons(cast[uint16_t](port));
+            if (C.bind(sock, cast[ref $(sockaddr)](addr(address)), C.sizeof($(sockaddr_in))) < 0) {
+                C.close(sock);
                 return server;
             }
-            
-            if (listen(sock, server.config.max_connections) < 0) {
-                close(sock);
+            if (C.listen(sock, server.config.max_connections) < 0) {
+                C.close(sock);
                 return server;
             }
-            
             server.socket.fd = sock;
             server.socket.is_valid = true;
-        #endif
-        
+        }
+
         server.is_running = true;
     }
-    
     return server;
 }
 

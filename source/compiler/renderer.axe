@@ -1688,6 +1688,44 @@ def canonical_model_c_name(name: string): string {
 /// Map Axe type to C type (comprehensive version for model fields)
 def map_axe_type_to_c(axe_type: string): string {
     mut result: string = axe_type;
+    if find_char_from(result, '$', cast[usize](0)) >= 0 {
+        mut out_sb: StringBuilder = StringBuilder.init(str_len(result) + 32);
+        mut i: i32 = 0;
+        val n: i32 = cast[i32](str_len(result));
+        loop {
+            if i >= n {
+                break;
+            }
+            val ch: char = get_char(result, i);
+            if ch == '$' and i + 1 < n and get_char(result, i + 1) == '(' {
+                mut j: i32 = i + 2;
+                mut ident_sb: StringBuilder = StringBuilder.init(32);
+                loop {
+                    if j >= n {
+                        break;
+                    }
+                    val cj: char = get_char(result, j);
+                    if cj == ')' {
+                        break;
+                    }
+                    StringBuilder.append_char(addr(ident_sb), cj);
+                    j++;
+                }
+                val ident: string = strip(StringBuilder.to_string(addr(ident_sb)));
+                StringBuilder.destroy(addr(ident_sb));
+                if str_len(ident) > 0 {
+                    StringBuilder.append(addr(out_sb), str("struct "));
+                    StringBuilder.append(addr(out_sb), ident);
+                }
+                i = j + 1;
+                continue;
+            }
+            StringBuilder.append_char(addr(out_sb), ch);
+            i++;
+        }
+        result = StringBuilder.to_string(addr(out_sb));
+        StringBuilder.destroy(addr(out_sb));
+    }
     
     if has_prefix(result, str("mut ")) {
         result = strip(substr(result, 4, str_len(result) - 4));
