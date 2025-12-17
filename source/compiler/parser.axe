@@ -6992,81 +6992,12 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
         return node;
     }
     
-    // Handle RAW (only in .axec files)
+    // Handle RAW (deprecated)
     if token_type == TokenType.RAW {
-        if !ctx.is_axec {
-            mut err: string = format_error(ctx, str("Raw C blocks are only allowed in .axec files"));
-            enforce_raw(false, err.data);
-            return node;
-        }
-
-        // Mark that this function contains a raw block
-        g_function_has_raw_block = true;
-
         consume(ctx); // Skip 'raw'
         skip_whitespace(ctx);
-
-        if !expect(ctx, TokenType.LBRACE) {
-            mut err: string = format_error(ctx, str("Expected '{' after 'raw'"));
-            enforce_raw(false, err.data);
-            return node;
-        }
-        consume(ctx); // '{'
-
-        mut raw_code: string = str("");
-        mut depth: i32 = 1;
-
-        loop {
-            if ctx.pos >= len(ctx.tokens) {
-                mut err: string = format_error(ctx, str("Unexpected end of tokens in raw block"));
-                enforce_raw(false, err.data);
-                return node;
-            }
-
-            val t: Token = peek(ctx);
-
-            if t.token_type == TokenType.LBRACE {
-                raw_code = concat(raw_code, str("{"));
-                depth = depth + 1;
-                consume(ctx);
-                continue;
-            } elif t.token_type == TokenType.RBRACE {
-                depth = depth - 1;
-                if depth == 0 {
-                    break;
-                } else {
-                    raw_code = concat(raw_code, str("}"));
-                    consume(ctx);
-                    continue;
-                }
-            }
-
-            if t.token_type == TokenType.NEWLINE {
-                raw_code = concat(raw_code, str("\n"));
-            } elif t.token_type == TokenType.STR {
-                raw_code = concat(raw_code, str("\""));
-                raw_code = concat(raw_code, t.value);
-                raw_code = concat(raw_code, str("\""));
-            } elif t.token_type == TokenType.CHAR {
-                raw_code = concat(raw_code, str("'"));
-                raw_code = concat(raw_code, t.value);
-                raw_code = concat(raw_code, str("'"));
-            } else {
-                raw_code = concat(raw_code, t.value);
-            }
-
-            consume(ctx);
-        }
-
-        if !expect(ctx, TokenType.RBRACE) {
-            mut err: string = format_error(ctx, str("Expected '}' after raw block body"));
-            enforce_raw(false, err.data);
-            return node;
-        }
-        consume(ctx); // '}'
-
-        node.node_type = str("RawC");
-        node.data.raw_c.code = raw_code;
+        mut msg: string = str("raw { } blocks are deprecated, use the FFI or external C files instead.");
+        enforce_raw(false, format_error(ctx, msg).data);
         return node;
     }
     
