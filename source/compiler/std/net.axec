@@ -767,45 +767,44 @@ def socket_recv(socket: Socket, buffer_size: i32): string {
 def socket_send(socket: Socket, data: string): bool {
     mut success: bool = false;
     
-    raw {
-        if (!socket.is_valid) {
-            return success;
-        }
-        
-        #ifdef _WIN32
-            int bytes_sent = send((SOCKET)socket.fd, data.data, (int)data.len, 0);
-            success = (bytes_sent == (int)data.len);
-        #else
-            ssize_t bytes_sent = send(socket.fd, data.data, data.len, 0);
-            success = (bytes_sent == (ssize_t)data.len);
-        #endif
+    if !socket.is_valid {
+        return success;
     }
-    
+
+    unsafe {
+        platform windows {
+            mut bytes_sent: i32 = C.send(cast[SOCKET](socket.fd), data.data, cast[i32](data.len), 0);
+            success = (bytes_sent == cast[i32](data.len));
+        }
+        platform posix {
+            mut bytes_sent: isize = C.send(socket.fd, data.data, cast[usize](data.len), 0);
+            success = (bytes_sent == cast[isize](data.len));
+        }
+    }
+
     return success;
 }
 
 /// Close a socket
 def socket_close(socket: Socket) {
-    raw {
-        if (socket.is_valid) {
-            #ifdef _WIN32
-                closesocket((SOCKET)socket.fd);
-            #else
-                close(socket.fd);
-            #endif
+    if socket.is_valid {
+        platform windows {
+            C.closesocket(cast[SOCKET](socket.fd));
+        }
+        platform posix {
+            C.close(socket.fd);
         }
     }
 }
 
 /// Close the server socket
 def server_close(server: WebServer) {
-    raw {
-        if (server.socket.is_valid) {
-            #ifdef _WIN32
-                closesocket((SOCKET)server.socket.fd);
-            #else
-                close(server.socket.fd);
-            #endif
+    if server.socket.is_valid {
+        platform windows {
+            C.closesocket(cast[SOCKET](server.socket.fd));
+        }
+        platform posix {
+            C.close(server.socket.fd);
         }
     }
 }
