@@ -6856,6 +6856,18 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
 
                             mut sb_proto2: StringBuilder = StringBuilder.init(512);
+                            val spec_tags2: ref list(string) = proto_child.data.function.tags;
+                            if spec_tags2 != nil {
+                                mut ti_spec2: i32 = 0;
+                                loop {
+                                    if ti_spec2 >= len(deref(spec_tags2)) { break; }
+                                    if equals_c(spec_tags2.data[ti_spec2], "inline") {
+                                        StringBuilder.append_c(addr(sb_proto2), "static ");
+                                        break;
+                                    }
+                                    ti_spec2++;
+                                }
+                            }
                             mut spec_return_type2: string = proto_child.data.function.return_type;
                             if str_len(spec_return_type2) == 0 { spec_return_type2 = str("void"); }
                             if StringStringMap.contains(addr(type_mapping2), spec_return_type2) {
