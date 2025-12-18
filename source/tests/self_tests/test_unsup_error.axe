@@ -6,5 +6,5 @@ model RandomModel {
 
 def main() {
     val m: RandomModel = RandomModel{a: 42};
-    print(m); //should fail
+    print(m); // should fail
 }
