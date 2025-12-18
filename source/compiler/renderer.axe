@@ -6888,11 +6888,11 @@ pub def generate_c(ast: ref ASTNode): string {
                                     }
                                 }
                             }
-                            ut_idx = ut_idx + 1;
+                            ut_idx++;
                         }
                     }
                 }
-                build_deps_idx = build_deps_idx + 1;
+                build_deps_idx++;
             }
             
             mut visit_state: ref IntList = IntList.create(addr(model_arena), num_models + 1);
