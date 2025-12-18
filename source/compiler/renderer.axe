@@ -2083,11 +2083,12 @@ def map_axe_type_to_c(axe_type: string): string {
         if has_prefix(element_type, str("ref ")) {
             val base_elem: string = strip(substr(element_type, 4, str_len(element_type) - 4));
             val mapped_elem: string = map_axe_type_to_c(base_elem);
-            add_list_element(mapped_elem);
-            mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 10);
+            val mapped_elem_ptr: string = concat(mapped_elem, str("*"));
+            add_list_element(mapped_elem_ptr);
+            mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 12);
             StringBuilder.append_c(addr(sb_struct), "__list_");
-            StringBuilder.append(addr(sb_struct), mapped_elem);
-            StringBuilder.append_c(addr(sb_struct), "_t*");
+            StringBuilder.append(addr(sb_struct), sanitize_list_element_name(mapped_elem_ptr));
+            StringBuilder.append_c(addr(sb_struct), "_t");
             val struct_name: string = StringBuilder.to_string(addr(sb_struct));
             StringBuilder.destroy(addr(sb_struct));
             return struct_name;
@@ -2096,7 +2097,7 @@ def map_axe_type_to_c(axe_type: string): string {
             add_list_element(mapped_elem);
             mut sb_struct: StringBuilder = StringBuilder.init(str_len(mapped_elem) + 10);
             StringBuilder.append_c(addr(sb_struct), "__list_");
-            StringBuilder.append(addr(sb_struct), mapped_elem);
+            StringBuilder.append(addr(sb_struct), sanitize_list_element_name(mapped_elem));
             StringBuilder.append_c(addr(sb_struct), "_t");
             val struct_name: string = StringBuilder.to_string(addr(sb_struct));
             StringBuilder.destroy(addr(sb_struct));
