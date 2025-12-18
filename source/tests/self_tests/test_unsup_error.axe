@@ -1,0 +1,10 @@
+use std.io;
+
+model RandomModel {
+    a: i32;
+}
+
+def main() {
+    val m: RandomModel = RandomModel{a: 42};
+    print(m); //should fail
+}
