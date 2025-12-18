@@ -80,4 +80,5 @@ test {
     assert !intlst_contains(deref(ilst), 7), "Expected 7 not to be found in the list";
 
     println(list_contains[IntList, i32](deref(ilst), 1337));
+    println(list_contains(deref(ilst), 100));
 }

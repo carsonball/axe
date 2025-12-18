@@ -495,6 +495,31 @@ def infer_expression_type(expr: string): string {
     }
     
     val first_char: char = get_char(trimmed, 0);
+
+    if has_prefix(trimmed, str("(")) and has_suffix(trimmed, str(")")) {
+        val inner_paren: string = strip(substring_se(trimmed, 1, str_len(trimmed) - 1));
+        if str_len(inner_paren) > 0 {
+            return infer_expression_type(inner_paren);
+        }
+    }
+
+    if get_char(trimmed, 0) == '*' {
+        val inner_name: string = strip(substring_se(trimmed, 1, cast[i32](str_len(trimmed))));
+        if str_len(inner_name) > 0 {
+            mut inner_type3: string = str("");
+            if StringStringMap.contains(addr(g_var_types), inner_name) {
+                inner_type3 = StringStringMap.get(addr(g_var_types), inner_name);
+            } else {
+                inner_type3 = infer_expression_type(inner_name);
+            }
+            if str_len(inner_type3) > 0 {
+                if has_prefix(inner_type3, str("ref ")) {
+                    return strip(substr(inner_type3, 4, str_len(inner_type3) - 4));
+                }
+                return inner_type3;
+            }
+        }
+    }
     mut is_numeric: bool = false;
     
     if (first_char >= '0' and first_char <= '9') {
@@ -592,6 +617,63 @@ def infer_expression_type(expr: string): string {
                 val inner_type: string = infer_expression_type(inner_expr);
                 if str_len(inner_type) > 0 {
                     return concat(str("ref "), inner_type);
+                }
+            }
+        }
+    }
+
+    if has_prefix(trimmed, str("deref")) and str_len(trimmed) > 5 {
+        val after_deref: i32 = 5;
+        mut k2: i32 = after_deref;
+        loop {
+            if k2 >= str_len(trimmed) {
+                break;
+            }
+            val ws2: char = get_char(trimmed, k2);
+            if ws2 != ' ' and ws2 != '\t' and ws2 != '\n' {
+                break;
+            }
+            k2++;
+        }
+        if k2 < str_len(trimmed) and get_char(trimmed, k2) == '(' {
+            val paren_start: i32 = k2 + 1;
+            mut paren_end: i32 = paren_start;
+            mut depth2: i32 = 1;
+            mut in_arg_str2: bool = false;
+            mut in_arg_char2: bool = false;
+            loop {
+                if paren_end >= str_len(trimmed) or depth2 == 0 {
+                    break;
+                }
+                val pc2: char = get_char(trimmed, paren_end);
+                if pc2 == '"' and !in_arg_char2 {
+                    in_arg_str2 = !in_arg_str2;
+                } elif pc2 == '\'' and !in_arg_str2 {
+                    in_arg_char2 = !in_arg_char2;
+                } elif !in_arg_str2 and !in_arg_char2 {
+                    if pc2 == '(' {
+                        depth2++;
+                    } elif pc2 == ')' {
+                        depth2--;
+                    }
+                }
+                if depth2 > 0 {
+                    paren_end++;
+                }
+            }
+            if depth2 == 0 and paren_end == str_len(trimmed) - 1 {
+                val inner_expr: string = strip(substring_se(trimmed, paren_start, paren_end));
+                mut inner_type: string = str("");
+                if StringStringMap.contains(addr(g_var_types), inner_expr) {
+                    inner_type = StringStringMap.get(addr(g_var_types), inner_expr);
+                } else {
+                    inner_type = infer_expression_type(inner_expr);
+                }
+                if str_len(inner_type) > 0 {
+                    if has_prefix(inner_type, str("ref ")) {
+                        return strip(substr(inner_type, 4, str_len(inner_type) - 4));
+                    }
+                    return inner_type;
                 }
             }
         }
