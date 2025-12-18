@@ -34,18 +34,18 @@ pub model StringBuilder {
 
     /// Ensures the StringBuilder has enough capacity for additional bytes.
     pub def ensure_capacity(sb: ref StringBuilder, additional: usize): void {
-        val needed: usize = sb*.len + additional + 1;
-        if needed <= sb*.cap {
-            return;
-        }
-        mut new_cap: usize = sb*.cap;
-        loop {
-            if new_cap >= needed {
-                break;
-            }
-            new_cap = new_cap * 2;
-        }
         unsafe {
+            val needed: usize = sb*.len + additional + 1;
+            if needed <= sb*.cap {
+                return;
+            }
+            mut new_cap: usize = sb*.cap;
+            loop {
+                if new_cap >= needed {
+                    break;
+                }
+                new_cap = new_cap * 2;
+            }
             val new_data: ref char = C.realloc(sb*.data, new_cap);
             if new_data != nil {
                 sb*.data = new_data;

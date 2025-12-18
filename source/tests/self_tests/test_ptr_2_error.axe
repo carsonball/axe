@@ -1,0 +1,11 @@
+use std.io;
+
+model Something {
+    x: i32;
+    y: i32;
+}
+
+def main() {
+    val s: Something = Something{ x: 10, y: 20 };
+    println(s*.x);
+}

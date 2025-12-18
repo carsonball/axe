@@ -1003,8 +1003,7 @@ def check_star_deref(ctx: ref ParserContext, start_pos: i32, end_pos: i32) {
             i = i + 1;
             continue;
         }
-
-        if t.token_type == TokenType.STAR {
+        if t.token_type == TokenType.STAR or t.token_type == TokenType.STAR_DOT {
             mut j: i32 = i + 1;
             mut next_t: Token;
             loop {
@@ -1021,11 +1020,48 @@ def check_star_deref(ctx: ref ParserContext, start_pos: i32, end_pos: i32) {
 
             if j < end_pos and next_t.token_type == TokenType.IDENTIFIER {
                 if !(prev_sig == TokenType.IDENTIFIER or prev_sig == TokenType.NUMBER or prev_sig == TokenType.CHAR or prev_sig == TokenType.STR or prev_sig == TokenType.RPAREN or prev_sig == TokenType.RBRACKET) {
+                    if g_inside_unsafe_block == 0 {
+                        print ctx.filename;
+                        print ":";
+                        print(i32_to_string(current_line(ctx)));
+                        println ": error: C-style dereference '*var' is only allowed inside unsafe blocks.";
+                        quit(1);
+                    }
+                }
+            }
+
+            if t.token_type == TokenType.STAR_DOT {
+                if g_inside_unsafe_block == 0 {
                     print ctx.filename;
                     print ":";
                     print(i32_to_string(current_line(ctx)));
-                    println ": error: C-style dereference '*var' is not allowed. Use deref(var) instead.";
+                    println ": error: pointer member access using '*.' is only allowed inside unsafe blocks.";
                     quit(1);
+                }
+            } else {
+                mut k: i32 = i + 1;
+                mut next_sig: Token;
+                loop {
+                    if k >= end_pos {
+                        break;
+                    }
+                    next_sig = ctx.tokens.data[k];
+                    if next_sig.token_type == TokenType.WHITESPACE or next_sig.token_type == TokenType.NEWLINE {
+                        k = k + 1;
+                        continue;
+                    }
+                    break;
+                }
+                if prev_sig == TokenType.IDENTIFIER or prev_sig == TokenType.RPAREN or prev_sig == TokenType.RBRACKET {
+                    if k < end_pos and (next_sig.token_type == TokenType.DOT or next_sig.token_type == TokenType.STAR_DOT) {
+                        if g_inside_unsafe_block == 0 {
+                            print ctx.filename;
+                            print ":";
+                            print(i32_to_string(current_line(ctx)));
+                            println ": error: pointer member access using '*.' is only allowed inside unsafe blocks.";
+                            quit(1);
+                        }
+                    }
                 }
             }
         }
