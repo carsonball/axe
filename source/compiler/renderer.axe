@@ -1026,7 +1026,7 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
                             k++;
                         }
 
-                        if !found {
+                        if !found and !equals_c(inferred_type, "auto") {
                             print(get_short_filename(g_current_source_file));
                             print ":";
                             print(i32_to_string(g_current_line));
