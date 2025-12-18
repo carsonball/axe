@@ -279,6 +279,7 @@ pub def stringify_pretty(doc: ref char): string {
             result.cap = len + 1;
         }
     }
+
     return result;
 }
 
