@@ -208,13 +208,12 @@ def print_ast_node(node: ref ASTNode, prefix: string, is_last: bool) {
                 break;
             }
             val child_is_last: bool = (ci == total - 1);
-                mut new_prefix: string;
-                if is_last {
-                    new_prefix = concat(prefix, str("   "));
-                } else {
-                    new_prefix = concat(prefix, str("│  "));
-                }
-
+            mut new_prefix: string;
+            if is_last {
+                new_prefix = concat(prefix, str("   "));
+            } else {
+                new_prefix = concat(prefix, str("│  "));
+            }
             print_ast_node(addr(chs.data[ci]), new_prefix, child_is_last);
             ci++;
         }
