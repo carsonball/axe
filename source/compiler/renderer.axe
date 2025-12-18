@@ -1017,7 +1017,9 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
                             if k >= len(allowed_types) {
                                 break;
                             }
-                            if compare(allowed_types.data[k], inferred_type) == 0 {
+                            val allowed_type_c: string = map_axe_type_to_c(allowed_types.data[k]);
+                            val inferred_type_c: string = map_axe_type_to_c(inferred_type);
+                            if compare(allowed_type_c, inferred_type_c) == 0 {
                                 found = true;
                                 break;
                             }
