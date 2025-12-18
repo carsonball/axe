@@ -13,9 +13,35 @@ if (-not (Test-Path "../axc.exe")) {
 $failed = 0
 $counts = @{ total = 0; passed = 0; failed = 0 }
 $failedFiles = @()
-$folders = @("..\\..\\tests\\self_tests", "..\\..\\tests\\legacy_tests")
+$stdFolder = "..\\std"
+if (Test-Path $stdFolder) {
+    Write-Host ""
+    Write-Host "Compiling std files in $stdFolder..."
 
-Write-Host "=== Axe compiler PowerShell test runner ==="
+    Get-ChildItem -Path $stdFolder -Recurse -Filter *.axe -File | ForEach-Object {
+        $file = $_.FullName
+        $counts.total++
+        Write-Host "------------------------------"
+        Write-Host "Compiling $file"
+
+        & ..\axc $file
+        $exit = $LASTEXITCODE
+
+        if ($exit -ne 0) {
+            Write-Host "FAILED: $file" -ForegroundColor Red
+            $failed++
+            $counts.failed++
+            $failedFiles += $file
+        } else {
+            Write-Host "OK: $file" -ForegroundColor Green
+            $counts.passed++
+        }
+    }
+} else {
+    Write-Host "Skipping missing std folder: $stdFolder"
+}
+
+$folders = @("..\\..\\tests\\self_tests", "..\\..\\tests\\legacy_tests")
 
 foreach ($folder in $folders) {
     if (-not (Test-Path $folder)) {

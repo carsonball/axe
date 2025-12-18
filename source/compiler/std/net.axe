@@ -638,7 +638,7 @@ pub def server_create(port: i32): WebServer {
             address.sin_family = AF_INET;
             address.sin_addr.s_addr = INADDR_ANY;
             address.sin_port = C.htons(cast[u_short](port));
-            if (C.bind(sock, cast[ref $(sockaddr)](addr(address)), C.sizeof(sockaddr_in)) == SOCKET_ERROR) {
+            if (C.bind(sock, cast[ref $(sockaddr)](addr(address)), C.sizeof($(sockaddr_in))) == SOCKET_ERROR) {
                 C.closesocket(sock);
                 return server;
             }
