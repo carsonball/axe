@@ -1233,6 +1233,16 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
                     arg_idx++;
                     continue;
                 }
+
+                if has_prefix(expected_type, str("ref list(")) and has_suffix(inferred_type, str("[999]")) and has_prefix(inferred_type, str("ref ")) {
+                     val list_inner: string = substring_se(expected_type, 9, cast[i32](str_len(expected_type) - 1));
+                     val arr_inner: string = substring_se(inferred_type, 4, cast[i32](str_len(inferred_type) - 5));
+                     if equals_c(strip(list_inner), strip(arr_inner).data) {
+                          arg_idx++;
+                          continue;
+                     }
+                }
+
                 print(get_short_filename(g_current_source_file));
                 print ":";
                 print(i32_to_string(g_current_line));
