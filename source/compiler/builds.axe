@@ -325,9 +325,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         return false;
     }
     
-    val do_print_tokens: bool = ::print_tokens;
-
-    if do_print_tokens {
+    if ::print_tokens {
         mut ti: i32 = 0;
         loop {
             if ti >= len(tokens) {
@@ -341,6 +339,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
             println tok_val;
             ti++;
         }
+        quit(0);
     }
     
     if !::quiet_mode {
@@ -386,8 +385,7 @@ def compile_file(filename: string, is_axec: bool, output_filename: string): bool
         return true;
     }
     
-    val do_print_ast: bool = ::print_ast;
-    if do_print_ast {
+    if ::print_ast {
         print_ast_node(addr(ast), str(""), true);
         quit(0);
     }
