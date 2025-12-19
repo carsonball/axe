@@ -10,10 +10,27 @@ if (-not (Test-Path "../axc.exe")) {
     exit 1
 }
 
+$axcPath = Resolve-Path "../axc.exe"
+$axcDir  = Split-Path $axcPath -Parent
+
+Write-Host "Running 'saw test' in $axcDir..."
+Push-Location $axcDir
+& saw test
+$sawExit = $LASTEXITCODE
+Pop-Location
+
+if ($sawExit -ne 0) {
+    Write-Host "FAILED: saw test" -ForegroundColor Red
+    exit 1
+} else {
+    Write-Host "OK: saw test" -ForegroundColor Green
+}
+
 $failed = 0
 $counts = @{ total = 0; passed = 0; failed = 0 }
 $failedFiles = @()
 $stdFolder = "..\\std"
+
 if (Test-Path $stdFolder) {
     Write-Host ""
     Write-Host "Compiling std files in $stdFolder..."
@@ -89,11 +106,12 @@ foreach ($folder in $folders) {
 
 Write-Host ""
 Write-Host "Summary: Total=$($counts.total) Passed=$($counts.passed) Failed=$($counts.failed)"
+
 if ($failed -eq 0) {
     Write-Host "All tests passed." -ForegroundColor Green
 } else {
     Write-Host "Some tests failed." -ForegroundColor Yellow
-    Write-Host "\nFailed files:"
+    Write-Host "`nFailed files:"
     foreach ($f in $failedFiles) {
         Write-Host " - $f" -ForegroundColor Red
     }
