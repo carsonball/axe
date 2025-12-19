@@ -752,14 +752,23 @@ def infer_expression_type(expr: string): string {
             lookup_name = StringStringMap.get(addr(g_function_prefixes), func_name);
         }
 
+        if equals_c(func_name, "cast") {
+            if br_sq > 0 {
+                if StringStringMap.contains(addr(g_function_return_types), lookup_name) {
+                    return StringStringMap.get(addr(g_function_return_types), lookup_name);
+                }
+            }
+            return str("cast_inferred_type");
+        }
+
         if StringStringMap.contains(addr(g_function_return_types), lookup_name) {
             return StringStringMap.get(addr(g_function_return_types), lookup_name);
         }
-        
+
         if equals_c(func_name, "len") { return str("i32"); }
         if equals_c(func_name, "sizeof") { return str("usize"); }
     }
-    
+
     return str("");
 }
 
@@ -8690,8 +8699,12 @@ pub def generate_c(ast: ref ASTNode): string {
         if str_len(type_name) == 0 and str_len(initializer) > 0 {
             val inferred: string = infer_expression_type(strip(initializer));
             if str_len(inferred) > 0 {
-                type_name = inferred;
-                mapped_type = map_axe_type_to_c(type_name);
+                if equals_c(inferred, "cast_inferred_type") {
+                    // Do nothing here and let LHS type definition take precedence
+                } else {
+                    type_name = inferred;
+                    mapped_type = map_axe_type_to_c(type_name);
+                }
             }
 
             if str_len(type_name) == 0 {
@@ -8728,7 +8741,10 @@ pub def generate_c(ast: ref ASTNode): string {
 
                 val inferred_init: string = infer_expression_type(trimmed_init);
                 if str_len(inferred_init) > 0 and !equals_c(inferred_init, "auto") {
-                    if has_prefix(inferred_init, str("ref ")) {
+                    if equals_c(inferred_init, "cast_inferred_type") and str_len(type_name) > 0 {
+                        // This is a cast without explicit type parameters, but we have target type from LHS
+                        // It's handled by the transformation later, so we skip the type check here
+                    } elif has_prefix(inferred_init, str("ref ")) {
                         if str_len(strip(type_name)) == 0 or equals_c(strip(type_name), "auto") {
                             type_name = inferred_init;
                             mapped_type = map_axe_type_to_c(type_name);
@@ -8747,9 +8763,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                 C.exit(1);
                             }
                         }
-                    }
-
-                    if equals_c(inferred_init, "ref void") {
+                    } elif equals_c(inferred_init, "ref void") {
                         if !(has_prefix(type_name, str("ref ")) or has_suffix(type_name, str("*"))) {
                             print(get_short_filename(g_current_source_file));
                             print(":");
@@ -8765,9 +8779,7 @@ pub def generate_c(ast: ref ASTNode): string {
                                 C.exit(1);
                             }
                         }
-                    }
-
-                    if !is_numeric_literal and !equals_c(inferred_init, "ref void") {
+                    } elif !is_numeric_literal and !equals_c(inferred_init, "ref void") {
                         val mapped_inferred: string = map_axe_type_to_c(inferred_init);
                         val mapped_expected: string = map_axe_type_to_c(type_name);
 
@@ -9151,6 +9163,61 @@ pub def generate_c(ast: ref ASTNode): string {
                             val full_name: string = StringStringMap.get(addr(g_function_prefixes), call_name_raw);
                             val rest: string = substring_se(trimmed, paren_pos, cast[i32](str_len(trimmed)));
                             trimmed = concat(full_name, rest);
+                        }
+
+                        if equals_c(call_name_raw, "cast") {
+                            mut has_type_params: bool = false;
+                            mut check_pos: i32 = cast[i32](str_len(call_name_raw));
+                            loop {
+                                if check_pos >= paren_pos {
+                                    break;
+                                }
+                                val ch: char = get_char(trimmed, check_pos);
+                                if ch == '[' {
+                                    has_type_params = true;
+                                    break;
+                                }
+                                check_pos = check_pos + 1;
+                            }
+
+                            if !has_type_params {
+                                if str_len(type_name) > 0 and !equals_c(type_name, "auto") and !equals_c(type_name, "cast_inferred_type") {
+                                    mut depth: i32 = 1;
+                                    mut end_pos: i32 = paren_pos + 1;
+                                    mut in_str: bool = false;
+                                    mut in_char: bool = false;
+                                    loop {
+                                        if end_pos >= str_len(trimmed) {
+                                            break;
+                                        }
+                                        val ch: char = get_char(trimmed, end_pos);
+                                        if ch == '"' and !in_char {
+                                            in_str = !in_str;
+                                        } elif ch == '\'' and !in_str {
+                                            in_char = !in_char;
+                                        } elif !in_str and !in_char {
+                                            if ch == '(' {
+                                                depth = depth + 1;
+                                            } elif ch == ')' {
+                                                depth = depth - 1;
+                                                if depth == 0 {
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        end_pos = end_pos + 1;
+                                    }
+
+                                    if end_pos < str_len(trimmed) and get_char(trimmed, end_pos) == ')' {
+                                        val args_content: string = strip(substring_se(trimmed, paren_pos + 1, end_pos)); // Extract content between ( and )
+                                        mut cast_with_type: string = concat(str("cast["), type_name);
+                                        cast_with_type = concat(cast_with_type, str("]("));
+                                        cast_with_type = concat(cast_with_type, args_content);
+                                        cast_with_type = concat(cast_with_type, str(")"));
+                                        trimmed = cast_with_type;
+                                    }
+                                }
+                            }
                         }
                     }
 
