@@ -6,7 +6,7 @@
 use gstate;
 use structs     (ASTNode);
 use imports     (is_symbol_imported);
-use std.lists   (StringList, IntList);
+use std.lists   (StringList, IntList, LongList);
 use std.string;
 use std.io;
 use std.os;
@@ -109,6 +109,21 @@ mut g_function_param_types: StringStringMap;
 /// Function return types (function_name -> "type")
 mut g_function_return_types: StringStringMap;
 
+/// Track needed specializations (base_func_name -> list of "T:Type1,T2:Type2" strings separated by ";")
+mut g_needed_specializations: StringStringMap;
+
+/// Track needed specializations count per function (to avoid redundant parsing)
+mut g_needed_specializations_count: StringIntMap;
+
+/// Map generic function names to their AST nodes
+mut g_generic_function_asts: StringLongMap;
+
+/// Track emitted specializations (specialized_func_name -> true)
+mut g_emitted_specializations: StringBoolMap;
+
+/// Queue of specializations to emit (list of base_func_names)
+mut g_specialization_queue: ref StringList;
+
 /// Extern functions
 mut g_extern_functions: StringBoolMap;
 
@@ -120,6 +135,12 @@ mut g_overload_type_mappings: StringStringMap;
 
 /// Current source file name for #line directives
 mut g_current_source_file: string;
+
+/// Global arena for persistent renderer data
+mut g_renderer_arena: Arena;
+
+/// StringBuilder for collecting specialization prototypes
+mut g_specialization_prototypes_sb: StringBuilder;
 
 /// Current source line number
 mut g_current_line: i32;
@@ -208,63 +229,69 @@ def emit_line_directive(line: i32): string {
 ///
 /// This must be called before using the renderer at all.
 pub def initialize_renderer() {
-    mut arena: Arena = Arena.create(1024 * 100);
+    g_renderer_arena = Arena.create(1024 * 1024);
     
-    g_type_mappings = deref(StringStringMap.create(addr(arena), 128));
-    g_function_return_types = deref(StringStringMap.create(addr(arena), 1024));
-    g_ref_depths = deref(StringIntMap.create(addr(arena), 128));
-    g_is_mutable = deref(StringBoolMap.create(addr(arena), 128));
-    g_function_prefixes = deref(StringStringMap.create(addr(arena), 128));
-    g_model_names = deref(StringStringMap.create(addr(arena), 128));
-    g_enum_names = deref(StringBoolMap.create(addr(arena), 128));
-    g_opaque_types = deref(StringBoolMap.create(addr(arena), 128));
-    g_foreign_types = deref(StringBoolMap.create(addr(arena), 128));
-    g_generated_typedefs = deref(StringBoolMap.create(addr(arena), 128));
-    g_generated_functions = deref(StringBoolMap.create(addr(arena), 128));
-    g_field_types = deref(StringStringMap.create(addr(arena), 128));
-    g_pointer_fields = deref(StringBoolMap.create(addr(arena), 128));
-    g_var_types = deref(StringStringMap.create(addr(arena), 128));
-    g_list_of_types = deref(StringStringMap.create(addr(arena), 128));
-    g_list_element_types = deref(StringBoolMap.create(addr(arena), 128));
-    g_list_elements = StringList.create(addr(arena), 32);
-    g_global_external_headers = StringList.create(addr(arena), 32);
-    g_windows_external_headers = StringList.create(addr(arena), 32);
-    g_posix_external_headers = StringList.create(addr(arena), 32);
-    g_linux_external_headers = StringList.create(addr(arena), 32);
-    g_macos_external_headers = StringList.create(addr(arena), 32);
-    g_freebsd_external_headers = StringList.create(addr(arena), 32);
-    g_openbsd_external_headers = StringList.create(addr(arena), 32);
-    g_netbsd_external_headers = StringList.create(addr(arena), 32);
-    g_dragonflybsd_external_headers = StringList.create(addr(arena), 32);
-    g_emitted_globals = deref(StringBoolMap.create(addr(arena), 128));
-    g_global_var_prefixes = deref(StringStringMap.create(addr(arena), 128));
-    g_generic_functions = deref(StringBoolMap.create(addr(arena), 128));
-    g_function_param_types = deref(StringStringMap.create(addr(arena), 256));
-    g_extern_functions = deref(StringBoolMap.create(addr(arena), 128));
-    g_overloads = deref(StringBoolMap.create(addr(arena), 128));
-    g_overload_type_mappings = deref(StringStringMap.create(addr(arena), 128));
-    g_emitted_prototypes = deref(StringBoolMap.create(addr(arena), 1024));
+    g_type_mappings = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_function_return_types = deref(StringStringMap.create(addr(g_renderer_arena), 1024));
+    g_ref_depths = deref(StringIntMap.create(addr(g_renderer_arena), 128));
+    g_is_mutable = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_function_prefixes = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_model_names = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_enum_names = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_opaque_types = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_foreign_types = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_generated_typedefs = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_generated_functions = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_field_types = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_pointer_fields = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_var_types = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_list_of_types = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_list_element_types = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_list_elements = StringList.create(addr(g_renderer_arena), 32);
+    g_global_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_windows_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_posix_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_linux_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_macos_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_freebsd_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_openbsd_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_netbsd_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_dragonflybsd_external_headers = StringList.create(addr(g_renderer_arena), 32);
+    g_emitted_globals = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_global_var_prefixes = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_generic_functions = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_function_param_types = deref(StringStringMap.create(addr(g_renderer_arena), 256));
+    g_extern_functions = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_overloads = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_overload_type_mappings = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_needed_specializations = deref(StringStringMap.create(addr(g_renderer_arena), 128));
+    g_needed_specializations_count = deref(StringIntMap.create(addr(g_renderer_arena), 128));
+    g_generic_function_asts = deref(StringLongMap.create(addr(g_renderer_arena), 128));
+    g_emitted_specializations = deref(StringBoolMap.create(addr(g_renderer_arena), 256));
+    g_specialization_queue = StringList.create(addr(g_renderer_arena), 128);
+    g_emitted_prototypes = deref(StringBoolMap.create(addr(g_renderer_arena), 1024));
+    g_specialization_prototypes_sb = StringBuilder.init(4096);
     g_emit_line_directives = false;
     g_current_source_file = str("");
     g_current_line = 0;
     
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("i8"), str("int8_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("u8"), str("uint8_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("i16"), str("int16_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("u16"), str("uint16_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("i32"), str("int32_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("u32"), str("uint32_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("i64"), str("int64_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("u64"), str("uint64_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("isize"), str("intptr_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("usize"), str("uintptr_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("f32"), str("float"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("f64"), str("double"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("bool"), str("bool"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("char"), str("char"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("rchar"), str("char*"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("byte"), str("uint8_t"));
-    StringStringMap.set(addr(g_type_mappings), addr(arena), str("ptrdiff"), str("isize"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i8"), str("int8_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("u8"), str("uint8_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i16"), str("int16_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("u16"), str("uint16_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i32"), str("int32_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("u32"), str("uint32_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i64"), str("int64_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("u64"), str("uint64_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("isize"), str("intptr_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("usize"), str("uintptr_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("f32"), str("float"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("f64"), str("double"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("bool"), str("bool"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("char"), str("char"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("rchar"), str("char*"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("byte"), str("uint8_t"));
+    StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("ptrdiff"), str("isize"));
 }
 
 /// Check if a type is a builtin primitive type
@@ -1328,9 +1355,11 @@ def collect_function_signatures(node: ref ASTNode, arena: ref Arena, prefix: str
         
         if node.data.function.is_generic {
             StringBoolMap.set(addr(g_generic_functions), arena, reg_name, true);
+            StringLongMap.set(addr(g_generic_function_asts), arena, reg_name, cast[i64](node));
             if StringStringMap.contains(addr(g_function_prefixes), reg_name) {
                 val prefixed_name: string = StringStringMap.get(addr(g_function_prefixes), reg_name);
                 StringBoolMap.set(addr(g_generic_functions), arena, prefixed_name, true);
+                StringLongMap.set(addr(g_generic_function_asts), arena, prefixed_name, cast[i64](node));
             }
         }
     }
@@ -4154,7 +4183,6 @@ def format_model_field_type(field_type: string): string {
 }
 
 /// Process parameter type (handle ref, mut, pointers, etc.)
-[inline]
 def process_parameter_type(param_type: string): string {
     // Delegate to the comprehensive Axe->C mapper so that 'mut', repeated
     // 'ref' prefixes, list[999] sugar, and pointer suffixes are handled
@@ -6356,6 +6384,66 @@ def generate_function_prototype(ast: ref ASTNode): string {
     return result;
 }
 
+/// Generate a specialized function prototype
+def generate_specialized_function_prototype(ast: ref ASTNode, type_mapping: ref StringStringMap, spec_func_name: string): string {
+    if ast == nil { return str(""); }
+    
+    mut return_type: string = ast.data.function.return_type;
+    if str_len(return_type) == 0 { return_type = str("void"); }
+    if StringStringMap.contains(type_mapping, return_type) {
+        return_type = StringStringMap.get(type_mapping, return_type);
+    }
+    val mapped_ret: string = map_axe_type_to_c(return_type);
+    
+    mut sb_spec: StringBuilder = StringBuilder.init(512);
+    val tags: ref list(string) = ast.data.function.tags;
+    if tags != nil {
+        mut ti: i32 = 0;
+        loop {
+            if ti >= len(deref(tags)) { break; }
+            if equals_c(tags.data[ti], "inline") {
+                StringBuilder.append_c(addr(sb_spec), "static ");
+                break;
+            }
+            ti++;
+        }
+    }
+    
+    StringBuilder.append(addr(sb_spec), mapped_ret);
+    StringBuilder.append_char(addr(sb_spec), ' ');
+    StringBuilder.append(addr(sb_spec), spec_func_name);
+    StringBuilder.append_c(addr(sb_spec), "(");
+    
+    val params: ref list(string) = ast.data.function.params;
+    if params != nil {
+        mut pidx: i32 = 0;
+        loop {
+            if pidx >= len(deref(params)) { break; }
+            if pidx > 0 { StringBuilder.append_c(addr(sb_spec), ", "); }
+            val param: string = params.data[pidx];
+            val colon_pos: i32 = find_char_from(param, ':', cast[usize](0));
+            if colon_pos >= 0 {
+                val param_name: string = strip(substring_se(param, 0, colon_pos));
+                mut param_type: string = strip(substr(param, colon_pos + 1, str_len(param) - colon_pos - 1));
+                if StringStringMap.contains(type_mapping, param_type) {
+                    param_type = StringStringMap.get(type_mapping, param_type);
+                }
+                val processed_param_type: string = process_parameter_type(param_type);
+                StringBuilder.append(addr(sb_spec), processed_param_type);
+                StringBuilder.append_char(addr(sb_spec), ' ');
+                StringBuilder.append(addr(sb_spec), param_name);
+            } else {
+                StringBuilder.append(addr(sb_spec), param);
+            }
+            pidx++;
+        }
+    }
+    StringBuilder.append_c(addr(sb_spec), ");\n");
+    val result_spec: string = StringBuilder.to_string(addr(sb_spec));
+    StringBuilder.destroy(addr(sb_spec));
+    return result_spec;
+}
+
 /// Generate C code for a global variable declaration with gvar__ prefix.
 def generate_global_decl(ast: ref ASTNode): string {
     mut result: string = str("");
@@ -6697,15 +6785,18 @@ pub def generate_c(ast: ref ASTNode): string {
         collect_foreign_types(ast);
         build_function_signatures(ast);
 
-        mut sb: StringBuilder = StringBuilder.init(32768);
+        mut sb_header: StringBuilder = StringBuilder.init(8192);
+        mut sb_protos: StringBuilder = StringBuilder.init(8192);
+        mut sb_bodies: StringBuilder = StringBuilder.init(16384);
+        mut sb_specs: StringBuilder = StringBuilder.init(16384);
 
         StringBuilder.append_c(
-            addr(sb),
+            addr(sb_header),
             "#define nil ((void*)0)\n#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n#include <string.h>\n#include <stdint.h>\n#define len_ptr(x) ((x)->len)\n#define len_v(x) ((&(x))->len)\n#define len(x) len_v(x)\n"
         );
 
-        StringBuilder.append_c(addr(sb), "\n#ifdef _WIN32\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n#include <windows.h>\n#endif\n");
-        StringBuilder.append_c(addr(sb), "\n#ifdef __APPLE__\n#include <ctype.h>\n#include <mach-o/dyld.h>\n#endif\n");
+        StringBuilder.append_c(addr(sb_header), "\n#ifdef _WIN32\n#define NOMINMAX\n#define NOGDI\n#define WIN32_LEAN_AND_MEAN\n#include <windows.h>\n#endif\n");
+        StringBuilder.append_c(addr(sb_header), "\n#ifdef __APPLE__\n#include <ctype.h>\n#include <mach-o/dyld.h>\n#endif\n");
 
         mut ghi: i32 = 0;
         loop {
@@ -6713,152 +6804,149 @@ pub def generate_c(ast: ref ASTNode): string {
                 break;
             }
             val gh: string = StringList.get(g_global_external_headers, ghi);
-            StringBuilder.append_c(addr(sb), "#include <");
-            StringBuilder.append(addr(sb), gh);
-            StringBuilder.append_c(addr(sb), ">\n");
+            StringBuilder.append_c(addr(sb_header), "#include <");
+            StringBuilder.append(addr(sb_header), gh);
+            StringBuilder.append_c(addr(sb_header), ">\n");
             ghi = ghi + 1;
         }
 
         // Emit platform-specific headers grouped under appropriate preprocessor
         // guards.
         if g_windows_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef _WIN32\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef _WIN32\n");
             mut whi: i32 = 0;
             loop {
                 if whi >= g_windows_external_headers*.len {
                     break;
                 }
                 val wh: string = StringList.get(g_windows_external_headers, whi);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), wh);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), wh);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 whi = whi + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_posix_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifndef _WIN32\n");
+            StringBuilder.append_c(addr(sb_header), "#ifndef _WIN32\n");
             mut phi: i32 = 0;
             loop {
                 if phi >= g_posix_external_headers*.len {
                     break;
                 }
                 val ph: string = StringList.get(g_posix_external_headers, phi);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), ph);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), ph);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 phi = phi + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_linux_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef __linux__\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef __linux__\n");
             mut i_l: i32 = 0;
             loop {
                 if i_l >= g_linux_external_headers*.len {
                     break;
                 }
                 val h: string = StringList.get(g_linux_external_headers, i_l);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), h);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), h);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 i_l = i_l + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_macos_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef __APPLE__\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef __APPLE__\n");
             mut i_m: i32 = 0;
             loop {
                 if i_m >= g_macos_external_headers*.len {
                     break;
                 }
                 val h: string = StringList.get(g_macos_external_headers, i_m);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), h);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), h);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 i_m = i_m + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_freebsd_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef __FreeBSD__\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef __FreeBSD__\n");
             mut i_fb: i32 = 0;
             loop {
                 if i_fb >= g_freebsd_external_headers*.len {
                     break;
                 }
                 val h: string = StringList.get(g_freebsd_external_headers, i_fb);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), h);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), h);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 i_fb = i_fb + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_openbsd_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef __OpenBSD__\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef __OpenBSD__\n");
             mut i_ob: i32 = 0;
             loop {
                 if i_ob >= g_openbsd_external_headers*.len {
                     break;
                 }
                 val h: string = StringList.get(g_openbsd_external_headers, i_ob);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), h);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), h);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 i_ob = i_ob + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_netbsd_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef __NetBSD__\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef __NetBSD__\n");
             mut i_nb: i32 = 0;
             loop {
                 if i_nb >= g_netbsd_external_headers*.len {
                     break;
                 }
                 val h: string = StringList.get(g_netbsd_external_headers, i_nb);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), h);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), h);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 i_nb = i_nb + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if g_dragonflybsd_external_headers*.len > 0 {
-            StringBuilder.append_c(addr(sb), "#ifdef __DragonFly__\n");
+            StringBuilder.append_c(addr(sb_header), "#ifdef __DragonFly__\n");
             mut i_df: i32 = 0;
             loop {
                 if i_df >= g_dragonflybsd_external_headers*.len {
                     break;
                 }
                 val h: string = StringList.get(g_dragonflybsd_external_headers, i_df);
-                StringBuilder.append_c(addr(sb), "#include <");
-                StringBuilder.append(addr(sb), h);
-                StringBuilder.append_c(addr(sb), ">\n");
+                StringBuilder.append_c(addr(sb_header), "#include <");
+                StringBuilder.append(addr(sb_header), h);
+                StringBuilder.append_c(addr(sb_header), ">\n");
                 i_df = i_df + 1;
             }
-            StringBuilder.append_c(addr(sb), "#endif\n");
+            StringBuilder.append_c(addr(sb_header), "#endif\n");
         }
 
         if !::is_release_build {
             val stack_headers: string = generate_stack_trace_headers();
-            StringBuilder.append(addr(sb), stack_headers);
+            StringBuilder.append(addr(sb_header), stack_headers);
         }
 
-        StringBuilder.append_c(addr(sb), "\nint __axe_argc = 0;\nchar** __axe_argv = NULL;\n\n");
+        StringBuilder.append_c(addr(sb_header), "\nint __axe_argc = 0;\nchar** __axe_argv = NULL;\n\n");
 
-        // Convert StringBuilder to result string for the rest of the function
-        result = StringBuilder.to_string(addr(sb));
-        StringBuilder.destroy(addr(sb));
 
         build_function_prefixes(ast);
         build_function_signatures(ast);
@@ -7011,9 +7099,7 @@ pub def generate_c(ast: ref ASTNode): string {
 
             mut header_part: string = StringBuilder.to_string(addr(sb_fwd));
             StringBuilder.destroy(addr(sb_fwd));
-            mut sb_prog: StringBuilder = StringBuilder.init(65536);
-            StringBuilder.append(addr(sb_prog), result);
-            StringBuilder.append(addr(sb_prog), header_part);
+            StringBuilder.append(addr(sb_header), header_part);
 
             if g_list_elements != nil {
                 val lst_ref: ref StringList = g_list_elements;
@@ -7024,11 +7110,11 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                     val elemTypeStr: string = StringList.get(lst_ref, li);
                     val san: string = sanitize_list_element_name(elemTypeStr);
-                    StringBuilder.append_c(addr(sb_prog), "typedef struct __list_");
-                    StringBuilder.append(addr(sb_prog), san);
-                    StringBuilder.append_c(addr(sb_prog), "_t __list_");
-                    StringBuilder.append(addr(sb_prog), san);
-                    StringBuilder.append_c(addr(sb_prog), "_t;\n");
+                    StringBuilder.append_c(addr(sb_header), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_header), san);
+                    StringBuilder.append_c(addr(sb_header), "_t __list_");
+                    StringBuilder.append(addr(sb_header), san);
+                    StringBuilder.append_c(addr(sb_header), "_t;\n");
                     li = li + 1;
                 }
             }
@@ -7062,7 +7148,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     if has_opaque {
                         val plat_dir: string = platform_macro_start(platform_name);
                         if str_len(plat_dir) > 0 {
-                            StringBuilder.append(addr(sb_prog), plat_dir);
+                            StringBuilder.append(addr(sb_header), plat_dir);
                         }
                         val plat_children2: ref list(ASTNode) = op_plat.children;
                         mut oc2: i32 = 0;
@@ -7073,15 +7159,15 @@ pub def generate_c(ast: ref ASTNode): string {
                             val oc_child2: ref ASTNode = addr(plat_children2.data[oc2]);
                             if equals_c(oc_child2.node_type, "Opaque") {
                                 val opaque_code: string = generate_c(oc_child2);
-                                StringBuilder.append(addr(sb_prog), opaque_code);
+                                StringBuilder.append(addr(sb_header), opaque_code);
                             } elif equals_c(oc_child2.node_type, "Foreign") {
                                 val foreign_code: string = generate_c(oc_child2);
-                                StringBuilder.append(addr(sb_prog), foreign_code);
+                                StringBuilder.append(addr(sb_header), foreign_code);
                             }
                             oc2++;
                         }
                         if str_len(plat_dir) > 0 {
-                            StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                            StringBuilder.append_c(addr(sb_header), "#endif\n");
                         }
                     }
                 }
@@ -7096,7 +7182,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 val enum_child: ref ASTNode = addr(children.data[i_enums]);
                 if equals_c(enum_child.node_type, "Enum") {
                     val e_code: string = generate_c(enum_child);
-                    StringBuilder.append(addr(sb_prog), e_code);
+                    StringBuilder.append(addr(sb_header), e_code);
                 }
                 i_enums = i_enums + 1;
             }
@@ -7348,17 +7434,17 @@ pub def generate_c(ast: ref ASTNode): string {
                     val elemType: string = StringList.get(lst_ref2, ld);
                     val elemSanDef: string = sanitize_list_element_name(elemType);
 
-                    StringBuilder.append_c(addr(sb_prog), "typedef struct __list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_t {\n    ");
+                    StringBuilder.append_c(addr(sb_header), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_header), elemSanDef);
+                    StringBuilder.append_c(addr(sb_header), "_t {\n    ");
                     mut final_field_type: string = elemType;
                     if has_prefix(elemType, str("list(")) {
                         final_field_type = map_axe_type_to_c(elemType);
                     }
-                    StringBuilder.append(addr(sb_prog), final_field_type);
-                    StringBuilder.append_c(addr(sb_prog), "* data;\n    int len;\n    int capacity;\n} __list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_t;\n\n");
+                    StringBuilder.append(addr(sb_header), final_field_type);
+                    StringBuilder.append_c(addr(sb_header), "* data;\n    int len;\n    int capacity;\n} __list_");
+                    StringBuilder.append(addr(sb_header), elemSanDef);
+                    StringBuilder.append_c(addr(sb_header), "_t;\n\n");
                     ld++;
                 }
             }
@@ -7379,7 +7465,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     if equals_c(find_child.node_type, "Model") {
                         if compare(find_child.data.model_node.name, sorted_name) == 0 {
                             val m_code: string = generate_c(find_child);
-                            StringBuilder.append(addr(sb_prog), m_code);
+                            StringBuilder.append(addr(sb_protos), m_code);
                             break;
                         }
                     }
@@ -7399,30 +7485,30 @@ pub def generate_c(ast: ref ASTNode): string {
                     val elemType: string = StringList.get(lst_ref3, ld2);
                     val elemSanDef: string = sanitize_list_element_name(elemType);
 
-                    StringBuilder.append_c(addr(sb_prog), "static inline __list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_t __list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_init(void) {\n    __list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
-                    StringBuilder.append_c(addr(sb_prog), "static inline void __list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_push(__list_");
-                    StringBuilder.append(addr(sb_prog), elemSanDef);
-                    StringBuilder.append_c(addr(sb_prog), "_t* list, ");
+                    StringBuilder.append_c(addr(sb_protos), "static inline __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_t __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_init(void) {\n    __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
+                    StringBuilder.append_c(addr(sb_protos), "static inline void __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_push(__list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_t* list, ");
                     mut final_param_type: string = elemType;
                     if has_prefix(elemType, str("list(")) {
                         final_param_type = map_axe_type_to_c(elemType);
                     }
-                    StringBuilder.append(addr(sb_prog), final_param_type);
-                    StringBuilder.append_c(addr(sb_prog), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
-                    StringBuilder.append(addr(sb_prog), final_param_type);
-                    StringBuilder.append_c(addr(sb_prog), "* new_data = (");
-                    StringBuilder.append(addr(sb_prog), final_param_type);
-                    StringBuilder.append_c(addr(sb_prog), "*)realloc(list->data, new_capacity * sizeof(");
-                    StringBuilder.append(addr(sb_prog), final_param_type);
-                    StringBuilder.append_c(addr(sb_prog), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), "* new_data = (");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), "*)realloc(list->data, new_capacity * sizeof(");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
 
                     ld2++;
                 }
@@ -7479,7 +7565,7 @@ pub def generate_c(ast: ref ASTNode): string {
                         StringBoolMap.set(addr(generated_in_this_pass), addr(generated_arena), var_name, true);
                         val g_code: string = generate_global_decl(g_child);
                         if str_len(g_code) > 0 {
-                            StringBuilder.append(addr(sb_prog), g_code);
+                            StringBuilder.append(addr(sb_header), g_code);
                         }
                     }
                 }
@@ -7637,57 +7723,10 @@ pub def generate_c(ast: ref ASTNode): string {
                                 tm_idx2++;
                             }
 
-                            mut sb_proto2: StringBuilder = StringBuilder.init(512);
-                            val spec_tags2: ref list(string) = proto_child.data.function.tags;
-                            if spec_tags2 != nil {
-                                mut ti_spec2: i32 = 0;
-                                loop {
-                                    if ti_spec2 >= len(deref(spec_tags2)) { break; }
-                                    if equals_c(spec_tags2.data[ti_spec2], "inline") {
-                                        StringBuilder.append_c(addr(sb_proto2), "static ");
-                                        break;
-                                    }
-                                    ti_spec2++;
-                                }
+                            val spec_proto_code: string = generate_specialized_function_prototype(proto_child, addr(type_mapping2), spec_func_name2);
+                            if str_len(spec_proto_code) > 0 {
+                                StringBuilder.append(addr(sb_protos), spec_proto_code);
                             }
-                            mut spec_return_type2: string = proto_child.data.function.return_type;
-                            if str_len(spec_return_type2) == 0 { spec_return_type2 = str("void"); }
-                            if StringStringMap.contains(addr(type_mapping2), spec_return_type2) {
-                                spec_return_type2 = StringStringMap.get(addr(type_mapping2), spec_return_type2);
-                            }
-                            val mapped_ret2: string = map_axe_type_to_c(spec_return_type2);
-                            StringBuilder.append(addr(sb_proto2), mapped_ret2);
-                            StringBuilder.append_char(addr(sb_proto2), ' ');
-                            StringBuilder.append(addr(sb_proto2), spec_func_name2);
-                            StringBuilder.append_c(addr(sb_proto2), "(");
-                            val params2: ref list(string) = proto_child.data.function.params;
-                            if params2 != nil {
-                                mut pidx2: i32 = 0;
-                                loop {
-                                    if pidx2 >= len(deref(params2)) { break; }
-                                    if pidx2 > 0 { StringBuilder.append_c(addr(sb_proto2), ", "); }
-                                    val param2: string = params2.data[pidx2];
-                                    val colon_pos_p2: i32 = find_char_from(param2, ':', cast[usize](0));
-                                    if colon_pos_p2 >= 0 {
-                                        val param_name_p2: string = strip(substring_se(param2, 0, colon_pos_p2));
-                                        mut param_type_p2: string = strip(substr(param2, colon_pos_p2 + 1, str_len(param2) - colon_pos_p2 - 1));
-                                        if StringStringMap.contains(addr(type_mapping2), param_type_p2) {
-                                            param_type_p2 = StringStringMap.get(addr(type_mapping2), param_type_p2);
-                                        }
-                                        val processed_param_type_p2: string = process_parameter_type(param_type_p2);
-                                        StringBuilder.append(addr(sb_proto2), processed_param_type_p2);
-                                        StringBuilder.append_char(addr(sb_proto2), ' ');
-                                        StringBuilder.append(addr(sb_proto2), param_name_p2);
-                                    } else {
-                                        StringBuilder.append(addr(sb_proto2), param2);
-                                    }
-                                    pidx2++;
-                                }
-                            }
-                            StringBuilder.append_c(addr(sb_proto2), ");\n");
-                            StringBuilder.append(addr(sb_prog), StringBuilder.to_string(addr(sb_proto2)));
-                            StringBuilder.destroy(addr(sb_proto2));
-
                             branch_idx2++;
                         }
 
@@ -7704,7 +7743,7 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             if !StringBoolMap.contains(addr(g_emitted_prototypes), canon_name) {
                                 StringBoolMap.set(addr(g_emitted_prototypes), addr(global_arena), canon_name, true);
-                                StringBuilder.append(addr(sb_prog), proto_code);
+                                StringBuilder.append(addr(sb_protos), proto_code);
                             }
                         }
                     }
@@ -7713,7 +7752,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     val platform_name: string = proto_child.data.platform_node.platform_name;
                     val plat_dir: string = platform_macro_start(platform_name);
                     if str_len(plat_dir) > 0 {
-                        StringBuilder.append(addr(sb_prog), plat_dir);
+                        StringBuilder.append(addr(sb_protos), plat_dir);
                     }
                     if proto_child.children != nil {
                         val plat_children: ref list(ASTNode) = proto_child.children;
@@ -7726,19 +7765,21 @@ pub def generate_c(ast: ref ASTNode): string {
                             if equals_c(plat_child.node_type, "Function") {
                                 val plat_proto: string = generate_function_prototype(plat_child);
                                 if str_len(plat_proto) > 0 {
-                                    StringBuilder.append(addr(sb_prog), plat_proto);
+                                    StringBuilder.append(addr(sb_protos), plat_proto);
                                 }
                             }
                             pi++;
                         }
                     }
                     if str_len(plat_dir) > 0 {
-                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                        StringBuilder.append_c(addr(sb_protos), "#endif\n");
                     }
                 }
                 i_proto++;
             }
-            StringBuilder.append_char(addr(sb_prog), '\n');
+            
+            
+            StringBuilder.append_char(addr(sb_bodies), '\n');
 
             mut i: i32 = 0;
             loop {
@@ -7748,8 +7789,8 @@ pub def generate_c(ast: ref ASTNode): string {
                 val child: ref ASTNode = addr(children.data[i]);
                 if equals_c(child.node_type, "Overload") {
                     val ov_code: string = generate_c(child);
-                    StringBuilder.append(addr(sb_prog), ov_code);
-                    StringBuilder.append_char(addr(sb_prog), '\n');
+                    StringBuilder.append(addr(sb_bodies), ov_code);
+                    StringBuilder.append_char(addr(sb_bodies), '\n');
                 }
                 i++;
             }
@@ -7764,14 +7805,14 @@ pub def generate_c(ast: ref ASTNode): string {
                     val fn_name: string = fn_child.data.function.name;
                     if !equals_c(fn_name, "main") {
                         val fn_code: string = generate_c(fn_child);
-                        StringBuilder.append(addr(sb_prog), fn_code);
+                        StringBuilder.append(addr(sb_bodies), fn_code);
                     }
                 }
                 if equals_c(fn_child.node_type, "Platform") {
                     val platform_name: string = fn_child.data.platform_node.platform_name;
                     val plat_dir: string = platform_macro_start(platform_name);
                     if str_len(plat_dir) > 0 {
-                        StringBuilder.append(addr(sb_prog), plat_dir);
+                        StringBuilder.append(addr(sb_bodies), plat_dir);
                     }
                     if fn_child.children != nil {
                         val plat_children: ref list(ASTNode) = fn_child.children;
@@ -7785,14 +7826,14 @@ pub def generate_c(ast: ref ASTNode): string {
                                 val plat_fn_name: string = plat_child.data.function.name;
                                 if !equals_c(plat_fn_name, "main") {
                                     val plat_fn_code: string = generate_c(plat_child);
-                                    StringBuilder.append(addr(sb_prog), plat_fn_code);
+                                    StringBuilder.append(addr(sb_bodies), plat_fn_code);
                                 }
                             }
                             pi++;
                         }
                     }
                     if str_len(plat_dir) > 0 {
-                        StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                        StringBuilder.append_c(addr(sb_bodies), "#endif\n");
                     }
                 }
                 i++;
@@ -7808,7 +7849,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     val namecheck: string = fnn.data.function.name;
                     if equals_c(namecheck, "main") {
                         val main_code: string = generate_c(fnn);
-                        StringBuilder.append(addr(sb_prog), main_code);
+                        StringBuilder.append(addr(sb_bodies), main_code);
                         break;
                     }
                 }
@@ -7825,7 +7866,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     and !equals_c(child2.node_type, "Model") and !equals_c(child2.node_type, "Enum") 
                     and !equals_c(child2.node_type, "Declaration") and !equals_c(child2.node_type, "Platform") {
                     val child_code: string = generate_c(child2);
-                    StringBuilder.append(addr(sb_prog), child_code);
+                    StringBuilder.append(addr(sb_bodies), child_code);
                 }
                 i++;
             }
@@ -7859,7 +7900,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     if has_non_func_content {
                         val plat_dir: string = platform_macro_start(platform_name);
                         if str_len(plat_dir) > 0 {
-                            StringBuilder.append(addr(sb_prog), plat_dir);
+                            StringBuilder.append(addr(sb_bodies), plat_dir);
                         }
                         if plat_node.children != nil {
                             val plat_children2: ref list(ASTNode) = plat_node.children;
@@ -7872,21 +7913,49 @@ pub def generate_c(ast: ref ASTNode): string {
                                 // Skip functions - they were already emitted
                                 if !equals_c(pc_child2.node_type, "Function") {
                                     val pc_code: string = generate_c(pc_child2);
-                                    StringBuilder.append(addr(sb_prog), pc_code);
+                                    StringBuilder.append(addr(sb_bodies), pc_code);
                                 }
                                 pc2 = pc2 + 1;
                             }
                         }
                         if str_len(plat_dir) > 0 {
-                            StringBuilder.append_c(addr(sb_prog), "#endif\n");
+                            StringBuilder.append_c(addr(sb_bodies), "#endif\n");
                         }
                     }
                 }
                 i++;
             }
+
+            mut q_idx: i32 = 0;
+            loop {
+                if q_idx >= g_specialization_queue*.len {
+                    break;
+                }
+                val f_name: string = StringList.get(g_specialization_queue, q_idx);
+                if StringLongMap.contains(addr(g_generic_function_asts), f_name) {
+                    val ast_ptr_spec: i64 = StringLongMap.get(addr(g_generic_function_asts), f_name);
+                    val gen_ast_spec: ref ASTNode = cast[ref ASTNode](ast_ptr_spec);
+                    val spec_code: string = generate_c(gen_ast_spec);
+                    if str_len(spec_code) > 0 {
+                        StringBuilder.append(addr(sb_specs), spec_code);
+                    }
+                }
+                q_idx++;
+            }
             
-            result = StringBuilder.to_string(addr(sb_prog));
-            StringBuilder.destroy(addr(sb_prog));
+            mut sb_final: StringBuilder = StringBuilder.init(128000);
+            StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(sb_header)));
+            StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(sb_protos)));
+            StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(g_specialization_prototypes_sb)));
+            StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(sb_bodies)));
+            StringBuilder.append(addr(sb_final), StringBuilder.to_string(addr(sb_specs)));
+            
+            result = StringBuilder.to_string(addr(sb_final));
+            StringBuilder.destroy(addr(sb_header));
+            StringBuilder.destroy(addr(sb_protos));
+            StringBuilder.destroy(addr(sb_bodies));
+            StringBuilder.destroy(addr(sb_specs));
+            StringBuilder.destroy(addr(sb_final));
         }
         result = replace_all(result, str("(->"), str("->"));
 
@@ -8265,6 +8334,12 @@ pub def generate_c(ast: ref ASTNode): string {
             
             if when_types != nil and len(deref(when_types)) > 0 {
                 has_top_level_when = true;
+                mut wti: i32 = 0;
+                loop {
+                    if wti >= len(deref(when_types)) { break; }
+                    append(collected_constraints, when_types.data[wti]);
+                    wti++;
+                }
             }
             
             if !has_top_level_when {
@@ -8328,6 +8403,35 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
             }
             
+            // Add on-demand specializations from call sites
+            if StringStringMap.contains(addr(g_needed_specializations), func_name) {
+                val needed_raw: string = StringStringMap.get(addr(g_needed_specializations), func_name);
+                mut start: i32 = 0;
+                val n_needed: i32 = cast[i32](str_len(needed_raw));
+                loop {
+                    if start >= n_needed { break; }
+                    mut end: i32 = find_char_from(needed_raw, ';', cast[usize](start));
+                    if end < 0 { end = n_needed; }
+                    val one_needed: string = substring_se(needed_raw, start, end);
+                    if str_len(one_needed) > 0 {
+                        mut found_n: bool = false;
+                        mut ni: i32 = 0;
+                        loop {
+                            if ni >= len(collected_constraints) { break; }
+                            if equals_c(collected_constraints.data[ni], one_needed.data) {
+                                found_n = true;
+                                break;
+                            }
+                            ni++;
+                        }
+                        if !found_n {
+                            append(collected_constraints, one_needed);
+                        }
+                    }
+                    start = end + 1;
+                }
+            }
+            
             if !has_top_level_when and len(collected_constraints) == 0 {
                 return str("");
             }
@@ -8337,7 +8441,7 @@ pub def generate_c(ast: ref ASTNode): string {
             mut constraint_list_len: i32 = 0;
 
             if has_top_level_when {
-                constraint_list_len = len(deref(when_types));
+                constraint_list_len = len(collected_constraints);
             } else {
                 constraint_list_len = len(collected_constraints);
             }
@@ -8348,12 +8452,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     break;
                 }
                 
-                mut constraint_str: string = str("");
-                if has_top_level_when {
-                    constraint_str = when_types.data[branch_idx];
-                } else {
-                    constraint_str = collected_constraints.data[branch_idx];
-                }
+                mut constraint_str: string = collected_constraints.data[branch_idx];
                 val child_count: i32 = 0;
                 
                 mut sb_spec_name: StringBuilder = StringBuilder.init(256);
@@ -10132,16 +10231,116 @@ pub def generate_c(ast: ref ASTNode): string {
                 if len(deref(call_args)) > 1 {
                     inferred2 = infer_expression_type(call_args.data[1]);
                 }
+                
+                print "[DEBUG FC] Generic function detected: "; println emitted_name;
+                print "[DEBUG FC] inferred1: "; println inferred1;
+                print "[DEBUG FC] inferred2: "; println inferred2;
+
                 if str_len(inferred1) > 0 or str_len(inferred2) > 0 {
                     mut newname: string = emitted_name;
-                    if str_len(inferred2) > 0 and str_len(inferred1) > 0 {
-                        newname = concat(newname, str("__T2_"));
-                        newname = concat(newname, sanitize_c_identifier(inferred2));
-                        newname = concat(newname, str("__T_"));
-                        newname = concat(newname, sanitize_c_identifier(inferred1));
-                    } elif str_len(inferred1) > 0 {
-                        newname = concat(newname, str("__T_"));
-                        newname = concat(newname, sanitize_c_identifier(inferred1));
+                    if StringLongMap.contains(addr(g_generic_function_asts), emitted_name) {
+                        print "[DEBUG FC] Found AST for "; println emitted_name;
+                        val gen_ast_ptr: i64 = StringLongMap.get(addr(g_generic_function_asts), emitted_name);
+                        val gen_ast: ref ASTNode = cast[ref ASTNode](gen_ast_ptr);
+                        val type_params: ref list(string) = gen_ast.data.function.type_params;
+                        
+                        mut sb_name: StringBuilder = StringBuilder.init(128);
+                        StringBuilder.append(addr(sb_name), emitted_name);
+                        mut sb_const: StringBuilder = StringBuilder.init(128);
+                        
+                        if type_params != nil {
+                            if len(deref(type_params)) > 0 and str_len(inferred1) > 0 {
+                                val tp1: string = type_params.data[0];
+                                StringBuilder.append_c(addr(sb_name), "__");
+                                StringBuilder.append(addr(sb_name), tp1);
+                                StringBuilder.append_c(addr(sb_name), "_");
+                                StringBuilder.append(addr(sb_name), sanitize_c_identifier(inferred1));
+                                
+                                StringBuilder.append(addr(sb_const), tp1);
+                                StringBuilder.append_c(addr(sb_const), ":");
+                                StringBuilder.append(addr(sb_const) , inferred1);
+                            }
+                            if len(deref(type_params)) > 1 and str_len(inferred2) > 0 {
+                                val tp2: string = type_params.data[1];
+                                StringBuilder.append_c(addr(sb_name), "__");
+                                StringBuilder.append(addr(sb_name), tp2);
+                                StringBuilder.append_c(addr(sb_name), "_");
+                                StringBuilder.append(addr(sb_name), sanitize_c_identifier(inferred2));
+                                
+                                StringBuilder.append_c(addr(sb_const), ",");
+                                StringBuilder.append(addr(sb_const), tp2);
+                                StringBuilder.append_c(addr(sb_const), ":");
+                                StringBuilder.append(addr(sb_const), inferred2);
+                            }
+                        }
+                        newname = StringBuilder.to_string(addr(sb_name));
+                        val constraint_str: string = StringBuilder.to_string(addr(sb_const));
+                        StringBuilder.destroy(addr(sb_name));
+                        StringBuilder.destroy(addr(sb_const));
+                        
+                        if str_len(constraint_str) > 0 {
+                            print "[DEBUG FC] Recording specialization: "; println constraint_str;
+                            mut existing: string = StringStringMap.get(addr(g_needed_specializations), emitted_name);
+                            mut added: bool = false;
+                            if str_len(existing) > 0 {
+                                if find_substr(existing, constraint_str) < 0 {
+                                    existing = concat(existing, str(";"));
+                                    existing = concat(existing, constraint_str);
+                                    StringStringMap.set(addr(g_needed_specializations), addr(g_renderer_arena), emitted_name, existing);
+                                    added = true;
+                                }
+                            } else {
+                                StringStringMap.set(addr(g_needed_specializations), addr(g_renderer_arena), emitted_name, constraint_str);
+                                added = true;
+                            }
+                            
+                            if added {
+                                print "[DEBUG FC] Queuing specialization for "; println emitted_name;
+                                StringList.push(g_specialization_queue, addr(g_renderer_arena), emitted_name);
+                                
+                                // Also generate and emit prototype early
+                                if !StringBoolMap.contains(addr(g_emitted_prototypes), newname) {
+                                    mut spec_arena_p: Arena = Arena.create(1024);
+                                    mut type_mapping_p: StringStringMap = deref(StringStringMap.create(addr(spec_arena_p), 8));
+                                    mut tm_idx_p: i32 = 0;
+                                    mut tm_start_p: i32 = 0;
+                                    val tm_len_p: i32 = cast[i32](str_len(constraint_str));
+                                    loop {
+                                        if tm_idx_p > tm_len_p { break; }
+                                        mut is_tm_sep_p: bool = false;
+                                        if tm_idx_p == tm_len_p { is_tm_sep_p = true; }
+                                        elif get_char(constraint_str, tm_idx_p) == ',' { is_tm_sep_p = true; }
+                                        if is_tm_sep_p {
+                                            val tm_constraint_p: string = substring_se(constraint_str, tm_start_p, tm_idx_p);
+                                            val tm_colon_p: i32 = find_char_from(tm_constraint_p, ':', cast[usize](0));
+                                            if tm_colon_p > 0 {
+                                                val tm_param_p: string = substring_se(tm_constraint_p, 0, tm_colon_p);
+                                                val tm_concrete_p: string = substring_se(tm_constraint_p, tm_colon_p + 1, cast[i32](str_len(tm_constraint_p)));
+                                                StringStringMap.set(addr(type_mapping_p), addr(spec_arena_p), tm_param_p, tm_concrete_p);
+                                            }
+                                            tm_start_p = tm_idx_p + 1;
+                                        }
+                                        tm_idx_p++;
+                                    }
+                                    val proto: string = generate_specialized_function_prototype(gen_ast, addr(type_mapping_p), newname);
+                                    if str_len(proto) > 0 {
+                                        StringBuilder.append(addr(g_specialization_prototypes_sb), proto);
+                                        StringBoolMap.set(addr(g_emitted_prototypes), addr(g_renderer_arena), newname, true);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        print "[DEBUG FC] NO AST found for "; println emitted_name;
+                        if str_len(inferred2) > 0 and str_len(inferred1) > 0 {
+                            newname = concat(newname, str("__T2_"));
+                            newname = concat(newname, sanitize_c_identifier(inferred2));
+                            newname = concat(newname, str("__T_"));
+                            newname = concat(newname, sanitize_c_identifier(inferred1));
+                        } elif str_len(inferred1) > 0 {
+                            newname = concat(newname, str("__T_"));
+                            newname = concat(newname, sanitize_c_identifier(inferred1));
+                        }
                     }
                     emitted_name = newname;
                 }

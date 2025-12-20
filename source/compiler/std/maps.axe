@@ -279,6 +279,7 @@ make_string_map(i32, StringIntMap, IntList);
 make_string_map(f32, StringFloatMap, FloatList);
 make_string_map(bool, StringBoolMap, BoolList);
 make_string_map(string, StringStringMap, StringList);
+make_string_map(i64, StringLongMap, LongList);
 
 make_map(i32, i32, IntIntMap, IntList, IntList);
 make_map(f32, i32, FloatIntMap, FloatList, IntList);
