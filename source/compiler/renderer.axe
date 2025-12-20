@@ -935,19 +935,19 @@ def infer_expression_type(expr: string): string {
 
                 if len(parts) == 1 {
                     mangled = concat(mangled, str("__T_"));
-                    mangled = concat(mangled, sanitize_c_identifier(parts.data[0]));
+                    mangled = concat(mangled, sanitize_c_identifier(map_axe_type_to_c(parts.data[0])));
                 } elif len(parts) == 2 {
                     mangled = concat(mangled, str("__T2_"));
-                    mangled = concat(mangled, sanitize_c_identifier(parts.data[1]));
+                    mangled = concat(mangled, sanitize_c_identifier(map_axe_type_to_c(parts.data[1])));
                     mangled = concat(mangled, str("__T_"));
-                    mangled = concat(mangled, sanitize_c_identifier(parts.data[0]));
+                    mangled = concat(mangled, sanitize_c_identifier(map_axe_type_to_c(parts.data[0])));
                 } else {
                     mut first: bool = true;
                     mut idxp: i32 = 0;
                     loop {
                         if idxp >= len(parts) { break; }
                         if !first { mangled = concat(mangled, str("__")); }
-                        mangled = concat(mangled, sanitize_c_identifier(parts.data[idxp]));
+                        mangled = concat(mangled, sanitize_c_identifier(map_axe_type_to_c(parts.data[idxp])));
                         first = false;
                         idxp++;
                     }
@@ -1157,19 +1157,19 @@ def validate_function_call(func_name: string, args_str: string, depth: i32) {
 
             if len(parts_v) == 1 {
                 mangled_v = concat(mangled_v, str("__T_"));
-                mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[0]));
+                mangled_v = concat(mangled_v, sanitize_c_identifier(map_axe_type_to_c(parts_v.data[0])));
             } elif len(parts_v) == 2 {
                 mangled_v = concat(mangled_v, str("__T2_"));
-                mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[1]));
+                mangled_v = concat(mangled_v, sanitize_c_identifier(map_axe_type_to_c(parts_v.data[1])));
                 mangled_v = concat(mangled_v, str("__T_"));
-                mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[0]));
+                mangled_v = concat(mangled_v, sanitize_c_identifier(map_axe_type_to_c(parts_v.data[0])));
             } else {
                 mut first_v: bool = true;
                 mut idxpv: i32 = 0;
                 loop {
                     if idxpv >= len(parts_v) { break; }
                     if !first_v { mangled_v = concat(mangled_v, str("__")); }
-                    mangled_v = concat(mangled_v, sanitize_c_identifier(parts_v.data[idxpv]));
+                    mangled_v = concat(mangled_v, sanitize_c_identifier(map_axe_type_to_c(parts_v.data[idxpv])));
                     first_v = false;
                     idxpv++;
                 }
@@ -2955,19 +2955,19 @@ def rewrite_generic_calls(expr: string): string {
                         StringBuilder.append(addr(sb), base_ident);
                         if len(parts) == 1 {
                             StringBuilder.append_c(addr(sb), "__T_");
-                            StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[0]));
+                            StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(parts.data[0])));
                         } elif len(parts) == 2 {
                             StringBuilder.append_c(addr(sb), "__T2_");
-                            StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[1]));
+                            StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(parts.data[1])));
                             StringBuilder.append_c(addr(sb), "__T_");
-                            StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[0]));
+                            StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(parts.data[0])));
                         } else {
                             mut first_p: bool = true;
                             mut ip: i32 = 0;
                             loop {
                                 if ip >= len(parts) { break; }
                                 if !first_p { StringBuilder.append_c(addr(sb), "__"); }
-                                StringBuilder.append(addr(sb), sanitize_c_identifier(parts.data[ip]));
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(parts.data[ip])));
                                 first_p = false;
                                 ip++;
                             }
@@ -3029,7 +3029,7 @@ def rewrite_generic_calls(expr: string): string {
                                 StringBuilder.append_c(addr(sb), "__");
                                 StringBuilder.append(addr(sb), method_name);
                                 StringBuilder.append_c(addr(sb), "__T_");
-                                StringBuilder.append(addr(sb), sanitize_c_identifier(type_arg2));
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type_arg2)));
                                 i = m;
                                 continue;
                             }
@@ -3086,7 +3086,7 @@ def rewrite_generic_calls(expr: string): string {
                             if str_len(inferred_type2) > 0 {
                                 StringBuilder.append(addr(sb), full_name);
                                 StringBuilder.append_c(addr(sb), "__T_");
-                                StringBuilder.append(addr(sb), sanitize_c_identifier(inferred_type2));
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(inferred_type2)));
                                 i = m;
                                 continue;
                             }
@@ -3301,12 +3301,12 @@ def rewrite_generic_calls(expr: string): string {
                             StringBuilder.append(addr(sb), base_ident2);
                             if str_len(type2) > 0 and str_len(type1) > 0 {
                                 StringBuilder.append_c(addr(sb), "__T2_");
-                                StringBuilder.append(addr(sb), sanitize_c_identifier(type2));
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type2)));
                                 StringBuilder.append_c(addr(sb), "__T_");
-                                StringBuilder.append(addr(sb), sanitize_c_identifier(type1));
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type1)));
                             } elif str_len(type1) > 0 {
                                 StringBuilder.append_c(addr(sb), "__T_");
-                                StringBuilder.append(addr(sb), sanitize_c_identifier(type1));
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type1)));
                             }
                             i = k;
                             continue;
@@ -7804,7 +7804,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                     val colon_pos2: i32 = find_char_from(one_constraint2, ':', cast[usize](0));
                                     if colon_pos2 > 0 {
                                         val param_name2: string = substring_se(one_constraint2, 0, colon_pos2);
-                                        val concrete_tp2: string = substring_se(one_constraint2, colon_pos2 + 1, cast[i32](str_len(one_constraint2)));
+                                        val concrete_tp2_raw: string = substring_se(one_constraint2, colon_pos2 + 1, cast[i32](str_len(one_constraint2)));
+                                        val concrete_tp2: string = map_axe_type_to_c(concrete_tp2_raw);
                                         StringBuilder.append_c(addr(sb_spec_name2), "__");
                                         StringBuilder.append(addr(sb_spec_name2), param_name2);
                                         StringBuilder.append_c(addr(sb_spec_name2), "_");
@@ -10182,7 +10183,7 @@ pub def generate_c(ast: ref ASTNode): string {
              }
 
              if is_generic_base {
-                 val san_type_chk: string = sanitize_c_identifier(type_arg_chk);
+                 val san_type_chk: string = sanitize_c_identifier(map_axe_type_to_c(type_arg_chk));
                  mut sb_fix: StringBuilder = StringBuilder.init(str_len(target_base) + str_len(san_type_chk) + 16);
                  StringBuilder.append(addr(sb_fix), target_base);
                  StringBuilder.append_c(addr(sb_fix), "__T_");
@@ -10506,12 +10507,12 @@ pub def generate_c(ast: ref ASTNode): string {
                     } else {
                         if str_len(inferred2) > 0 and str_len(inferred1) > 0 {
                             newname = concat(newname, str("__T2_"));
-                            newname = concat(newname, sanitize_c_identifier(inferred2));
+                            newname = concat(newname, sanitize_c_identifier(map_axe_type_to_c(inferred2)));
                             newname = concat(newname, str("__T_"));
-                            newname = concat(newname, sanitize_c_identifier(inferred1));
+                            newname = concat(newname, sanitize_c_identifier(map_axe_type_to_c(inferred1)));
                         } elif str_len(inferred1) > 0 {
                             newname = concat(newname, str("__T_"));
-                            newname = concat(newname, sanitize_c_identifier(inferred1));
+                            newname = concat(newname, sanitize_c_identifier(map_axe_type_to_c(inferred1)));
                         }
                     }
                     emitted_name = newname;
