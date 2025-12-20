@@ -290,6 +290,12 @@ make_map(bool, i32, BoolIntMap, BoolList, IntList);
 make_map(f32, bool, FloatBoolMap, FloatList, BoolList);
 make_map(bool, f32, BoolFloatMap, BoolList, FloatList);
 make_map(bool, bool, BoolBoolMap, BoolList, BoolList);
+make_map(i64, i64, LongLongMap, LongList, LongList);
+make_map(i64, f32, LongFloatMap, LongList, FloatList);
+make_map(i64, bool, LongBoolMap, LongList, BoolList);
+make_map(f32, i64, FloatLongMap, FloatList, LongList);
+make_map(f32, bool, FloatBoolMap, FloatList, BoolList);
+make_map(bool, i64, BoolLongMap, BoolList, LongList);
 
 test {
     mut arena: Arena = Arena.create(1024);
