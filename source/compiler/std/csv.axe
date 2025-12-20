@@ -3,13 +3,13 @@ use std.lists;
 use std.arena;
 
 /// CSV row model - represents a single row of CSV data
-model CsvRow {
+pub model CsvRow {
     fields: StringList;
     field_count: usize;
 }
 
 /// CSV document model - represents an entire CSV file
-model CsvDocument {
+pub model CsvDocument {
     rows: ref CsvRow;
     row_count: usize;
     row_capacity: usize;
@@ -17,14 +17,14 @@ model CsvDocument {
 }
 
 /// CSV parser options
-model CsvOptions {
+pub model CsvOptions {
     delimiter: char;
     quote_char: char;
     has_header: bool;
 }
 
 /// Create default CSV options (comma delimiter, double quote, no header assumption)
-def default_options(): CsvOptions {
+pub def default_options(): CsvOptions {
     mut opts: CsvOptions;
     opts.delimiter = ',';
     opts.quote_char = '"';
@@ -33,7 +33,7 @@ def default_options(): CsvOptions {
 }
 
 /// Create a new empty CSV document with arena allocator
-def create_document(arena: ref Arena): CsvDocument {
+pub def create_document(arena: ref Arena): CsvDocument {
     mut doc: CsvDocument;
     doc.rows = nil;
     doc.row_count = 0;
@@ -43,7 +43,7 @@ def create_document(arena: ref Arena): CsvDocument {
 }
 
 /// Create a new empty CSV row
-def create_row(): CsvRow {
+pub def create_row(): CsvRow {
     mut row: CsvRow;
     row.fields.data = nil;
     row.fields.len = 0;
@@ -53,7 +53,7 @@ def create_row(): CsvRow {
 }
 
 /// Add a field to a CSV row (using arena allocation)
-def add_field(row: ref CsvRow, field: string, arena: ref Arena) {
+pub def add_field(row: ref CsvRow, field: string, arena: ref Arena) {
     if row == nil {
         return;
     }
@@ -85,7 +85,7 @@ def add_field(row: ref CsvRow, field: string, arena: ref Arena) {
 }
 
 /// Add a row to a CSV document (using arena allocation)
-def add_row(doc: ref CsvDocument, row: CsvRow) {
+pub def add_row(doc: ref CsvDocument, row: CsvRow) {
     if doc == nil {
         return;
     }
@@ -116,7 +116,7 @@ def add_row(doc: ref CsvDocument, row: CsvRow) {
 }
 
 /// Get a row from a CSV document by index
-def get_row(doc: ref CsvDocument, index: usize): ref CsvRow {
+pub def get_row(doc: ref CsvDocument, index: usize): ref CsvRow {
     if doc != nil and index < doc.row_count {
         return addr(doc.rows[index]);
     }
@@ -124,7 +124,7 @@ def get_row(doc: ref CsvDocument, index: usize): ref CsvRow {
 }
 
 /// Get a field from a CSV row by index
-def get_field(row: ref CsvRow, index: usize): string {
+pub def get_field(row: ref CsvRow, index: usize): string {
     if row != nil and index < row.field_count {
         return row.fields.data[index];
     }
@@ -132,7 +132,7 @@ def get_field(row: ref CsvRow, index: usize): string {
 }
 
 /// Parse a CSV string into a document (using arena allocation)
-def parse(csv_data: string, options: CsvOptions, arena: ref Arena): CsvDocument {
+pub def parse(csv_data: string, options: CsvOptions, arena: ref Arena): CsvDocument {
     mut doc: CsvDocument = create_document(arena);
     mut current_row: CsvRow = create_row();
     
@@ -257,12 +257,12 @@ def parse(csv_data: string, options: CsvOptions, arena: ref Arena): CsvDocument 
 }
 
 /// Parse CSV with default options (comma delimiter) using arena allocation
-def parse_simple(csv_data: string, arena: ref Arena): CsvDocument {
+pub def parse_simple(csv_data: string, arena: ref Arena): CsvDocument {
     return parse(csv_data, default_options(), arena);
 }
 
 /// Convert a CSV document back to a string (using arena allocation)
-def csv_to_string(doc: ref CsvDocument, options: CsvOptions): string {
+pub def csv_to_string(doc: ref CsvDocument, options: CsvOptions): string {
     mut result: string;
     result.data = nil;
     result.len = 0;
