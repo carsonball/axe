@@ -8663,7 +8663,9 @@ pub def generate_c(ast: ref ASTNode): string {
                         val colon_pos: i32 = find_char_from(one_constraint, ':', cast[usize](0));
                         if colon_pos > 0 {
                             val param_name: string = substring_se(one_constraint, 0, colon_pos);
-                            val concrete_tp: string = substring_se(one_constraint, colon_pos + 1, cast[i32](str_len(one_constraint)));
+                            val concrete_tp_raw: string = substring_se(one_constraint, colon_pos + 1, cast[i32](str_len(one_constraint)));
+                            val concrete_tp: string = map_axe_type_to_c(concrete_tp_raw);
+
                             StringBuilder.append_c(addr(sb_spec_name), "__");
                             StringBuilder.append(addr(sb_spec_name), param_name);
                             StringBuilder.append_c(addr(sb_spec_name), "_");
@@ -10423,26 +10425,28 @@ pub def generate_c(ast: ref ASTNode): string {
                         if type_params != nil {
                             if len(deref(type_params)) > 0 and str_len(inferred1) > 0 {
                                 val tp1: string = type_params.data[0];
+                                val mapped1: string = map_axe_type_to_c(inferred1);
                                 StringBuilder.append_c(addr(sb_name), "__");
                                 StringBuilder.append(addr(sb_name), tp1);
                                 StringBuilder.append_c(addr(sb_name), "_");
-                                StringBuilder.append(addr(sb_name), sanitize_c_identifier(inferred1));
+                                StringBuilder.append(addr(sb_name), sanitize_c_identifier(mapped1));
                                 
                                 StringBuilder.append(addr(sb_const), tp1);
                                 StringBuilder.append_c(addr(sb_const), ":");
-                                StringBuilder.append(addr(sb_const) , inferred1);
+                                StringBuilder.append(addr(sb_const) , mapped1);
                             }
                             if len(deref(type_params)) > 1 and str_len(inferred2) > 0 {
                                 val tp2: string = type_params.data[1];
+                                val mapped2: string = map_axe_type_to_c(inferred2);
                                 StringBuilder.append_c(addr(sb_name), "__");
                                 StringBuilder.append(addr(sb_name), tp2);
                                 StringBuilder.append_c(addr(sb_name), "_");
-                                StringBuilder.append(addr(sb_name), sanitize_c_identifier(inferred2));
+                                StringBuilder.append(addr(sb_name), sanitize_c_identifier(mapped2));
                                 
                                 StringBuilder.append_c(addr(sb_const), ",");
                                 StringBuilder.append(addr(sb_const), tp2);
                                 StringBuilder.append_c(addr(sb_const), ":");
-                                StringBuilder.append(addr(sb_const), inferred2);
+                                StringBuilder.append(addr(sb_const), mapped2);
                             }
                         }
                         newname = StringBuilder.to_string(addr(sb_name));
