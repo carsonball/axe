@@ -1,0 +1,13 @@
+use std.io;
+use std.string;
+
+def main() {
+    println("Press any key to see its character code (Press 'q' to quit):");
+    loop {
+        val ch: i32 = read_key();
+        println(concat(str("Key code: "), i32_to_string(ch)));
+        if ch == cast[i32]('q') {
+            break;
+        }
+    }
+}
