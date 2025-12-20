@@ -11,6 +11,7 @@ pub overload println(x: generic) {
     f64          => println_f64;
     i64          => println_i64;
     bool         => println_bool;
+    usize        => println_i64;
 }(x);
 
 /// Print out some value with no newline
@@ -24,6 +25,7 @@ pub overload print(x: generic) {
     f64          => print_f64;
     i64          => print_i64;
     bool         => print_bool;
+    usize        => print_i64;
 }(x);
 
 /// Print out some char
