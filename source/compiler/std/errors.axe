@@ -20,30 +20,20 @@ pub model error {
 }
 
 /// Stops the program with the given error message.
-pub def panic(err: error) {
+pub def panic[T](err: T) {
     print "\nerror: ";
-    error.print_self(err);
-    
+
+    when T is error {
+        error.print_self(err);
+    }
+    when T is ref char {
+        error.print_self(error.create(err));
+    }
+
     unsafe {
         C.exit(1);
     }
 }
-
-/// Stops the program with the given error message.
-//pub def panic[T](err: T) {
-//    print "\nerror: ";//
-
-//    when T is error {
-//        error.print_self(err);
-//    }
-//    when T is ref char {
-//        error.print_self(error.create(err));
-//    }
-//    
-//    unsafe {
-//        C.exit(1);
-//    }
-//}
 
 /// Enforces a condition, panics if the condition is false.
 pub def enforce(condition: bool, err: error) {
