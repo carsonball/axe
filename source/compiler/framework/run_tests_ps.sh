@@ -15,6 +15,58 @@ if [ ! -x "axc" ]; then
     exit 1
 fi
 
+axc_path="./axc"
+axc_dir=$(cd "$(dirname "$axc_path")" && pwd)
+
+echo "Running 'saw test' in $axc_dir..."
+if command -v saw >/dev/null 2>&1; then
+    (cd "$axc_dir" && saw test)
+    saw_exit=$?
+    if [ $saw_exit -ne 0 ]; then
+        echo "${RED}FAILED: saw test${RESET}"
+        exit 1
+    else
+        echo "${GREEN}OK: saw test${RESET}"
+    fi
+else
+    echo "${YELLOW}saw not found in PATH; skipping 'saw test'${RESET}"
+fi
+
+echo ""
+echo "Testing self-compilation: building axc2 with tested axc..."
+cd "$axc_dir" || exit 1
+total=$((total + 1))
+if [ -f "axc2" ]; then
+    rm -f "axc2"
+fi
+echo "Running: ./axc axc -o axc2"
+./axc axc -o axc2
+scExit=$?
+
+echo "Running: ./axc2 axc -o axc3"
+./axc2 axc -o axc3 2>/dev/null
+scExit=$?
+
+cd - >/dev/null || exit 1
+
+if [ $scExit -ne 0 ]; then
+    echo "${RED}FAILED: self-compilation (axc -> axc2) - exit code $scExit${RESET}"
+    failed=$((failed + 1))
+    # track failed file marker for summary
+    failed_files="$failed_files
+self-compilation (exit $scExit)"
+else
+    if [ -f "$axc_dir/axc2" ]; then
+        echo "${GREEN}OK: self-compilation (exit 0) produced $axc_dir/axc2${RESET}"
+        passed=$((passed + 1))
+    else
+        echo "${YELLOW}WARNING: self-compilation returned exit 0 but $axc_dir/axc2 not found${RESET}"
+        failed=$((failed + 1))
+        failed_files="$failed_files
+self-compilation (missing axc2)"
+    fi
+fi
+
 total=0
 passed=0
 failed=0
