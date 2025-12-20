@@ -7532,63 +7532,6 @@ pub def generate_c(ast: ref ASTNode): string {
             }
 
 
-            mut global_arena: Arena = Arena.create(4096);
-            mut i_globals_collect: i32 = 0;
-
-            loop {
-                if i_globals_collect >= children_len {
-                    break;
-                }
-                val g_child_collect: ref ASTNode = addr(children.data[i_globals_collect]);
-                if equals_c(g_child_collect.node_type, "Declaration") {
-                    val var_name: string = g_child_collect.data.declaration.name;
-                    if !StringBoolMap.contains(addr(g_emitted_globals), var_name) {
-                        StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
-                    }
-                } elif equals_c(g_child_collect.node_type, "Platform") {
-                    if g_child_collect.children != nil {
-                        val plat_children_collect: ref list(ASTNode) = g_child_collect.children;
-                        mut plat_idx: i32 = 0;
-                        loop {
-                            if plat_idx >= len(deref(plat_children_collect)) {
-                                break;
-                            }
-                            val plat_decl: ref ASTNode = addr(plat_children_collect.data[plat_idx]);
-                            if equals_c(plat_decl.node_type, "Declaration") {
-                                val plat_var_name: string = plat_decl.data.declaration.name;
-                                if !StringBoolMap.contains(addr(g_emitted_globals), plat_var_name) {
-                                    StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), plat_var_name, true);
-                                }
-                            }
-                            plat_idx++;
-                        }
-                    }
-                }
-                i_globals_collect++;
-            }
-            
-            mut generated_arena: Arena = Arena.create(4096);
-            mut generated_in_this_pass: StringBoolMap = deref(StringBoolMap.create(addr(generated_arena), 128));
-            mut i_globals: i32 = 0;
-
-            loop {
-                if i_globals >= children_len {
-                    break;
-                }
-                val g_child: ref ASTNode = addr(children.data[i_globals]);
-                if equals_c(g_child.node_type, "Declaration") {
-                    val var_name: string = g_child.data.declaration.name;
-                    if !StringBoolMap.contains(addr(generated_in_this_pass), var_name) {
-                        StringBoolMap.set(addr(generated_in_this_pass), addr(generated_arena), var_name, true);
-                        val g_code: string = generate_global_decl(g_child);
-                        if str_len(g_code) > 0 {
-                            StringBuilder.append(addr(sb_header), g_code);
-                        }
-                    }
-                }
-                i_globals++;
-            }
-
             mut i_proto: i32 = 0;
             loop {
                 if i_proto >= children_len {
@@ -7759,7 +7702,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                 canon_name = StringStringMap.get(addr(g_function_prefixes), proto_name);
                             }
                             if !StringBoolMap.contains(addr(g_emitted_prototypes), canon_name) {
-                                StringBoolMap.set(addr(g_emitted_prototypes), addr(global_arena), canon_name, true);
+                                mut loc_arena: Arena = Arena.create(4096);
+                                StringBoolMap.set(addr(g_emitted_prototypes), addr(loc_arena), canon_name, true);
                                 StringBuilder.append(addr(sb_protos), proto_code);
                             }
                         }
@@ -7795,6 +7739,62 @@ pub def generate_c(ast: ref ASTNode): string {
                 i_proto++;
             }
             
+            mut global_arena: Arena = Arena.create(4096);
+            mut i_globals_collect: i32 = 0;
+
+            loop {
+                if i_globals_collect >= children_len {
+                    break;
+                }
+                val g_child_collect: ref ASTNode = addr(children.data[i_globals_collect]);
+                if equals_c(g_child_collect.node_type, "Declaration") {
+                    val var_name: string = g_child_collect.data.declaration.name;
+                    if !StringBoolMap.contains(addr(g_emitted_globals), var_name) {
+                        StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), var_name, true);
+                    }
+                } elif equals_c(g_child_collect.node_type, "Platform") {
+                    if g_child_collect.children != nil {
+                        val plat_children_collect: ref list(ASTNode) = g_child_collect.children;
+                        mut plat_idx: i32 = 0;
+                        loop {
+                            if plat_idx >= len(deref(plat_children_collect)) {
+                                break;
+                            }
+                            val plat_decl: ref ASTNode = addr(plat_children_collect.data[plat_idx]);
+                            if equals_c(plat_decl.node_type, "Declaration") {
+                                val plat_var_name: string = plat_decl.data.declaration.name;
+                                if !StringBoolMap.contains(addr(g_emitted_globals), plat_var_name) {
+                                    StringBoolMap.set(addr(g_emitted_globals), addr(global_arena), plat_var_name, true);
+                                }
+                            }
+                            plat_idx++;
+                        }
+                    }
+                }
+                i_globals_collect++;
+            }
+            
+            mut generated_arena: Arena = Arena.create(4096);
+            mut generated_in_this_pass: StringBoolMap = deref(StringBoolMap.create(addr(generated_arena), 128));
+            mut i_globals: i32 = 0;
+
+            loop {
+                if i_globals >= children_len {
+                    break;
+                }
+                val g_child: ref ASTNode = addr(children.data[i_globals]);
+                if equals_c(g_child.node_type, "Declaration") {
+                    val var_name: string = g_child.data.declaration.name;
+                    if !StringBoolMap.contains(addr(generated_in_this_pass), var_name) {
+                        StringBoolMap.set(addr(generated_in_this_pass), addr(generated_arena), var_name, true);
+                        val g_code: string = generate_global_decl(g_child);
+                        if str_len(g_code) > 0 {
+                            StringBuilder.append(addr(sb_protos), g_code);
+                        }
+                    }
+                }
+                i_globals++;
+            }
             
             StringBuilder.append_char(addr(sb_bodies), '\n');
 
@@ -10216,14 +10216,8 @@ pub def generate_c(ast: ref ASTNode): string {
         }
 
         mut emitted_name: string = func_name;
-        print "[DEBUG FC] Looking up func_name: ";
-        println func_name;
         if StringStringMap.contains(addr(g_function_prefixes), func_name) {
             emitted_name = StringStringMap.get(addr(g_function_prefixes), func_name);
-            print "[DEBUG FC] Found prefix: ";
-            println emitted_name;
-        } else {
-            println "[DEBUG FC] NOT found in prefix map";
         }
 
         if call_args != nil and len(deref(call_args)) > 0 {
@@ -10248,15 +10242,9 @@ pub def generate_c(ast: ref ASTNode): string {
                 if len(deref(call_args)) > 1 {
                     inferred2 = infer_expression_type(call_args.data[1]);
                 }
-                
-                print "[DEBUG FC] Generic function detected: "; println emitted_name;
-                print "[DEBUG FC] inferred1: "; println inferred1;
-                print "[DEBUG FC] inferred2: "; println inferred2;
-
                 if str_len(inferred1) > 0 or str_len(inferred2) > 0 {
                     mut newname: string = emitted_name;
                     if StringLongMap.contains(addr(g_generic_function_asts), emitted_name) {
-                        print "[DEBUG FC] Found AST for "; println emitted_name;
                         val gen_ast_ptr: i64 = StringLongMap.get(addr(g_generic_function_asts), emitted_name);
                         val gen_ast: ref ASTNode = cast[ref ASTNode](gen_ast_ptr);
                         val type_params: ref list(string) = gen_ast.data.function.type_params;
@@ -10296,7 +10284,6 @@ pub def generate_c(ast: ref ASTNode): string {
                         StringBuilder.destroy(addr(sb_const));
                         
                         if str_len(constraint_str) > 0 {
-                            print "[DEBUG FC] Recording specialization: "; println constraint_str;
                             mut existing: string = StringStringMap.get(addr(g_needed_specializations), emitted_name);
                             mut added: bool = false;
                             if str_len(existing) > 0 {
@@ -10312,10 +10299,8 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                             
                             if added {
-                                print "[DEBUG FC] Queuing specialization for "; println emitted_name;
                                 StringList.push(g_specialization_queue, addr(g_renderer_arena), emitted_name);
                                 
-                                // Also generate and emit prototype early
                                 if !StringBoolMap.contains(addr(g_emitted_prototypes), newname) {
                                     mut spec_arena_p: Arena = Arena.create(1024);
                                     mut type_mapping_p: StringStringMap = deref(StringStringMap.create(addr(spec_arena_p), 8));
@@ -10348,7 +10333,6 @@ pub def generate_c(ast: ref ASTNode): string {
                             }
                         }
                     } else {
-                        print "[DEBUG FC] NO AST found for "; println emitted_name;
                         if str_len(inferred2) > 0 and str_len(inferred1) > 0 {
                             newname = concat(newname, str("__T2_"));
                             newname = concat(newname, sanitize_c_identifier(inferred2));
