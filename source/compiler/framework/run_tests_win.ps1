@@ -43,6 +43,11 @@ if (Test-Path $axc2Path) {
 Write-Host "Running: & .\axc axc -o axc2"
 & .\axc axc -o axc2
 $scExit = $LASTEXITCODE
+
+Write-Host "Running: & .\axc2 axc -o axc3"
+& .\axc2 axc -o axc3
+$scExit = $LASTEXITCODE
+
 Pop-Location
 
 if ($scExit -ne 0) {
