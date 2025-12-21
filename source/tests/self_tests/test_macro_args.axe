@@ -1,0 +1,16 @@
+use std.io;
+macro copy_of(thing: untyped, dest: untyped, type: untyped) {
+    unsafe {
+        C.memcpy(&dest, &thing, C.sizeof(type));
+    }
+}
+
+def main() {
+    val i: i32 = 10;
+    val i2: i32 = 22;
+    copy_of(i, i2, int);
+
+    val a: i32[10][10];
+    val a2: i32[10][10];
+    copy_of(a, a2, i32[10][10]);
+}
