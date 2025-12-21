@@ -272,6 +272,34 @@ pub def atan2(y: f64, x: f64): f64 {
     }
 }
 
+/// Sorts a list of numeric values in ascending order
+pub def sorted[T](lst: T): T {
+    when T is list(i32) or T is list(f32) or T is list(f64) 
+        or T is list(i64) or T is list(u32) or T is list(u64) {
+        val len: i32 = len(lst);
+        if len <= 1 {
+            return lst;
+        }
+
+        mut result: T;
+        result.len = len;
+        for mut i = 0; i < len; i++ {
+            result.data[i] = lst.data[i];
+        }
+
+        for mut i = 0; i < len - 1; i++ {
+            for mut j = 0; j < len - i - 1; j++ {
+                if result.data[j] > result.data[j + 1] {
+                    val temp: i32 = result.data[j];
+                    result.data[j] = result.data[j + 1];
+                    result.data[j + 1] = temp;
+                }
+            }
+        }
+        return result;
+    }
+}
+
 /// Hyperbolic tangent inverse
 pub def atanh(x: f64): f64 {
     if x <= -1.0 or x >= 1.0 {
@@ -336,4 +364,16 @@ test {
     assert(approx_equal(powf(E, 1.0), E, 0.01), "powf e^1");
     assert(approx_equal(powf(E, 2.0), E*E, 0.05), "powf e^2");
     assert(approx_equal(powf(10.0, -1.0), 0.1, 0.01), "powf 10^-1");
+
+    val unsorted_list: list(f64) = [5.0, 2.0, 8.0, 1.0, 9.0];
+    val sorted_list: list(f64) = sorted(unsorted_list);
+    assert(len(sorted_list) == 5, "sorted list has same length");
+    assert(sorted_list.data[0] == 1.0, "first element is smallest");
+    assert(sorted_list.data[4] == 9.0, "last element is largest");
+
+    val int_list: list(i32) = [3, 1, 4, 1, 5];
+    val sorted_int_list: list(i32) = sorted(int_list);
+    assert(len(sorted_int_list) == 5, "sorted int list has same length");
+    assert(sorted_int_list.data[0] == 1, "first element is smallest");
+    assert(sorted_int_list.data[4] == 5, "last element is largest");
 }

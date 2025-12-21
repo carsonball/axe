@@ -149,6 +149,9 @@ mut g_current_line: i32;
 mut g_current_type_mapping: ref StringStringMap;
 mut g_current_module_prefix: string;
 
+/// Current function's generic type parameters (for checking if a name is a valid type parameter)
+mut g_current_function_type_params: StringBoolMap;
+
 /// Helper to extract prefix from a mangled name (e.g. "std__errors__error" -> "std__errors")
 def get_prefix_from_mangled(name: string): string {
     val n: i32 = cast[i32](str_len(name));
@@ -288,10 +291,11 @@ pub def initialize_renderer() {
     g_specialization_queue = StringList.create(addr(g_renderer_arena), 128);
     g_emitted_prototypes = deref(StringBoolMap.create(addr(g_renderer_arena), 1024));
     g_specialization_prototypes_sb = StringBuilder.init(4096);
+    g_current_function_type_params = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
     g_emit_line_directives = false;
     g_current_source_file = str("");
     g_current_line = 0;
-    
+
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i8"), str("int8_t"));
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("u8"), str("uint8_t"));
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i16"), str("int16_t"));
@@ -585,7 +589,8 @@ def is_valid_symbol(symbol_name: string): bool {
         or is_symbol_imported(symbol_name)
         or StringStringMap.contains(addr(g_model_names), symbol_name)
         or StringBoolMap.contains(addr(g_enum_names), symbol_name)
-        or has_prefix(symbol_name, str("struct "));
+        or has_prefix(symbol_name, str("struct "))
+        or StringBoolMap.contains(addr(g_current_function_type_params), symbol_name);
 }
 
 /// Validate that a type is properly imported (call this for user-facing types)
@@ -5928,7 +5933,8 @@ def check_variable_declared(name: string) {
     if has_prefix(name, str("gvar__")) { return; }
     if StringBoolMap.contains(addr(g_emitted_globals), name) { return; }
     if is_all_upper_or_underscore(name) { return; }
-    
+    if StringBoolMap.contains(addr(g_current_function_type_params), name) { return; }
+
     print(get_short_filename(g_current_source_file));
     print ":";
     print(i32_to_string(g_current_line));
@@ -8510,16 +8516,29 @@ pub def generate_c(ast: ref ASTNode): string {
         val old_prefix: string = g_current_module_prefix;
 
         g_current_module_prefix = get_prefix_from_mangled(func_name);
-        
+
+        StringBoolMap.clear(addr(g_current_function_type_params));
+
         if is_generic {
             val when_types: ref list(string) = ast.data.function.when_branch_types;
             val when_counts: ref list(i32) = ast.data.function.when_branch_counts;
             val when_starts: ref list(i32) = ast.data.function.when_branch_starts;
             val type_params: ref list(string) = ast.data.function.type_params;
-            
+
             if type_params == nil {
                 g_current_module_prefix = old_prefix;
                 return str("");
+            }
+
+            StringBoolMap.clear(addr(g_current_function_type_params));
+            mut tpi: i32 = 0;
+            loop {
+                if tpi >= len(deref(type_params)) {
+                    break;
+                }
+                val tp_name: string = type_params.data[tpi];
+                StringBoolMap.set(addr(g_current_function_type_params), addr(g_renderer_arena), tp_name, true);
+                tpi++;
             }
             
             mut collected_constraints: list(string);
@@ -8626,8 +8645,126 @@ pub def generate_c(ast: ref ASTNode): string {
             }
             
             if !has_top_level_when and len(collected_constraints) == 0 {
+                mut func_arena: Arena = Arena.create(1024);
+                StringStringMap.clear(addr(g_var_types));
+
+                validate_type_imported(return_type);
+
+                val fn_params: ref list(string) = ast.data.function.params;
+                if fn_params != nil {
+                    mut pi: i32 = 0;
+                    loop {
+                        if pi >= len(deref(fn_params)) {
+                            break;
+                        }
+                        val p: string = fn_params.data[pi];
+                        val cp: i32 = find_char_from(p, ':', cast[usize](0));
+                        if cp >= 0 {
+                            val pname: string = strip(substring_se(p, 0, cp));
+                            val ptype: string = strip(substr(p, cp + 1, cast[i32](str_len(p) - cp - 1)));
+                            if str_len(pname) > 0 and str_len(ptype) > 0 {
+                                validate_type_imported(ptype);
+                                StringStringMap.set(addr(g_var_types), addr(func_arena), pname, ptype);
+                            }
+                        }
+                        pi = pi + 1;
+                    }
+                }
+
+                if str_len(return_type) == 0 {
+                    return_type = str("void");
+                }
+
+                val mapped_return_type: string = map_axe_type_to_c(return_type);
+                mut sb_func: StringBuilder = StringBuilder.init(4096);
+
+                StringBuilder.append(addr(sb_func), emit_line_directive(ast.line));
+
+                val func_tags: ref list(string) = ast.data.function.tags;
+                if func_tags != nil {
+                    mut tag_idx: i32 = 0;
+                    loop {
+                        if tag_idx >= len(deref(func_tags)) {
+                            break;
+                        }
+                        val tag: string = func_tags.data[tag_idx];
+                        if equals_c(tag, "inline") {
+                            StringBuilder.append_c(addr(sb_func), "static inline ");
+                        } elif equals_c(tag, "noinline") {
+                            StringBuilder.append_c(addr(sb_func), "__attribute__((noinline)) ");
+                        } elif equals_c(tag, "cold") {
+                            StringBuilder.append_c(addr(sb_func), "__attribute__((cold)) ");
+                        } elif equals_c(tag, "hot") {
+                            StringBuilder.append_c(addr(sb_func), "__attribute__((hot)) ");
+                        }
+                        tag_idx++;
+                    }
+                }
+
+                StringBuilder.append(addr(sb_func), mapped_return_type);
+                StringBuilder.append_char(addr(sb_func), ' ');
+
+                mut final_func_name: string = func_name;
+                if StringStringMap.contains(addr(g_function_prefixes), func_name) {
+                    final_func_name = StringStringMap.get(addr(g_function_prefixes), func_name);
+                }
+
+                StringBuilder.append(addr(sb_func), final_func_name);
+                StringBuilder.append_char(addr(sb_func), '(');
+
+                if fn_params != nil {
+                    mut param_idx: i32 = 0;
+                    loop {
+                        if param_idx >= len(deref(fn_params)) {
+                            break;
+                        }
+
+                        if param_idx > 0 {
+                            StringBuilder.append_c(addr(sb_func), ", ");
+                        }
+
+                        val param: string = fn_params.data[param_idx];
+                        val colon_pos: i32 = find_char_from(param, ':', cast[usize](0));
+
+                        if colon_pos >= 0 {
+                            val param_name: string = strip(substring_se(param, 0, colon_pos));
+                            val param_type: string = strip(substr(param, colon_pos + 1, cast[i32](str_len(param) - colon_pos - 1)));
+                            val processed_type: string = process_parameter_type(param_type);
+
+                            StringBuilder.append(addr(sb_func), processed_type);
+                            StringBuilder.append_char(addr(sb_func), ' ');
+                            StringBuilder.append(addr(sb_func), param_name);
+                        } else {
+                            StringBuilder.append(addr(sb_func), param);
+                        }
+
+                        param_idx++;
+                    }
+                }
+
+                StringBuilder.append_c(addr(sb_func), ") {\n");
+
+                if ast.children != nil {
+                    val children: ref list(ASTNode) = ast.children;
+                    mut i: i32 = 0;
+                    loop {
+                        if i >= len(deref(children)) {
+                            break;
+                        }
+                        val child_code: string = generate_c(addr(children.data[i]));
+                        StringBuilder.append(addr(sb_func), child_code);
+                        i++;
+                    }
+                }
+
+                StringBuilder.append_c(addr(sb_func), "}\n\n");
+
+                val func_code: string = StringBuilder.to_string(addr(sb_func));
+                StringBuilder.destroy(addr(sb_func));
+
+                StringBoolMap.clear(addr(g_current_function_type_params));
                 g_current_module_prefix = old_prefix;
-                return str("");
+                return func_code;
             }
             
             mut sb_all_funcs: StringBuilder = StringBuilder.init(8192);
@@ -8924,6 +9061,7 @@ pub def generate_c(ast: ref ASTNode): string {
                 branch_idx = branch_idx + 1;
             }
             
+            StringBoolMap.clear(addr(g_current_function_type_params));
             g_current_module_prefix = old_prefix;
             return StringBuilder.to_string(addr(sb_all_funcs));
         }
@@ -9129,6 +9267,7 @@ pub def generate_c(ast: ref ASTNode): string {
         }
         
         result = concat_c(result, "}\n\n");
+        StringBoolMap.clear(addr(g_current_function_type_params));
         g_current_module_prefix = old_prefix;
         return result;
     }
