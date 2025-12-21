@@ -1,0 +1,13 @@
+use std.io;
+
+def main() {
+    println("Y/N?");
+    val answer: char = cast[char](read_key());
+    if answer == 'y' or answer == 'Y' {
+        println("You answered YES");
+    } elif answer == 'n' or answer == 'N' {
+        println("You answered NO");
+    } else {
+        println("Invalid answer");
+    }
+}
