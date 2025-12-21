@@ -276,19 +276,22 @@ pub def atan2(y: f64, x: f64): f64 {
 pub def sorted[T](lst: ref T): T {
     when T is list(i32) or T is list(f32) or T is list(f64) 
         or T is list(i64) or T is list(u32) or T is list(u64) {
-        val len: ref i32 = addr(len(lst));
-        if len <= 1 {
+        val length = len(lst);
+        if length <= 1 {
             return deref(lst);
         }
 
         mut result: T;
-        result.len = len;
-        for mut i = 0; i < len; i++ {
-            result.data[i] = lst.data[i];
+        result.len = 0;
+        result.capacity = 0;
+        result.data = nil;
+
+        for mut i = 0; i < length; i++ {
+            append(result, lst.data[i]);
         }
 
-        for mut i = 0; i < len - 1; i++ {
-            for mut j = 0; j < len - i - 1; j++ {
+        for mut i = 0; i < length - 1; i++ {
+            for mut j = 0; j < length - i - 1; j++ {
                 if result.data[j] > result.data[j + 1] {
                     val temp: i32 = result.data[j];
                     result.data[j] = result.data[j + 1];

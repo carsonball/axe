@@ -7643,31 +7643,6 @@ pub def generate_c(ast: ref ASTNode): string {
             }
             
             // Step 4: Generate models in sorted order (dependencies first)
-            if g_list_elements != nil {
-                val lst_ref2: ref StringList = g_list_elements;
-                mut ld: i32 = 0;
-                loop {
-                    if ld >= lst_ref2*.len {
-                        break;
-                    }
-                    val elemType: string = StringList.get(lst_ref2, ld);
-                    val elemSanDef: string = sanitize_list_element_name(elemType);
-
-                    StringBuilder.append_c(addr(sb_header), "typedef struct __list_");
-                    StringBuilder.append(addr(sb_header), elemSanDef);
-                    StringBuilder.append_c(addr(sb_header), "_t {\n    ");
-                    mut final_field_type: string = elemType;
-                    if has_prefix(elemType, str("list(")) {
-                        final_field_type = map_axe_type_to_c(elemType);
-                    }
-                    StringBuilder.append(addr(sb_header), final_field_type);
-                    StringBuilder.append_c(addr(sb_header), "* data;\n    int len;\n    int capacity;\n} __list_");
-                    StringBuilder.append(addr(sb_header), elemSanDef);
-                    StringBuilder.append_c(addr(sb_header), "_t;\n\n");
-                    ld++;
-                }
-            }
-
             mut sorted_idx: i32 = 0;
             loop {
                 if sorted_idx >= sorted_order.len {
@@ -7692,45 +7667,6 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
                 
                 sorted_idx++;
-            }
-
-            if g_list_elements != nil {
-                val lst_ref3: ref StringList = g_list_elements;
-                mut ld2: i32 = 0;
-                loop {
-                    if ld2 >= lst_ref3*.len {
-                        break;
-                    }
-                    val elemType: string = StringList.get(lst_ref3, ld2);
-                    val elemSanDef: string = sanitize_list_element_name(elemType);
-
-                    StringBuilder.append_c(addr(sb_protos), "static inline __list_");
-                    StringBuilder.append(addr(sb_protos), elemSanDef);
-                    StringBuilder.append_c(addr(sb_protos), "_t __list_");
-                    StringBuilder.append(addr(sb_protos), elemSanDef);
-                    StringBuilder.append_c(addr(sb_protos), "_init(void) {\n    __list_");
-                    StringBuilder.append(addr(sb_protos), elemSanDef);
-                    StringBuilder.append_c(addr(sb_protos), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
-                    StringBuilder.append_c(addr(sb_protos), "static inline void __list_");
-                    StringBuilder.append(addr(sb_protos), elemSanDef);
-                    StringBuilder.append_c(addr(sb_protos), "_push(__list_");
-                    StringBuilder.append(addr(sb_protos), elemSanDef);
-                    StringBuilder.append_c(addr(sb_protos), "_t* list, ");
-                    mut final_param_type: string = elemType;
-                    if has_prefix(elemType, str("list(")) {
-                        final_param_type = map_axe_type_to_c(elemType);
-                    }
-                    StringBuilder.append(addr(sb_protos), final_param_type);
-                    StringBuilder.append_c(addr(sb_protos), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
-                    StringBuilder.append(addr(sb_protos), final_param_type);
-                    StringBuilder.append_c(addr(sb_protos), "* new_data = (");
-                    StringBuilder.append(addr(sb_protos), final_param_type);
-                    StringBuilder.append_c(addr(sb_protos), "*)realloc(list->data, new_capacity * sizeof(");
-                    StringBuilder.append(addr(sb_protos), final_param_type);
-                    StringBuilder.append_c(addr(sb_protos), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
-
-                    ld2++;
-                }
             }
 
 
@@ -8161,6 +8097,66 @@ pub def generate_c(ast: ref ASTNode): string {
                     }
                 }
                 q_idx++;
+            }
+
+            if g_list_elements != nil {
+                val lst_ref2: ref StringList = g_list_elements;
+                mut ld: i32 = 0;
+                loop {
+                    if ld >= lst_ref2*.len {
+                        break;
+                    }
+                    val elemType: string = StringList.get(lst_ref2, ld);
+                    val elemSanDef: string = sanitize_list_element_name(elemType);
+
+                    StringBuilder.append_c(addr(sb_header), "typedef struct __list_");
+                    StringBuilder.append(addr(sb_header), elemSanDef);
+                    StringBuilder.append_c(addr(sb_header), "_t {\n    ");
+                    mut final_field_type: string = elemType;
+                    if has_prefix(elemType, str("list(")) {
+                        final_field_type = map_axe_type_to_c(elemType);
+                    }
+                    StringBuilder.append(addr(sb_header), final_field_type);
+                    StringBuilder.append_c(addr(sb_header), "* data;\n    int len;\n    int capacity;\n} __list_");
+                    StringBuilder.append(addr(sb_header), elemSanDef);
+                    StringBuilder.append_c(addr(sb_header), "_t;\n\n");
+                    ld++;
+                }
+
+                mut ld2: i32 = 0;
+                loop {
+                    if ld2 >= lst_ref2*.len {
+                        break;
+                    }
+                    val elemType: string = StringList.get(lst_ref2, ld2);
+                    val elemSanDef: string = sanitize_list_element_name(elemType);
+
+                    StringBuilder.append_c(addr(sb_protos), "static inline __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_t __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_init(void) {\n    __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_t list;\n    list.data = NULL;\n    list.len = 0;\n    list.capacity = 0;\n    return list;\n}\n\n");
+                    StringBuilder.append_c(addr(sb_protos), "static inline void __list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_push(__list_");
+                    StringBuilder.append(addr(sb_protos), elemSanDef);
+                    StringBuilder.append_c(addr(sb_protos), "_t* list, ");
+                    mut final_param_type: string = elemType;
+                    if has_prefix(elemType, str("list(")) {
+                        final_param_type = map_axe_type_to_c(elemType);
+                    }
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), " item) {\n    if (list->len >= list->capacity) {\n        int new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;\n        ");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), "* new_data = (");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), "*)realloc(list->data, new_capacity * sizeof(");
+                    StringBuilder.append(addr(sb_protos), final_param_type);
+                    StringBuilder.append_c(addr(sb_protos), "));\n        if (new_data == NULL) { fprintf(stderr, \"Out of memory\\n\"); exit(1); }\n        list->data = new_data;\n        list->capacity = new_capacity;\n    }\n    list->data[list->len++] = item;\n}\n\n");
+                    ld2++;
+                }
             }
         }
         
@@ -10531,7 +10527,12 @@ pub def generate_c(ast: ref ASTNode): string {
                 }
 
                 elif StringStringMap.contains(addr(g_var_types), var_name) {
-                    val var_type: string = StringStringMap.get(addr(g_var_types), var_name);
+                    mut var_type: string = StringStringMap.get(addr(g_var_types), var_name);
+                    
+                    if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, var_type) {
+                        var_type = StringStringMap.get(g_current_type_mapping, var_type);
+                    }
+
                     if has_prefix(var_type, str("list(")) or has_suffix(var_type, str("[999]")) {
                         mut element_type: string = var_type;
                         if has_prefix(element_type, str("list(")) {
