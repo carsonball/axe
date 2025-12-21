@@ -273,12 +273,12 @@ pub def atan2(y: f64, x: f64): f64 {
 }
 
 /// Sorts a list of numeric values in ascending order
-pub def sorted[T](lst: T): T {
+pub def sorted[T](lst: ref T): T {
     when T is list(i32) or T is list(f32) or T is list(f64) 
         or T is list(i64) or T is list(u32) or T is list(u64) {
-        val len: i32 = len(lst);
+        val len: ref i32 = addr(len(lst));
         if len <= 1 {
-            return lst;
+            return deref(lst);
         }
 
         mut result: T;
