@@ -3941,6 +3941,19 @@ def rewrite_array_literals(expr: string): string {
         }
 
         if !in_string and !in_char_literal and ch == '[' {
+            mut is_array_literal: bool = true;
+            
+            if i > 0 and get_char(expr, i - 1) != ' ' and get_char(expr, i - 1) != '\t' and
+               get_char(expr, i - 1) != '\n' and get_char(expr, i - 1) != '\r' {
+               is_array_literal = false;
+            }
+
+            if !is_array_literal {
+                StringBuilder.append_char(addr(sb), ch);
+                i++;
+                continue;
+            }
+
             val type_start: i32 = i + 1;
             mut type_end: i32 = -1;
             mut bracket_depth: i32 = 1;
