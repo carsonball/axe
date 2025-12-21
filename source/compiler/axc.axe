@@ -14,30 +14,7 @@ def main() {
     val args: ref StringList = get_cmdline_args(addr(arena));
     
     if args.len < 2 {
-        println("Usage: axe <input.axe> [options]");
-        println("");
-        println("Options:");
-        println("  -o <name>         Specify output binary name");
-        println("  -c                Compile only; produce object file (.obj or .o)");
-        println("  -e                Keep the emitted file");
-        println("  -r                Run the built executable after compilation");
-        println("  -tokens           Print lexer tokens and exit");
-        println("  -ast              Print the parsed AST and exit");
-        println("  -dll              Build shared instead of standalone executable");
-        println("  --release         Build in release mode");
-        println("  --bootstrap       Emit without line directives");
-        println("  -l, --loud        Loud debug output");
-        println("  -q, --quiet       Suppress all output");
-        println("  -I<path>          Pass a C include directory");
-        println("  -L<path>          Add C library search path");
-        println("  -l<name>          Link against C library (e.g. -lm, -lSDL2)");
-        println("  --syntax-check    Check syntax only (no code generation)");
-        println("  --target <triple> Cross-compile for target (e.g. x86_64-w64-mingw32)");
-        println("  --sysroot <path>  Specify sysroot for cross-compilation");
-        println("  --version, -v     Show axe version and exit");
-        println("");
-        println("Note: Cross-compiling requires the target platform's SDK and sysroot.\n");
-        quit(0);
+        print_help();
     }
     
     mut source_file: string = StringList.get(args, 1);
@@ -125,6 +102,10 @@ def main() {
         set_run_after_compile(true);
     }
     
+    if strlst_contains_c(deref(args), "--help") or strlst_contains_c(deref(args), "-h") {
+        print_help();
+    }
+
     if strlst_contains_c(deref(args), "-tokens") {
         set_print_tokens(true);
     }
@@ -161,5 +142,34 @@ def main() {
         quit(1);
     }
 
+    quit(0);
+}
+
+/// Show help message and exit.
+def print_help() {
+    println("Usage: axe <input.axe> [options]");
+    println("");
+    println("Options:");
+    println("  -o <name>         Specify output binary name");
+    println("  -c                Compile only; produce object file (.obj or .o)");
+    println("  -e                Keep the emitted file");
+    println("  -r                Run the built executable after compilation");
+    println("  -tokens           Print lexer tokens and exit");
+    println("  -ast              Print the parsed AST and exit");
+    println("  -dll              Build shared instead of standalone executable");
+    println("  --release         Build in release mode");
+    println("  --bootstrap       Emit without line directives");
+    println("  -l, --loud        Loud debug output");
+    println("  -q, --quiet       Suppress all output");
+    println("  -I<path>          Pass a C include directory");
+    println("  -L<path>          Add C library search path");
+    println("  -l<name>          Link against C library (e.g. -lm, -lSDL2)");
+    println("  --syntax-check    Check syntax only (no code generation)");
+    println("  --target <triple> Cross-compile for target (e.g. x86_64-w64-mingw32)");
+    println("  --sysroot <path>  Specify sysroot for cross-compilation");
+    println("  --version, -v     Show axe version and exit");
+    println("  --help, -h        Show this help message and exit");
+    println("");
+    println("Note: Cross-compiling requires the target platform's SDK and sysroot.\n");
     quit(0);
 }
