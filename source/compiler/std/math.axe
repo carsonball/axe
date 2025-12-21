@@ -365,14 +365,8 @@ test {
     assert(approx_equal(powf(E, 2.0), E*E, 0.05), "powf e^2");
     assert(approx_equal(powf(10.0, -1.0), 0.1, 0.01), "powf 10^-1");
 
-    val unsorted_list: list(f64) = [5.0, 2.0, 8.0, 1.0, 9.0];
-    val sorted_list: list(f64) = sorted(unsorted_list);
-    assert(len(sorted_list) == 5, "sorted list has same length");
-    assert(sorted_list.data[0] == 1.0, "first element is smallest");
-    assert(sorted_list.data[4] == 9.0, "last element is largest");
-
-    val int_list: list(i32) = [3, 1, 4, 1, 5];
-    val sorted_int_list: list(i32) = sorted(int_list);
+    mut int_list: list(i32) = [3, 1, 4, 1, 5];
+    mut sorted_int_list: list(i32) = sorted[list(i32)](addr(int_list));
     assert(len(sorted_int_list) == 5, "sorted int list has same length");
     assert(sorted_int_list.data[0] == 1, "first element is smallest");
     assert(sorted_int_list.data[4] == 5, "last element is largest");

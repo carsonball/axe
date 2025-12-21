@@ -2260,7 +2260,7 @@ def canonical_model_c_name(name: string): string {
 
 /// Map Axe type to C type (comprehensive version for model fields)
 def map_axe_type_to_c(axe_type: string): string {
-    mut result: string = axe_type;
+    mut result: string = strip(axe_type);
     if find_char_from(result, '$', cast[usize](0)) >= 0 {
         mut out_sb: StringBuilder = StringBuilder.init(str_len(result) + 32);
         mut i: i32 = 0;
@@ -2311,37 +2311,53 @@ def map_axe_type_to_c(axe_type: string): string {
         return concat(str("const "), mapped_base);
     }
     
-    if has_prefix(result, str("list(")) {
-        mut paren_pos: i32 = 5;
-        mut depth: i32 = 1;
+    val result_len: i32 = cast[i32](str_len(result));
+    if has_prefix(result, str("list")) {
+        mut paren_pos: i32 = 4;
         loop {
-            if paren_pos >= str_len(result) {
-                break;
-            }
+            if paren_pos >= result_len { break; }
             val ch: char = get_char(result, paren_pos);
-            if ch == '(' {
-                depth++;
-            } elif ch == ')' {
-                depth--;
-                if depth == 0 {
-                    break;
-                }
+            if ch == '(' { break; }
+            if ch != ' ' and ch != '\t' and ch != '\n' {
+                paren_pos = -1;
+                break;
             }
             paren_pos++;
         }
-        if depth == 0 {
-            val element_type: string = strip(substring_se(result, 5, paren_pos));
-            val mapped_elem: string = map_axe_type_to_c(element_type);
-            add_list_element(mapped_elem);
-            val sanitized: string = sanitize_list_element_name(mapped_elem);
-            
-            mut sb_struct: StringBuilder = StringBuilder.init(str_len(sanitized) + 10);
-            StringBuilder.append_c(addr(sb_struct), "__list_");
-            StringBuilder.append(addr(sb_struct), sanitized);
-            StringBuilder.append_c(addr(sb_struct), "_t");
-            val struct_name: string = StringBuilder.to_string(addr(sb_struct));
-            StringBuilder.destroy(addr(sb_struct));
-            return struct_name;
+        
+        if paren_pos > 0 and paren_pos < result_len {
+            val start_pos: i32 = paren_pos + 1;
+            mut depth: i32 = 1;
+            mut end_pos: i32 = start_pos;
+            loop {
+                if end_pos >= result_len {
+                    break;
+                }
+                val ch2: char = get_char(result, end_pos);
+                if ch2 == '(' {
+                    depth++;
+                } elif ch2 == ')' {
+                    depth--;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                end_pos++;
+            }
+            if depth == 0 {
+                val element_type: string = strip(substring_se(result, start_pos, end_pos));
+                val mapped_elem: string = map_axe_type_to_c(element_type);
+                add_list_element(mapped_elem);
+                val sanitized: string = sanitize_list_element_name(mapped_elem);
+                
+                mut sb_struct: StringBuilder = StringBuilder.init(str_len(sanitized) + 16);
+                StringBuilder.append_c(addr(sb_struct), "__list_");
+                StringBuilder.append(addr(sb_struct), sanitized);
+                StringBuilder.append_c(addr(sb_struct), "_t");
+                val struct_name: string = StringBuilder.to_string(addr(sb_struct));
+                StringBuilder.destroy(addr(sb_struct));
+                return struct_name;
+            }
         }
     }
     
