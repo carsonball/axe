@@ -14,7 +14,7 @@ def main() {
     val args: ref StringList = get_cmdline_args(addr(arena));
     
     if args.len < 2 {
-        print_help();
+        print_help_and_exit();
     }
     
     mut source_file: string = StringList.get(args, 1);
@@ -103,7 +103,7 @@ def main() {
     }
     
     if strlst_contains_c(deref(args), "--help") or strlst_contains_c(deref(args), "-h") {
-        print_help();
+        print_help_and_exit();
     }
 
     if strlst_contains_c(deref(args), "-tokens") {
@@ -146,7 +146,7 @@ def main() {
 }
 
 /// Show help message and exit.
-def print_help() {
+def print_help_and_exit() {
     println("Usage: axe <input.axe> [options]");
     println("");
     println("Options:");
