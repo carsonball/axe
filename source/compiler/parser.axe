@@ -40,6 +40,7 @@ mut g_check_shadowing: bool;
 mut g_macro_names: list(string);
 mut g_macro_defs: list(MacroDef);
 mut g_inside_unsafe_block: i32;
+mut g_mut_function_params: StringBoolMap;
 
 /// Initialize the state-related globals
 pub def initialize_all() {
@@ -60,6 +61,7 @@ pub def initialize_all() {
     g_macro_names.len = 0;
     g_macro_defs.len = 0;
     g_inside_unsafe_block = 0;
+    g_mut_function_params = deref(StringBoolMap.create(addr(arena), 128));
 }
 
 /// Register a macro definition
@@ -1459,21 +1461,23 @@ def parse_top_level(ctx: ref ParserContext, ast: ref ASTNode) {
                 }
                 
                 if !StringBoolMap.contains(addr(g_var_actually_used), var_name) {
-                    mut decl_line: i32 = 1;
-                    mut decl_file: string = ctx.filename;
-                    if StringIntMap.contains(addr(g_var_declaration_lines), var_name) {
-                        decl_line = StringIntMap.get(addr(g_var_declaration_lines), var_name);
+                    if !StringBoolMap.contains(addr(g_mut_function_params), var_name) {
+                        mut decl_line: i32 = 1;
+                        mut decl_file: string = ctx.filename;
+                        if StringIntMap.contains(addr(g_var_declaration_lines), var_name) {
+                            decl_line = StringIntMap.get(addr(g_var_declaration_lines), var_name);
+                        }
+                        if StringStringMap.contains(addr(g_var_declaration_files), var_name) {
+                            decl_file = StringStringMap.get(addr(g_var_declaration_files), var_name);
+                        }
+                        print decl_file;
+                        print ":";
+                        print(i32_to_string(decl_line));
+                        print ": error: variable '";
+                        print var_name;
+                        println "' is declared but never used.";
+                        quit(1);
                     }
-                    if StringStringMap.contains(addr(g_var_declaration_files), var_name) {
-                        decl_file = StringStringMap.get(addr(g_var_declaration_files), var_name);
-                    }
-                    print decl_file;
-                    print ":";
-                    print(i32_to_string(decl_line));
-                    print ": error: variable '";
-                    print var_name;
-                    println "' is declared but never used.";
-                    quit(1);
                 }
                 i_unused++;
             }
@@ -2785,6 +2789,8 @@ def parse_function(ctx: ref ParserContext): ASTNode {
     clear_local_variables();
     g_current_scope_depth = 1;
     g_function_has_raw_block = false;
+    mut arena: Arena = Arena.create(128);
+    g_mut_function_params = deref(StringBoolMap.create(addr(arena), 128));
     
     skip_whitespace(ctx);
     if ctx.pos >= len(ctx.tokens) or ctx.tokens.data[ctx.pos].token_type != TokenType.IDENTIFIER {
@@ -2975,6 +2981,61 @@ def parse_function(ctx: ref ParserContext): ASTNode {
                     C.memcpy(heap_params, addr(params), params_size);
                     func.data.function.params = heap_params;
                 }
+            }
+
+            mut param_idx: i32 = 0;
+            loop {
+                if param_idx >= len(params) {
+                    break;
+                }
+                val param_str: string = params.data[param_idx];
+
+                if str_len(param_str) >= 4 and equals_c(substring_se(param_str, 0, 4), "mut ") {
+                    mut var_start: i32 = 4;
+                    loop {
+                        if var_start >= str_len(param_str) or get_char(param_str, var_start) != ' ' {
+                            break;
+                        }
+                        var_start++;
+                    }
+
+                    mut var_end: i32 = var_start;
+                    loop {
+                        if var_end >= str_len(param_str) or get_char(param_str, var_end) == ':' {
+                            break;
+                        }
+                        var_end++;
+                    }
+
+                    if var_end > var_start {
+                        val var_name: string = substring_se(param_str, var_start, var_end);
+                        StringBoolMap.set(addr(g_mut_function_params), addr(arena), var_name, true);
+                    }
+                } elif str_len(param_str) >= 8 and equals_c(substring_se(param_str, 0, 8), "ref mut ") {
+                    mut var_start: i32 = 8;
+
+                    loop {
+                        if var_start >= str_len(param_str) or get_char(param_str, var_start) != ' ' {
+                            break;
+                        }
+                        var_start++;
+                    }
+
+                    mut var_end: i32 = var_start;
+                    loop {
+                        if var_end >= str_len(param_str) or get_char(param_str, var_end) == ':' {
+                            break;
+                        }
+                        var_end++;
+                    }
+
+                    if var_end > var_start {
+                        val var_name: string = substring_se(param_str, var_start, var_end);
+                        StringBoolMap.set(addr(g_mut_function_params), addr(arena), var_name, true);
+                    }
+                }
+
+                param_idx++;
             }
         }
     } else {
@@ -3462,21 +3523,23 @@ def parse_function(ctx: ref ParserContext): ASTNode {
             }
             
             if !StringBoolMap.contains(addr(g_var_actually_used), var_name) {
-                mut decl_line: i32 = func.line;
-                mut decl_file: string = ctx.filename;
-                if StringIntMap.contains(addr(g_var_declaration_lines), var_name) {
-                    decl_line = StringIntMap.get(addr(g_var_declaration_lines), var_name);
+                if !StringBoolMap.contains(addr(g_mut_function_params), var_name) {
+                    mut decl_line: i32 = func.line;
+                    mut decl_file: string = ctx.filename;
+                    if StringIntMap.contains(addr(g_var_declaration_lines), var_name) {
+                        decl_line = StringIntMap.get(addr(g_var_declaration_lines), var_name);
+                    }
+                    if StringStringMap.contains(addr(g_var_declaration_files), var_name) {
+                        decl_file = StringStringMap.get(addr(g_var_declaration_files), var_name);
+                    }
+                    print decl_file;
+                    print ":";
+                    print(i32_to_string(decl_line));
+                    print ": error: variable '";
+                    print var_name;
+                    println "' is declared but never used.";
+                    quit(1);
                 }
-                if StringStringMap.contains(addr(g_var_declaration_files), var_name) {
-                    decl_file = StringStringMap.get(addr(g_var_declaration_files), var_name);
-                }
-                print decl_file;
-                print ":";
-                print(i32_to_string(decl_line));
-                print ": error: variable '";
-                print var_name;
-                println "' is declared but never used.";
-                quit(1);
             }
             i_unused++;
         }
