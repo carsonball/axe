@@ -149,8 +149,11 @@ mut g_current_line: i32;
 mut g_current_type_mapping: ref StringStringMap;
 mut g_current_module_prefix: string;
 
-/// Current function's generic type parameters (for checking if a name is a valid type parameter)
+/// Current function's generic type parameters (for checking if a name is valid type parameter)
 mut g_current_function_type_params: StringBoolMap;
+
+/// Expected return type for function calls (used for generic function inference from LHS of assignments)
+mut g_expected_return_type: string;
 
 /// Helper to extract prefix from a mangled name (e.g. "std__errors__error" -> "std__errors")
 def get_prefix_from_mangled(name: string): string {
@@ -292,6 +295,7 @@ pub def initialize_renderer() {
     g_emitted_prototypes = deref(StringBoolMap.create(addr(g_renderer_arena), 1024));
     g_specialization_prototypes_sb = StringBuilder.init(4096);
     g_current_function_type_params = deref(StringBoolMap.create(addr(g_renderer_arena), 128));
+    g_expected_return_type = str("");
     g_emit_line_directives = false;
     g_current_source_file = str("");
     g_current_line = 0;
@@ -10109,7 +10113,15 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
                     }
 
+                    val old_expected_type: string = g_expected_return_type;
+                    mut expected_type_for_call: string = type_name;
+                    if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, type_name) {
+                        expected_type_for_call = StringStringMap.get(g_current_type_mapping, type_name);
+                    }
+                    g_expected_return_type = expected_type_for_call;
                     val processed_init: string = process_expression(trimmed);
+                    g_expected_return_type = old_expected_type;
+
                     StringBuilder.append_c(addr(sb_decl), " = ");
                     StringBuilder.append(addr(sb_decl), processed_init);
                 }
@@ -10952,18 +10964,52 @@ pub def generate_c(ast: ref ASTNode): string {
                 if len(deref(call_args)) > 1 {
                     inferred2 = infer_expression_type(call_args.data[1]);
                 }
-                if str_len(inferred1) > 0 or str_len(inferred2) > 0 {
+
+                mut expected_type_used: bool = false;
+                mut expected_type_for_inference: string = str("");
+
+                if str_len(g_expected_return_type) > 0 {
+                    if has_prefix(g_expected_return_type, str("list(")) {
+                        mut paren_pos: i32 = 5;  // length of "list("
+                        mut depth: i32 = 1;
+                        loop {
+                            if paren_pos >= str_len(g_expected_return_type) {
+                                break;
+                            }
+                            val ch: char = get_char(g_expected_return_type, paren_pos);
+                            if ch == '(' {
+                                depth++;
+                            } elif ch == ')' {
+                                depth--;
+                                if depth == 0 {
+                                    break;
+                                }
+                            }
+                            paren_pos++;
+                        }
+                        if depth == 0 {
+                            expected_type_for_inference = strip(substring_se(g_expected_return_type, 5, paren_pos));
+                            expected_type_used = true;
+                        }
+                    } else {
+                        expected_type_for_inference = g_expected_return_type;
+                        expected_type_used = true;
+                    }
+                }
+
+                if str_len(inferred1) > 0 or str_len(inferred2) > 0 or expected_type_used {
                     mut newname: string = emitted_name;
                     if StringLongMap.contains(addr(g_generic_function_asts), emitted_name) {
                         val gen_ast_ptr: i64 = StringLongMap.get(addr(g_generic_function_asts), emitted_name);
                         val gen_ast: ref ASTNode = cast[ref ASTNode](gen_ast_ptr);
                         val type_params: ref list(string) = gen_ast.data.function.type_params;
-                        
+
                         mut sb_name: StringBuilder = StringBuilder.init(128);
                         StringBuilder.append(addr(sb_name), emitted_name);
                         mut sb_const: StringBuilder = StringBuilder.init(128);
-                        
+
                         if type_params != nil {
+                            mut arg_based_inference: bool = false;
                             if len(deref(type_params)) > 0 and str_len(inferred1) > 0 {
                                 val tp1: string = type_params.data[0];
                                 val mapped1: string = map_axe_type_to_c(inferred1);
@@ -10971,10 +11017,11 @@ pub def generate_c(ast: ref ASTNode): string {
                                 StringBuilder.append(addr(sb_name), tp1);
                                 StringBuilder.append_c(addr(sb_name), "_");
                                 StringBuilder.append(addr(sb_name), sanitize_c_identifier(mapped1));
-                                
+
                                 StringBuilder.append(addr(sb_const), tp1);
                                 StringBuilder.append_c(addr(sb_const), ":");
                                 StringBuilder.append(addr(sb_const) , mapped1);
+                                arg_based_inference = true;
                             }
                             if len(deref(type_params)) > 1 and str_len(inferred2) > 0 {
                                 val tp2: string = type_params.data[1];
@@ -10983,18 +11030,34 @@ pub def generate_c(ast: ref ASTNode): string {
                                 StringBuilder.append(addr(sb_name), tp2);
                                 StringBuilder.append_c(addr(sb_name), "_");
                                 StringBuilder.append(addr(sb_name), sanitize_c_identifier(mapped2));
-                                
+
                                 StringBuilder.append_c(addr(sb_const), ",");
                                 StringBuilder.append(addr(sb_const), tp2);
                                 StringBuilder.append_c(addr(sb_const), ":");
                                 StringBuilder.append(addr(sb_const), mapped2);
+                                arg_based_inference = true;
+                            }
+
+                            if !arg_based_inference and expected_type_used and str_len(expected_type_for_inference) > 0 {
+                                if len(deref(type_params)) > 0 {
+                                    val tp1: string = type_params.data[0];
+                                    val mapped_expected: string = map_axe_type_to_c(expected_type_for_inference);
+                                    StringBuilder.append_c(addr(sb_name), "__");
+                                    StringBuilder.append(addr(sb_name), tp1);
+                                    StringBuilder.append_c(addr(sb_name), "_");
+                                    StringBuilder.append(addr(sb_name), sanitize_c_identifier(mapped_expected));
+
+                                    StringBuilder.append(addr(sb_const), tp1);
+                                    StringBuilder.append_c(addr(sb_const), ":");
+                                    StringBuilder.append(addr(sb_const), mapped_expected);
+                                }
                             }
                         }
                         newname = StringBuilder.to_string(addr(sb_name));
                         val constraint_str: string = StringBuilder.to_string(addr(sb_const));
                         StringBuilder.destroy(addr(sb_name));
                         StringBuilder.destroy(addr(sb_const));
-                        
+
                         if str_len(constraint_str) > 0 {
                             mut existing: string = StringStringMap.get(addr(g_needed_specializations), emitted_name);
                             mut added: bool = false;
@@ -11009,10 +11072,10 @@ pub def generate_c(ast: ref ASTNode): string {
                                 StringStringMap.set(addr(g_needed_specializations), addr(g_renderer_arena), emitted_name, constraint_str);
                                 added = true;
                             }
-                            
+
                             if added {
                                 StringList.push(g_specialization_queue, addr(g_renderer_arena), emitted_name);
-                                
+
                                 if !StringBoolMap.contains(addr(g_emitted_prototypes), newname) {
                                     mut spec_arena_p: Arena = Arena.create(1024);
                                     mut type_mapping_p: StringStringMap = deref(StringStringMap.create(addr(spec_arena_p), 8));
@@ -11053,6 +11116,9 @@ pub def generate_c(ast: ref ASTNode): string {
                         } elif str_len(inferred1) > 0 {
                             newname = concat(newname, str("__T_"));
                             newname = concat(newname, sanitize_c_identifier(map_axe_type_to_c(inferred1)));
+                        } elif expected_type_used and str_len(expected_type_for_inference) > 0 {
+                            newname = concat(newname, str("__T_"));
+                            newname = concat(newname, sanitize_c_identifier(map_axe_type_to_c(expected_type_for_inference)));
                         }
                     }
                     emitted_name = newname;
