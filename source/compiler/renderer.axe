@@ -2264,6 +2264,8 @@ def map_axe_type_to_c(axe_type: string): string {
     
     if g_current_type_mapping != nil and StringStringMap.contains(g_current_type_mapping, result) {
         result = StringStringMap.get(g_current_type_mapping, result);
+    } elif StringBoolMap.contains(addr(g_current_function_type_params), result) {
+        return result; 
     }
 
     if find_char_from(result, '$', cast[usize](0)) >= 0 {
@@ -2352,7 +2354,12 @@ def map_axe_type_to_c(axe_type: string): string {
             if depth == 0 {
                 val element_type: string = strip(substring_se(result, start_pos, end_pos));
                 val mapped_elem: string = map_axe_type_to_c(element_type);
-                add_list_element(mapped_elem);
+                
+                if !StringBoolMap.contains(addr(g_current_function_type_params), mapped_elem) {
+                    add_list_element(mapped_elem);
+                } else {
+                    return str("void");
+                }
                 val sanitized: string = sanitize_list_element_name(mapped_elem);
                 
                 mut sb_struct: StringBuilder = StringBuilder.init(str_len(sanitized) + 16);
@@ -4061,7 +4068,11 @@ def rewrite_array_literals(expr: string): string {
 
 /// Add a list element type to tracking structures (map + ordered list)
 def add_list_element(c_elem: string) {
-    if str_len(c_elem) == 0 {
+    if str_len(c_elem) == 0 or equals_c(c_elem, "T") or equals_c(c_elem, "U") or equals_c(c_elem, "K") or equals_c(c_elem, "V") {
+        return;
+    }
+    
+    if StringBoolMap.contains(addr(g_current_function_type_params), c_elem) {
         return;
     }
 
@@ -6855,10 +6866,25 @@ def discover_types(ast: ref ASTNode) {
         }
     } elif equals_c(node_type, "Function") {
         val rt: string = ast.data.function.return_type;
+        val params: ref list(string) = ast.data.function.params;
+        val type_params: ref list(string) = ast.data.function.type_params;
+        val is_generic: bool = ast.data.function.is_generic;
+        mut arena: Arena = Arena.create(1024);
+
+        StringBoolMap.clear(addr(g_current_function_type_params));
+
+        if is_generic and type_params != nil {
+            mut tpi: i32 = 0;
+            loop {
+                if tpi >= len(deref(type_params)) { break; }
+                StringBoolMap.set(addr(g_current_function_type_params), addr(g_renderer_arena), type_params.data[tpi], true);
+                tpi++;
+            }
+        }
+
         if str_len(rt) > 0 {
             map_axe_type_to_c(rt);
         }
-        val params: ref list(string) = ast.data.function.params;
         if params != nil {
             mut k: i32 = 0;
             loop {
@@ -6872,6 +6898,19 @@ def discover_types(ast: ref ASTNode) {
                 k++;
             }
         }
+        
+        if ast.children != nil {
+            val children: ref list(ASTNode) = ast.children;
+            mut i_child: i32 = 0;
+            loop {
+                if i_child >= len(deref(children)) { break; }
+                discover_types(addr(children.data[i_child]));
+                i_child++;
+            }
+        }
+        
+        StringBoolMap.clear(addr(g_current_function_type_params));
+        return; 
     }
     
     if ast.children != nil {
