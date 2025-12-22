@@ -3138,12 +3138,67 @@ def parse_function(ctx: ref ParserContext): ASTNode {
         return func;
     }
     consume(ctx);
-    
+
+    if func.data.function.params != nil {
+        mut param_idx: i32 = 0;
+        val params_len: i32 = len(deref(func.data.function.params));
+        loop {
+            if param_idx >= params_len {
+                break;
+            }
+
+            val param_str: string = func.data.function.params.data[param_idx];
+            mut var_start: i32 = 0;
+
+            if str_len(param_str) >= 4 and equals_c(substring_se(param_str, 0, 4), "mut ") {
+                var_start = 4;
+                loop {
+                    if var_start >= str_len(param_str) or get_char(param_str, var_start) != ' ' {
+                        break;
+                    }
+                    var_start++;
+                }
+            } elif str_len(param_str) >= 4 and equals_c(substring_se(param_str, 0, 4), "ref ") {
+                var_start = 4;
+                loop {
+                    if var_start >= str_len(param_str) or get_char(param_str, var_start) != ' ' {
+                        break;
+                    }
+                    var_start++;
+                }
+            }
+            elif str_len(param_str) >= 8 and equals_c(substring_se(param_str, 0, 8), "ref mut ") {
+                var_start = 8;
+                loop {
+                    if var_start >= str_len(param_str) or get_char(param_str, var_start) != ' ' {
+                        break;
+                    }
+                    var_start++;
+                }
+            }
+
+            mut var_end: i32 = var_start;
+            loop {
+                if var_end >= str_len(param_str) or get_char(param_str, var_end) == ':' {
+                    break;
+                }
+                var_end++;
+            }
+
+            if var_end > var_start {
+                val var_name: string = substring_se(param_str, var_start, var_end);
+                StringBoolMap.set(addr(g_var_mutability), addr(arena), var_name, true);
+            }
+
+            param_idx++;
+        }
+    }
+
     mut children: list(ASTNode);
     mut when_branch_types: list(string);
     mut when_branch_counts: list(i32);
     mut when_branch_starts: list(i32);
-    
+
     if func.data.function.is_generic {
         loop {
             if ctx.pos >= len(ctx.tokens) {
