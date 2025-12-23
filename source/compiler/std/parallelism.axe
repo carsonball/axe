@@ -1,29 +1,317 @@
+pub val OMP_SCHED_STATIC: i32 = 1;
+pub val OMP_SCHED_DYNAMIC: i32 = 2;
+pub val OMP_SCHED_GUIDED: i32 = 3;
+pub val OMP_SCHED_AUTO: i32 = 4;
+
+/// Wrapper for parallel operations.
 pub model Parallel {
+    /// Returns the thread ID of the calling thread within the current team.
     pub def thread_id(): i32 {
         unsafe {
             return C.omp_get_thread_num();
         }
     }
     
+    /// Returns the number of threads currently in the team executing the parallel region.
     pub def num_threads(): i32 {
         unsafe {
             return C.omp_get_num_threads();
         }
     }
     
+    /// Returns the maximum number of threads that can be used in a parallel region.
     pub def max_threads(): i32 {
         unsafe {
             return C.omp_get_max_threads();
         }
     }
     
+    /// Sets the number of threads to use in subsequent parallel regions.
     pub def set_num_threads(num: i32) {
         unsafe {
             C.omp_set_num_threads(num);
         }
     }
+    
+    /// Returns the number of processors available to the program.
+    pub def num_procs(): i32 {
+        unsafe {
+            return C.omp_get_num_procs();
+        }
+    }
+    
+    /// Returns true if called from within an active parallel region.
+    pub def in_parallel(): bool {
+        mut result: i32 = 0;
+        unsafe {
+            result = C.omp_in_parallel();
+        }
+        return result != 0;
+    }
+    
+    /// Enables or disables dynamic adjustment of the number of threads.
+    pub def set_dynamic(dynamic: bool) {
+        unsafe {
+            if dynamic {
+                C.omp_set_dynamic(1);
+            } else {
+                C.omp_set_dynamic(0);
+            }
+        }
+    }
+    
+    /// Returns true if dynamic thread adjustment is enabled.
+    pub def get_dynamic(): bool {
+        mut result: i32 = 0;
+        unsafe {
+            result = C.omp_get_dynamic();
+        }
+        return result != 0;
+    }
+    
+    /// Enables or disables nested parallelism.
+    pub def set_nested(nested: bool) {
+        unsafe {
+            if nested {
+                C.omp_set_nested(1);
+            } else {
+                C.omp_set_nested(0);
+            }
+        }
+    }
+    
+    /// Returns true if nested parallelism is enabled.
+    pub def get_nested(): bool {
+        mut result: i32 = 0;
+        unsafe {
+            result = C.omp_get_nested();
+        }
+        return result != 0;
+    }
+    
+    /// Returns the level of nested parallel regions.
+    pub def get_level(): i32 {
+        unsafe {
+            return C.omp_get_level();
+        }
+    }
+    
+    /// Returns the number of threads in the ancestor team at the specified level.
+    pub def get_ancestor_thread_num(level: i32): i32 {
+        unsafe {
+            return C.omp_get_ancestor_thread_num(level);
+        }
+    }
+    
+    /// Returns the size of the ancestor team at the specified level.
+    pub def get_team_size(level: i32): i32 {
+        unsafe {
+            return C.omp_get_team_size(level);
+        }
+    }
+    
+    /// Returns the maximum number of nested active parallel regions.
+    pub def get_active_level(): i32 {
+        unsafe {
+            return C.omp_get_active_level();
+        }
+    }
+    
+    /// Returns true if cancellation is enabled.
+    pub def get_cancellation(): bool {
+        mut result: i32 = 0;
+        unsafe {
+            result = C.omp_get_cancellation();
+        }
+        return result != 0;
+    }
+    
+    /// Sets the maximum number of nested active parallel regions.
+    pub def set_max_active_levels(levels: i32) {
+        unsafe {
+            C.omp_set_max_active_levels(levels);
+        }
+    }
+    
+    /// Returns the maximum number of nested active parallel regions.
+    pub def get_max_active_levels(): i32 {
+        unsafe {
+            return C.omp_get_max_active_levels();
+        }
+    }
+    
+    /// Returns the thread limit for nested parallel regions.
+    pub def get_thread_limit(): i32 {
+        unsafe {
+            return C.omp_get_thread_limit();
+        }
+    }
+    
+    /// Sets the schedule for parallel loops.
+    pub def set_schedule(kind: i32, chunk_size: i32) {
+        unsafe {
+            C.omp_set_schedule(kind, chunk_size);
+        }
+    }
+    
+    /// Gets the current schedule for parallel loops.
+    pub def get_schedule(kind: ref i32, chunk_size: ref i32) {
+        unsafe {
+            C.omp_get_schedule(kind, chunk_size);
+        }
+    }
+    
+    /// Returns the current wall clock time in seconds.
+    pub def get_wtime(): f64 {
+        unsafe {
+            return C.omp_get_wtime();
+        }
+    }
+    
+    /// Returns the precision of the timer used by get_wtime.
+    pub def get_wtick(): f64 {
+        unsafe {
+            return C.omp_get_wtick();
+        }
+    }
+    
+    /// Returns the default device number.
+    pub def get_default_device(): i32 {
+        unsafe {
+            return C.omp_get_default_device();
+        }
+    }
+    
+    /// Sets the default device number.
+    pub def set_default_device(device: i32) {
+        unsafe {
+            C.omp_set_default_device(device);
+        }
+    }
+    
+    /// Returns the number of available target devices.
+    pub def get_num_devices(): i32 {
+        unsafe {
+            return C.omp_get_num_devices();
+        }
+    }
+    
+    /// Returns the number of teams in the current teams region.
+    pub def get_num_teams(): i32 {
+        unsafe {
+            return C.omp_get_num_teams();
+        }
+    }
+    
+    /// Returns the team number of the calling thread.
+    pub def get_team_num(): i32 {
+        unsafe {
+            return C.omp_get_team_num();
+        }
+    }
+    
+    /// Returns true if the calling thread is the initial thread.
+    pub def is_initial_device(): bool {
+        mut result: i32 = 0;
+        unsafe {
+            result = C.omp_is_initial_device();
+        }
+        return result != 0;
+    }
+    
+    /// Returns the maximum number of task priority levels.
+    pub def get_max_task_priority(): i32 {
+        unsafe {
+            return C.omp_get_max_task_priority();
+        }
+    }
+    
+    /// Initializes an OpenMP lock.
+    pub def init_lock(lock: ref void) {
+        unsafe {
+            C.omp_init_lock(lock);
+        }
+    }
+    
+    /// Destroys an OpenMP lock.
+    pub def destroy_lock(lock: ref void) {
+        unsafe {
+            C.omp_destroy_lock(lock);
+        }
+    }
+    
+    /// Acquires an OpenMP lock.
+    pub def set_lock(lock: ref void) {
+        unsafe {
+            C.omp_set_lock(lock);
+        }
+    }
+    
+    /// Releases an OpenMP lock.
+    pub def unset_lock(lock: ref void) {
+        unsafe {
+            C.omp_unset_lock(lock);
+        }
+    }
+    
+    /// Tries to acquire an OpenMP lock without blocking.
+    pub def test_lock(lock: ref void): bool {
+        mut result: i32 = 0;
+        unsafe {
+            result = C.omp_test_lock(lock);
+        }
+        return result != 0;
+    }
+    
+    /// Initializes a nested OpenMP lock.
+    pub def init_nest_lock(lock: ref void) {
+        unsafe {
+            C.omp_init_nest_lock(lock);
+        }
+    }
+    
+    /// Destroys a nested OpenMP lock.
+    pub def destroy_nest_lock(lock: ref void) {
+        unsafe {
+            C.omp_destroy_nest_lock(lock);
+        }
+    }
+    
+    /// Acquires a nested OpenMP lock.
+    pub def set_nest_lock(lock: ref void) {
+        unsafe {
+            C.omp_set_nest_lock(lock);
+        }
+    }
+    
+    /// Releases a nested OpenMP lock.
+    pub def unset_nest_lock(lock: ref void) {
+        unsafe {
+            C.omp_unset_nest_lock(lock);
+        }
+    }
+    
+    /// Tries to acquire a nested OpenMP lock without blocking.
+    pub def test_nest_lock(lock: ref void): i32 {
+        unsafe {
+            return C.omp_test_nest_lock(lock);
+        }
+    }
 }
 
 test {
-
+    assert num_procs() > 0, "Number of processors should be positive";
+    assert max_threads() > 0, "Max threads should be positive";
+    assert !in_parallel(), "Should not be in parallel region in test";
+    assert get_level() == 0, "Parallel level should be 0 outside parallel region";
+    assert get_thread_limit() > 0, "Thread limit should be positive";
+    assert get_num_devices() >= 0, "Number of devices should be non-negative";
+    assert is_initial_device(), "Should be on initial device";
+    
+    val start_time: f64 = get_wtime();
+    val tick: f64 = get_wtick();
+    assert tick > 0.0, "Timer tick should be positive";
+    
+    set_num_threads(4);
+    assert max_threads() >= 4, "Max threads should be at least 4 after setting";
 }
