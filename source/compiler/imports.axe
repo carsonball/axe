@@ -17,6 +17,7 @@ use parser (
     parse,
     add_child_to_ast,
     macros_add,
+    macros_mark_non_public,
     expand_macros_in_expression
 );
 
@@ -389,6 +390,10 @@ def build_exported_name_map(imported: ref ASTNode): StringBoolMap {
         } elif equals_c(child.node_type, "Overload") {
             if child.data.overload_node.is_public {
                 StringBoolMap.set(addr(m), addr(arena), child.data.overload_node.name, true);
+            }
+        } elif equals_c(child.node_type, "Macro") {
+            if child.data.macro_node.is_public {
+                StringBoolMap.set(addr(m), addr(arena), child.data.macro_node.name, true);
             }
         }
         i++;
@@ -849,7 +854,7 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
             defn.params = child.data.macro_node.params;
             defn.body = child.data.macro_node.body_tokens;
 
-            macros_add(macro_name, defn);
+            macros_add(prefixed_name, defn);
         }
 
         append_child(program, child);
@@ -918,6 +923,23 @@ pub def process_imports(
 
             mut import_ast: ASTNode = parse(addr(toks), import_is_axec, false, use_mod, module_path);
             val import_base: string = get_dir_from_path(module_path);
+
+            if import_ast.children != nil {
+                val import_children: ref list(ASTNode) = import_ast.children;
+                mut macro_idx: i32 = 0;
+                loop {
+                    if macro_idx >= len(deref(import_children)) {
+                        break;
+                    }
+                    val import_child: ASTNode = import_children.data[macro_idx];
+                    if equals_c(import_child.node_type, "Macro") {
+                        if !import_child.data.macro_node.is_public {
+                            macros_mark_non_public(import_child.data.macro_node.name);
+                        }
+                    }
+                    macro_idx++;
+                }
+            }
 
             if !child.data.use_node.import_all and child.data.use_node.imports != nil {
                 val import_children: ref list(ASTNode) = import_ast.children;
@@ -1032,6 +1054,35 @@ pub def process_imports(
                                 if !has_prefix(use_mod, str("std.")) {
                                     print "error: cannot import non-public overload '";
                                     print ovl_name;
+                                    print "' from module '";
+                                    print use_mod;
+                                    println "'";
+                                    unsafe {
+                                        C.exit(1);
+                                    }
+                                }
+                            }
+                        } elif equals_c(import_child.node_type, "Macro") {
+                            val macro_name: string = import_child.data.macro_node.name;
+                            mut is_requested: bool = false;
+                            mut k: i32 = 0;
+                            loop {
+                                if k >= len(deref(child.data.use_node.imports)) {
+                                    break;
+                                }
+                                if compare(child.data.use_node.imports*.data[k], macro_name) == 0{
+                                    is_requested = true;
+                                    break;
+                                }
+                                k++;
+                            }
+
+                            if is_requested and !import_child.data.macro_node.is_public {
+                                if has_prefix(use_mod, str("std.")) {
+                                    // allow std compatibility
+                                } else {
+                                    print "error: cannot import non-public macro '";
+                                    print macro_name;
                                     print "' from module '";
                                     print use_mod;
                                     println "'";

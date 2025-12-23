@@ -39,6 +39,7 @@ mut g_function_has_raw_block: bool;
 mut g_check_shadowing: bool;
 mut g_macro_names: list(string);
 mut g_macro_defs: list(MacroDef);
+mut g_non_public_macros: StringBoolMap;
 mut g_inside_unsafe_block: i32;
 mut g_mut_function_params: StringBoolMap;
 
@@ -60,6 +61,7 @@ pub def initialize_all() {
     g_check_shadowing = false;
     g_macro_names.len = 0;
     g_macro_defs.len = 0;
+    g_non_public_macros = deref(StringBoolMap.create(addr(arena), 128));
     g_inside_unsafe_block = 0;
     g_mut_function_params = deref(StringBoolMap.create(addr(arena), 128));
 }
@@ -112,6 +114,42 @@ def macros_get(name: string): MacroDef {
 
     mut empty: MacroDef;
     return empty;
+}
+
+/// Remove a macro from the registry by name
+pub def macros_remove(name: string) {
+    mut i: i32 = 0;
+    loop {
+        if i >= len(g_macro_names) {
+            break;
+        }
+        if compare(g_macro_names.data[i], name) == 0 {
+            mut j: i32 = i;
+            loop {
+                if j + 1 >= len(g_macro_names) {
+                    break;
+                }
+                g_macro_names.data[j] = g_macro_names.data[j + 1];
+                g_macro_defs.data[j] = g_macro_defs.data[j + 1];
+                j++;
+            }
+            g_macro_names.len--;
+            g_macro_defs.len--;
+            return;
+        }
+        i++;
+    }
+}
+
+/// Mark a macro as non-public (for better error messages)
+pub def macros_mark_non_public(name: string) {
+    mut arena: Arena = Arena.create(1024);
+    StringBoolMap.set(addr(g_non_public_macros), addr(arena), name, true);
+}
+
+/// Check if a macro name refers to a non-public macro
+pub def macros_is_non_public(name: string): bool {
+    return StringBoolMap.contains(addr(g_non_public_macros), name);
 }
 
 /// Check if a string consists only of decimal digits (for macro arg classification)
@@ -190,8 +228,18 @@ pub def expand_macros_in_expression(expr: string): string {
             }
             val ws_after: string = substring_se(expr, ws_start, i);
             
-            if i < expr_len and get_char(expr, i) == '(' and macros_contains(ident) {
-                i++;  // skip '('
+            if i < expr_len and get_char(expr, i) == '(' {
+                if macros_is_non_public(ident) {
+                    print "error: cannot use non-public macro '";
+                    print ident;
+                    println "'";
+                    unsafe {
+                        C.exit(1);
+                    }
+                }
+                
+                if macros_contains(ident) {
+                    i++;  // skip '('
                 
                 mut args: list(string);
                 mut current_arg: StringBuilder = StringBuilder.init(128);
@@ -286,6 +334,10 @@ pub def expand_macros_in_expression(expr: string): string {
                 
                 val fully_expanded: string = expand_macros_in_expression(expanded_text);
                 StringBuilder.append(addr(result), fully_expanded);
+                } else {
+                    StringBuilder.append(addr(result), ident);
+                    StringBuilder.append(addr(result), ws_after);
+                }
             } else {
                 StringBuilder.append(addr(result), ident);
                 StringBuilder.append(addr(result), ws_after);
