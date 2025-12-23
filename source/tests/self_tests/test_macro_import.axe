@@ -1,0 +1,7 @@
+use std.memory;
+use std.io;
+
+def main() {
+    val size: usize = size_of(i32);
+    println($"Size of i32: {size}");
+}
