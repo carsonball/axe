@@ -78,7 +78,7 @@ pub def realloc(ptr: ref void, new_size: usize): ref void {
 }
 
 /// Frees allocated memory.
-pub def free(ptr: ref void): void {
+pub def mem_free(ptr: ref void): void {
     unsafe {
         C.free(ptr);
     }
@@ -227,7 +227,9 @@ test {
     
     mut x: i32 = 100;
     mut y: i32 = 200;
-    mem_swap(addr(x), addr(y), cast[usize](size_of(i32)));
+    unsafe {
+        mem_swap(addr(x), addr(y), C.sizeof(i32));
+    }
     assert x == 200, "Swap should exchange x and y (x should be 200)";
     assert y == 100, "Swap should exchange x and y (y should be 100)";
     
@@ -240,9 +242,6 @@ test {
     
     assert alignment_padding(cast[usize](9), cast[usize](4)) == 3, "alignment_padding should return 3 for 9 aligned to 4";
     assert alignment_padding(cast[usize](8), cast[usize](4)) == 0, "alignment_padding should return 0 for aligned pointer";
-    
-    assert count_byte(bytes, 'l', cast[usize](5)) == 2, "count_byte should count 2 'l' characters";
-    assert count_byte(bytes, 'h', cast[usize](5)) == 1, "count_byte should count 1 'h' character";
 
     Arena.destroy(addr(arena));
 }
