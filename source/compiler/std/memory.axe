@@ -1,3 +1,7 @@
+use std.arena (
+    Arena
+);
+
 /// Copies a value from one location to another.
 pub macro copy(src: untyped, dest: untyped, type: untyped) {
     unsafe {
@@ -12,10 +16,233 @@ pub macro size_of(type: untyped) {
     cast[i32](sizeof(type))
 }
 
+/// Moves memory from source to destination (handles overlapping regions).
+pub def mem_move(dest: ref void, src: ref void, size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = C.memmove(dest, src, size);
+    }
+    return result;
+}
+
+/// Sets memory to a specific byte value.
+pub def mem_set(dest: ref void, value: i32, size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = C.memset(dest, value, size);
+    }
+    return result;
+}
+
+/// Compares two memory regions. Returns 0 if equal, <0 if a < b, >0 if a > b.
+pub def mem_compare(a: ref void, b: ref void, size: usize): i32 {
+    mut result: i32 = 0;
+    unsafe {
+        result = C.memcmp(a, b, size);
+    }
+    return result;
+}
+
+/// Zeroes out memory at the given location.
+pub def zero(dest: ref void, size: usize): void {
+    unsafe {
+        C.memset(dest, 0, size);
+    }
+}
+
+/// Allocates memory using malloc. Returns pointer or nil on failure.
+pub def allocate(size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = C.malloc(size);
+    }
+    return result;
+}
+
+/// Allocates zeroed memory using calloc. Returns pointer or nil on failure.
+pub def calloc(count: usize, size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = C.calloc(count, size);
+    }
+    return result;
+}
+
+/// Reallocates memory to a new size. Returns pointer or nil on failure.
+pub def realloc(ptr: ref void, new_size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = C.realloc(ptr, new_size);
+    }
+    return result;
+}
+
+/// Frees allocated memory.
+pub def free(ptr: ref void): void {
+    unsafe {
+        C.free(ptr);
+    }
+}
+
+/// Duplicates a memory region using arena allocation.
+pub def dup(arena: ref Arena, src: ref void, size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = Arena.alloc(arena, size);
+        if result != nil {
+            C.memcpy(result, src, size);
+        }
+    }
+    return result;
+}
+
+/// Swaps the contents of two memory locations.
+pub def mem_swap(a: ref i32, b: ref i32, size: usize): void {
+    unsafe {
+        mut temp: ref void = C.malloc(size);
+        if temp != nil {
+            C.memcpy(temp, a, size);
+            C.memcpy(a, b, size);
+            C.memcpy(b, temp, size);
+            C.free(temp);
+        }
+    }
+}
+
+/// Checks if memory region is all zeros.
+pub def is_zero(ptr: ref void, size: usize): bool {
+    unsafe {
+        val bytes: ref char = cast[ref char](ptr);
+        for mut i = 0; i < size; i++ {
+            if bytes[i] != 0 {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/// Checks if two memory regions are equal.
+pub def mem_equal(a: ref void, b: ref void, size: usize): bool {
+    unsafe {
+        return C.memcmp(a, b, size) == 0;
+    }
+}
+
+/// Reverses bytes in a memory region.
+pub def reverse_bytes(ptr: ref void, size: usize): void {
+    unsafe {
+        mut bytes: ref char = cast[ref char](ptr);
+        mut left: usize = 0;
+        mut right: usize = size - 1;
+        loop {
+            if left >= right {
+                break;
+            }
+            val temp: char = bytes[left];
+            bytes[left] = bytes[right];
+            bytes[right] = temp;
+            left = left + 1;
+            right = right - 1;
+        }
+    }
+}
+
+/// Aligns a pointer to the specified alignment (must be power of 2).
+pub def align_ptr(ptr: i32, alignment: i32): usize {
+    return (ptr + alignment - 1) & ~(alignment - 1);
+}
+
+/// Checks if a pointer is aligned to the specified alignment.
+pub def is_aligned(ptr: usize, alignment: usize): bool {
+    return (ptr & (alignment - 1)) == 0;
+}
+
+/// Calculates padding needed to align a pointer.
+pub def alignment_padding(ptr: usize, alignment: usize): usize {
+    val aligned: usize = align_ptr(cast[i32](ptr), cast[i32](alignment));
+    return aligned - ptr;
+}
+
+/// Copies memory with alignment consideration.
+pub def aligned_copy(dest: ref void, src: ref void, size: usize, alignment: usize): void {
+    unsafe {
+        val dest_addr: usize = cast[usize](dest);
+        val src_addr: usize = cast[usize](src);
+        
+        if is_aligned(dest_addr, alignment) and is_aligned(src_addr, alignment) {
+            C.memcpy(dest, src, size);
+        } else {
+            C.memmove(dest, src, size);
+        }
+    }
+}
+
+/// Searches for a byte value in memory. Returns pointer to first occurrence or nil.
+pub def mem_find(ptr: ref void, value: i32, size: usize): ref void {
+    mut result: ref void = nil;
+    unsafe {
+        result = C.memchr(ptr, value, size);
+    }
+    return result;
+}
+
+/// Counts occurrences of a byte value in memory.
+pub def count_byte(ptr: ref void, value: char, size: usize): usize {
+    mut count: usize = 0;
+    unsafe {
+        val bytes: ref char = cast[ref char](ptr);
+        for mut i = 0; i < size; i++ {
+            if bytes[i] == value {
+                count = count + 1;
+            }
+        }
+    }
+    return count;
+}
+
+/// Finds the first difference between two memory regions.
+/// Returns the offset of the first difference, or -1 if equal.
+pub def find_diff(a: ref void, b: ref void, size: usize): i32 {
+    unsafe {
+        val bytes_a: ref char = cast[ref char](a);
+        val bytes_b: ref char = cast[ref char](b);
+        for mut i = 0; i < size; i++ {
+            if bytes_a[i] != bytes_b[i] {
+                return cast[i32](i);
+            }
+        }
+    }
+    return -1;
+}
+
 test {
     val a: i32 = 42;
     mut b: i32 = 0;
     copy(a, b, i32);
     assert b == 42, "Copy macro should work.";
     assert size_of(i32) == 4, "Size of i32 should be 4 bytes.";
+    
+    mut arena: Arena = Arena.create(1024);
+    
+    mut x: i32 = 100;
+    mut y: i32 = 200;
+    mem_swap(addr(x), addr(y), cast[usize](size_of(i32)));
+    assert x == 200, "Swap should exchange x and y (x should be 200)";
+    assert y == 100, "Swap should exchange x and y (y should be 100)";
+    
+    assert is_aligned(cast[usize](0), cast[usize](4)), "0 should be aligned to 4";
+    assert is_aligned(cast[usize](8), cast[usize](4)), "8 should be aligned to 4";
+    assert !is_aligned(cast[usize](9), cast[usize](4)), "9 should not be aligned to 4";
+    
+    assert align_ptr(9, 4) == 12, "align_ptr should align 9 to 12";
+    assert align_ptr(8, 4) == 8, "align_ptr should keep 8 as 8";
+    
+    assert alignment_padding(cast[usize](9), cast[usize](4)) == 3, "alignment_padding should return 3 for 9 aligned to 4";
+    assert alignment_padding(cast[usize](8), cast[usize](4)) == 0, "alignment_padding should return 0 for aligned pointer";
+    
+    assert count_byte(bytes, 'l', cast[usize](5)) == 2, "count_byte should count 2 'l' characters";
+    assert count_byte(bytes, 'h', cast[usize](5)) == 1, "count_byte should count 1 'h' character";
+
+    Arena.destroy(addr(arena));
 }
