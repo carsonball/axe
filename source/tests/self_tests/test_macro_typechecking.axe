@@ -1,0 +1,9 @@
+use std.io;
+
+macro some_macro(x: i32, y: i32) {
+    x + y
+}
+
+def main() {
+    println(some_macro(1, 1));
+}
