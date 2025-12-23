@@ -1,0 +1,15 @@
+[symbol: "malloc"]
+extern def my_malloc(size: usize): ref u8;
+
+[symbol: "free"]
+extern def my_free(ptr: ref u8);
+
+[symbol: "printf"]
+extern def my_printf(fmt: ref char): i32;
+
+def main() {
+    val size: usize = 100;
+    val ptr: ref u8 = my_malloc(size);
+    my_free(ptr);
+    my_printf("Hello, World!\n");
+}
