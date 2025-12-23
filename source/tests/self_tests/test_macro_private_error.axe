@@ -1,0 +1,8 @@
+use test_macro_module;
+use std.io;
+use std.string;
+
+def main() {
+    val x: i32 = private_macro(5);
+    print(i32_to_string(x));
+}

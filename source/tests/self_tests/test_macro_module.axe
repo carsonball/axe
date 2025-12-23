@@ -1,0 +1,11 @@
+pub macro public_macro(x: untyped) {
+    x * 2
+}
+
+macro private_macro(x: untyped) {
+    x * 3
+}
+
+def main() {
+
+}
