@@ -6242,6 +6242,98 @@ def check_variable_declared(name: string) {
     }
 }
 
+/// Convert union member initialization from Axe to C syntax
+/// e.g., "literal{ value: 42 }" -> "{ .literal = { .value = 42 } }"
+def convert_union_member_init(expr: string): string {
+    val trimmed: string = strip(expr);
+    val brace_idx: i32 = find_char_from(trimmed, '{', cast[usize](0));
+    
+    if brace_idx <= 0 or get_char(trimmed, str_len(trimmed) - 1) != '}' {
+        return expr;
+    }
+    
+    val member_name: string = strip(substring_se(trimmed, 0, brace_idx));
+    
+    if str_len(member_name) == 0 or find_char_from(member_name, '.', cast[usize](0)) >= 0 {
+        return expr;
+    }
+    
+    val first_char: char = get_char(member_name, 0);
+    if first_char < 'a' or first_char > 'z' {
+        return expr;
+    }
+    
+    val inner: string = substring_se(trimmed, brace_idx + 1, cast[i32](str_len(trimmed) - 1));
+    
+    mut sb: StringBuilder = StringBuilder.init(str_len(trimmed) + 10);
+    StringBuilder.append_c(addr(sb), "{ .");
+    StringBuilder.append(addr(sb), member_name);
+    StringBuilder.append_c(addr(sb), " = { ");
+    
+    mut sb_inner: StringBuilder = StringBuilder.init(str_len(inner) + 16);
+    mut depth: i32 = 0;
+    mut first_field: bool = true;
+    mut i: i32 = 0;
+    val inner_len: i32 = cast[i32](str_len(inner));
+    
+    loop {
+        if i >= inner_len {
+            break;
+        }
+        val ch: char = get_char(inner, i);
+        if ch == '{' or ch == '(' {
+            depth++;
+            StringBuilder.append_char(addr(sb_inner), ch);
+        } elif ch == '}' or ch == ')' {
+            depth--;
+            StringBuilder.append_char(addr(sb_inner), ch);
+        } elif ch == ',' and depth == 0 {
+            val part: string = strip(StringBuilder.to_string(addr(sb_inner)));
+            if str_len(part) > 0 {
+                val colon_pos: i32 = find_char_from(part, ':', cast[usize](0));
+                if colon_pos >= 0 {
+                    val field_name: string = strip(substring_se(part, 0, colon_pos));
+                    val field_value: string = strip(substr(part, colon_pos + 1, cast[i32](str_len(part) - colon_pos - 1)));
+                    if !first_field {
+                        StringBuilder.append_c(addr(sb), ", ");
+                    }
+                    StringBuilder.append_c(addr(sb), ".");
+                    StringBuilder.append(addr(sb), field_name);
+                    StringBuilder.append_c(addr(sb), " = ");
+                    StringBuilder.append(addr(sb), field_value);
+                    first_field = false;
+                }
+            }
+            StringBuilder.clear(addr(sb_inner));
+        } else {
+            StringBuilder.append_char(addr(sb_inner), ch);
+        }
+        i++;
+    }
+    
+    val part_last: string = strip(StringBuilder.to_string(addr(sb_inner)));
+    StringBuilder.destroy(addr(sb_inner));
+    if str_len(part_last) > 0 {
+        val colon_pos_last: i32 = find_char_from(part_last, ':', cast[usize](0));
+        if colon_pos_last >= 0 {
+            val field_name_last: string = strip(substring_se(part_last, 0, colon_pos_last));
+            val field_value_last: string = strip(substr(part_last, colon_pos_last + 1, cast[i32](str_len(part_last) - colon_pos_last - 1)));
+            if !first_field {
+                StringBuilder.append_c(addr(sb), ", ");
+            }
+            StringBuilder.append_c(addr(sb), ".");
+            StringBuilder.append(addr(sb), field_name_last);
+            StringBuilder.append_c(addr(sb), " = ");
+            StringBuilder.append(addr(sb), field_value_last);
+        }
+    }
+    
+    StringBuilder.append_c(addr(sb), " } }");
+    val result: string = StringBuilder.to_string(addr(sb));
+    StringBuilder.destroy(addr(sb));
+    return result;
+}
+
 def process_expression(expr: string): string {
     mut trimmed: string = strip(expr);
     
@@ -10208,7 +10300,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                             StringBuilder.append_c(addr(sb_decl), ".");
                                             StringBuilder.append(addr(sb_decl), field_name);
                                             StringBuilder.append_c(addr(sb_decl), " = ");
-                                            StringBuilder.append(addr(sb_decl), process_expression(value_expr));
+                                            val converted_value: string = convert_union_member_init(value_expr);
+                                            StringBuilder.append(addr(sb_decl), process_expression(converted_value));
                                             first_field = false;
                                         }
                                     }
@@ -10234,7 +10327,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                     StringBuilder.append_c(addr(sb_decl), ".");
                                     StringBuilder.append(addr(sb_decl), field_name_last);
                                     StringBuilder.append_c(addr(sb_decl), " = ");
-                                    StringBuilder.append(addr(sb_decl), process_expression(value_expr_last));
+                                    val converted_value_last: string = convert_union_member_init(value_expr_last);
+                                    StringBuilder.append(addr(sb_decl), process_expression(converted_value_last));
                                     first_field = false;
                                 }
                             }
@@ -10289,7 +10383,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                             StringBuilder.append_c(addr(sb_decl), ".");
                                             StringBuilder.append(addr(sb_decl), field_name2);
                                             StringBuilder.append_c(addr(sb_decl), " = ");
-                                            StringBuilder.append(addr(sb_decl), process_expression(value_expr2));
+                                            val converted_value2: string = convert_union_member_init(value_expr2);
+                                            StringBuilder.append(addr(sb_decl), process_expression(converted_value2));
                                             first_field2 = false;
                                         }
                                     }
@@ -10315,7 +10410,8 @@ pub def generate_c(ast: ref ASTNode): string {
                                     StringBuilder.append_c(addr(sb_decl), ".");
                                     StringBuilder.append(addr(sb_decl), field_name_last2);
                                     StringBuilder.append_c(addr(sb_decl), " = ");
-                                    StringBuilder.append(addr(sb_decl), process_expression(value_expr_last2));
+                                    val converted_value_last2: string = convert_union_member_init(value_expr_last2);
+                                    StringBuilder.append(addr(sb_decl), process_expression(converted_value_last2));
                                     first_field2 = false;
                                 }
                             }
@@ -12520,7 +12616,6 @@ pub def generate_c(ast: ref ASTNode): string {
                 } elif has_suffix(field_type, str("[999]")) {
                     StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
                 } elif compare(field_type, model_name) == 0 {
-                    // Self-referential field is a pointer
                     StringBoolMap.set(addr(g_pointer_fields), addr(arena), field_key, true);
                 }
 
@@ -12584,6 +12679,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                             }
                                         }
 
+                                        if compare(nested_type_raw, model_name) == 0 or compare(c_nested_model_name, model_name) == 0 {
+                                            if !has_suffix(mapped_nested_type, str("*")) {
+                                                mapped_nested_type = concat(mapped_nested_type, str("*"));
+                                            }
+                                        }
+
                                         StringBuilder.append_c(addr(sb), "            ");
                                         StringBuilder.append(addr(sb), mapped_nested_type);
                                         StringBuilder.append_char(addr(sb), ' ');
@@ -12624,6 +12725,12 @@ pub def generate_c(ast: ref ASTNode): string {
                                         mapped_member_type = c_member_model_name;
                                     } else {
                                         mapped_member_type = concat(str("struct "), c_member_model_name);
+                                    }
+                                }
+
+                                if compare(member_type_raw, model_name) == 0 or compare(c_member_model_name, model_name) == 0 {
+                                    if !has_suffix(mapped_member_type, str("*")) {
+                                        mapped_member_type = concat(mapped_member_type, str("*"));
                                     }
                                 }
 
