@@ -37,7 +37,7 @@ extern def pcre_exec(code: ref pcre,
 extern def pcre_free(ptr: ref void);
 
 /// Returns true if the given text contains pattern as a substring.
-def match(pattern: string, text: string): bool {
+pub def match(pattern: string, text: string): bool {
     foreign {pcre};
 
     mut result: bool = false;
