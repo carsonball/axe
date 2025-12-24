@@ -1,11 +1,27 @@
+use std.errors;
+
 pub val PI: f64           = 3.141592653589793;
 pub val HALF_PI: f64      = PI / 2.0;
 pub val QUARTER_PI: f64   = PI / 4.0;
 pub val TWO_PI: f64       = PI * 2.0;
 pub val E: f64            = 2.718281828459045;
+pub val SQRT_2: f64       = 1.4142135623730951;
+pub val SQRT_3: f64       = 1.7320508075688772;
+pub val LN_2: f64         = 0.6931471805599453;
+pub val LN_10: f64        = 2.302585092994046;
+pub val LOG2_E: f64       = 1.4426950408889634;
+pub val LOG10_E: f64      = 0.4342944819032518;
+pub val PHI: f64          = 1.618033988749895;
+pub val TAU: f64          = TWO_PI;           
+pub val EPSILON: f64      = 0.0000000001;     
+pub val INF: f64          = 1.0 / 0.0;        
+pub val NEG_INF: f64      = -1.0 / 0.0;       
 
 /// Clamp integer
 pub def clamp(value: i32, min: i32, max: i32): i32 {
+    if min > max {
+        panic(error.create("clamp: min cannot be greater than max"));
+    }
     if value < min { return min; }
     elif value > max { return max; }
     else { return value; }
@@ -13,14 +29,27 @@ pub def clamp(value: i32, min: i32, max: i32): i32 {
 
 /// Clamp float
 pub def clamp_float(value: f64, min: f64, max: f64): f64 {
+    if min > max {
+        panic(error.create("clamp_float: min cannot be greater than max"));
+    }
     if value < min { return min; }
     elif value > max { return max; }
     else { return value; }
 }
 
-/// Absolute value
+/// Absolute value (float)
 pub def absolute(value: f64): f64 {
     if value < 0.0 { return -value; } else { return value; }
+}
+
+/// Absolute value (integer)
+pub def abs(value: i32): i32 {
+    if value < 0 { return -value; } else { return value; }
+}
+
+/// Absolute value (i64)
+pub def abs_i64(value: i64): i64 {
+    if value < 0 { return -value; } else { return value; }
 }
 
 /// Approximately equal
@@ -28,11 +57,27 @@ pub def approx_equal(a: f64, b: f64, eps: f64): bool {
     return absolute(a - b) <= eps;
 }
 
-/// Minimum
+/// Minimum (float)
 pub def minimum(a: f64, b: f64): f64 { if a < b { return a; } else { return b; } }
 
-/// Maximum
+/// Maximum (float)
 pub def maximum(a: f64, b: f64): f64 { if a > b { return a; } else { return b; } }
+
+/// Minimum (integer)
+pub def min(a: i32, b: i32): i32 { if a < b { return a; } else { return b; } }
+
+/// Maximum (integer)
+pub def max(a: i32, b: i32): i32 { if a > b { return a; } else { return b; } }
+
+/// Minimum of three values
+pub def min3(a: f64, b: f64, c: f64): f64 {
+    return minimum(minimum(a, b), c);
+}
+
+/// Maximum of three values
+pub def max3(a: f64, b: f64, c: f64): f64 {
+    return maximum(maximum(a, b), c);
+}
 
 /// Converts an integer to a float.
 pub def int_to_float(x: i32): f64 {
@@ -72,7 +117,23 @@ pub def round(x: f64): f64 {
 
 /// Float modulus.
 pub def mod_float(a: f64, b: f64): f64 {
+    if b == 0.0 {
+        panic(error.create("mod_float: division by zero"));
+    }
     return a - b * floor(a / b);
+}
+
+/// Integer modulus with sign handling
+pub def modulo(a: i32, b: i32): i32 {
+    if b == 0 {
+        panic(error.create("modulo: division by zero"));
+    }
+    val r: i32 = a % b;
+    if r < 0 {
+        if b > 0 { return r + b; }
+        else { return r - b; }
+    }
+    return r;
 }
 
 /// Reduce angle to [0, 2PI]
@@ -80,9 +141,12 @@ pub def reduce_angle(x: f64): f64 {
     return mod_float(x, TWO_PI);
 }
 
-/// Square root (Newton)
+/// Square root (Newton-Raphson method)
 pub def sqrt(value: f64): f64 {
-    if value <= 0.0 { return 0.0; }
+    if value < 0.0 {
+        panic(error.create("sqrt: cannot compute square root of negative number"));
+    }
+    if value == 0.0 { return 0.0; }
     if value < 0.0000001 { return 0.00001; }
 
     mut x: f64 = 0.0;
@@ -99,6 +163,46 @@ pub def sqrt(value: f64): f64 {
         if approx_equal(last, x, 0.0000000000001) { break; }
     }
     return x;
+}
+
+/// Cube root
+pub def cbrt(value: f64): f64 {
+    if value == 0.0 { return 0.0; }
+    
+    mut sign: f64;
+    if value < 0.0 { sign = -1.0; } else { sign = 1.0; };
+    val abs_val: f64 = absolute(value);
+    
+    mut x: f64 = abs_val;
+    for mut i = 0; i < 50; i++ {
+        val last: f64 = x;
+        x = (2.0 * x + abs_val / (x * x)) / 3.0;
+        if approx_equal(last, x, 0.0000000001) { break; }
+    }
+    
+    return sign * x;
+}
+
+/// Nth root
+pub def nthroot(value: f64, n: i32): f64 {
+    if n == 0 {
+        panic(error.create("nthroot: n cannot be zero"));
+    }
+    if n == 1 { return value; }
+    if n == 2 { return sqrt(value); }
+    if n == 3 { return cbrt(value); }
+    
+    if n % 2 == 0 and value < 0.0 {
+        panic(error.create("nthroot: cannot compute even root of negative number"));
+    }
+    
+    mut sign: f64;
+    if value < 0.0 { sign = -1.0; } else { sign = 1.0; };
+    val abs_val: f64 = absolute(value);
+    
+    if abs_val == 0.0 { return 0.0; }
+    
+    return sign * powf(abs_val, 1.0 / n);
 }
 
 /// Integer exponent (exponentiation by squaring)
@@ -158,7 +262,9 @@ pub def exp(x: f64): f64 {
 
 /// Natural logarithm
 pub def ln(x: f64): f64 {
-    if x <= 0.0 { return 0.0; }
+    if x <= 0.0 {
+        panic(error.create("ln: cannot compute logarithm of non-positive number"));
+    }
 
     mut y: f64 = x - 1.0;
     for mut i = 0; i < 25; i++ {
@@ -168,6 +274,33 @@ pub def ln(x: f64): f64 {
         if approx_equal(last, y, 0.0000001) { break; }
     }
     return y;
+}
+
+/// Base-10 logarithm
+pub def log10(x: f64): f64 {
+    if x <= 0.0 {
+        panic(error.create("log10: cannot compute logarithm of non-positive number"));
+    }
+    return ln(x) / LN_10;
+}
+
+/// Base-2 logarithm
+pub def log2(x: f64): f64 {
+    if x <= 0.0 {
+        panic(error.create("log2: cannot compute logarithm of non-positive number"));
+    }
+    return ln(x) / LN_2;
+}
+
+/// Logarithm with arbitrary base
+pub def log(x: f64, base: f64): f64 {
+    if x <= 0.0 {
+        panic(error.create("log: cannot compute logarithm of non-positive number"));
+    }
+    if base <= 0.0 or base == 1.0 {
+        panic(error.create("log: base must be positive and not equal to 1"));
+    }
+    return ln(x) / ln(base);
 }
 
 /// Sine (reduced angle)
@@ -202,7 +335,38 @@ pub def cos(x: f64): f64 {
 
 /// Tangent
 pub def tan(x: f64): f64 {
-    return sin(x) / cos(x);
+    val c: f64 = cos(x);
+    if approx_equal(c, 0.0, 0.0001) {
+        panic(error.create("tan: tangent undefined at odd multiples of PI/2"));
+    }
+    return sin(x) / c;
+}
+
+/// Cotangent
+pub def cot(x: f64): f64 {
+    val s: f64 = sin(x);
+    if approx_equal(s, 0.0, 0.0001) {
+        panic(error.create("cot: cotangent undefined at multiples of PI"));
+    }
+    return cos(x) / s;
+}
+
+/// Secant
+pub def sec(x: f64): f64 {
+    val c: f64 = cos(x);
+    if approx_equal(c, 0.0, 0.0001) {
+        panic(error.create("sec: secant undefined at odd multiples of PI/2"));
+    }
+    return 1.0 / c;
+}
+
+/// Cosecant
+pub def csc(x: f64): f64 {
+    val s: f64 = sin(x);
+    if approx_equal(s, 0.0, 0.0001) {
+        panic(error.create("csc: cosecant undefined at multiples of PI"));
+    }
+    return 1.0 / s;
 }
 
 /// Arcsine
@@ -248,8 +412,13 @@ pub def atan(x: f64): f64 {
 
 /// Float power: base^exp for non-integer exponents
 pub def powf(base: f64, expp: f64): f64 {
-    if base <= 0.0 {
-        // avoid log(0) or negative base issues
+    if base < 0.0 {
+        panic(error.create("powf: cannot raise negative base to non-integer power"));
+    }
+    if base == 0.0 {
+        if expp < 0.0 {
+            panic(error.create("powf: cannot raise zero to negative power"));
+        }
         return 0.0;
     }
     return exp(ln(base) * expp);
@@ -298,10 +467,375 @@ pub def sorted[T](lst: ref list(T)): list(T) {
     }
 }
 
-/// Hyperbolic tangent inverse
+/// Sign function: returns -1, 0, or 1
+pub def sign(x: f64): f64 {
+    if x < 0.0 { return -1.0; }
+    elif x > 0.0 { return 1.0; }
+    else { return 0.0; }
+}
+
+/// Sign function for integers
+pub def signum(x: i32): i32 {
+    if x < 0 { return -1; }
+    elif x > 0 { return 1; }
+    else { return 0; }
+}
+
+/// Copy sign: returns magnitude of x with sign of y
+pub def copysign(x: f64, y: f64): f64 {
+    val abs_x: f64 = absolute(x);
+    if y < 0.0 { return -abs_x; }
+    else { return abs_x; }
+}
+
+/// Truncate towards zero
+pub def trunc(x: f64): f64 {
+    if x >= 0.0 { return floor(x); }
+    else { return ceil(x); }
+}
+
+/// Fractional part of a number
+pub def fract(x: f64): f64 {
+    return x - trunc(x);
+}
+
+/// Linear interpolation between a and b
+pub def lerp(a: f64, b: f64, t: f64): f64 {
+    return a + (b - a) * t;
+}
+
+/// Inverse linear interpolation: returns t such that lerp(a, b, t) = value
+pub def inverse_lerp(a: f64, b: f64, value: f64): f64 {
+    if approx_equal(a, b, EPSILON) {
+        panic(error.create("inverse_lerp: a and b cannot be equal"));
+    }
+    return (value - a) / (b - a);
+}
+
+/// Remap value from one range to another
+pub def remap(value: f64, from_min: f64, from_max: f64, to_min: f64, to_max: f64): f64 {
+    if approx_equal(from_min, from_max, EPSILON) {
+        panic(error.create("remap: from_min and from_max cannot be equal"));
+    }
+    val t: f64 = (value - from_min) / (from_max - from_min);
+    return to_min + (to_max - to_min) * t;
+}
+
+/// Smooth step interpolation (cubic Hermite)
+pub def smoothstep(edge0: f64, edge1: f64, x: f64): f64 {
+    if approx_equal(edge0, edge1, EPSILON) {
+        panic(error.create("smoothstep: edge0 and edge1 cannot be equal"));
+    }
+    val t: f64 = clamp_float((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+/// Smoother step interpolation (quintic)
+pub def smootherstep(edge0: f64, edge1: f64, x: f64): f64 {
+    if approx_equal(edge0, edge1, EPSILON) {
+        panic(error.create("smootherstep: edge0 and edge1 cannot be equal"));
+    }
+    val t: f64 = clamp_float((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+/// Wrap value to range [0, max)
+pub def wrap(value: f64, max: f64): f64 {
+    if max <= 0.0 {
+        panic(error.create("wrap: max must be positive"));
+    }
+    val result: f64 = mod_float(value, max);
+    if result < 0.0 { return result + max; }
+    return result;
+}
+
+/// Wrap value to range [min, max)
+pub def wrap_range(value: f64, min: f64, max: f64): f64 {
+    if min >= max {
+        panic(error.create("wrap_range: min must be less than max"));
+    }
+    val range: f64 = max - min;
+    val offset: f64 = value - min;
+    return wrap(offset, range) + min;
+}
+
+/// Ping-pong: bounces value between 0 and length
+pub def pingpong(value: f64, length: f64): f64 {
+    if length <= 0.0 {
+        panic(error.create("pingpong: length must be positive"));
+    }
+    val t: f64 = wrap(value, length * 2.0);
+    if t < length { return t; }
+    else { return length * 2.0 - t; }
+}
+
+/// Degrees to radians
+pub def to_radians(degrees: f64): f64 {
+    return degrees * PI / 180.0;
+}
+
+/// Radians to degrees
+pub def to_degrees(radians: f64): f64 {
+    return radians * 180.0 / PI;
+}
+
+/// Normalize angle to range [-PI, PI]
+pub def normalize_angle(angle: f64): f64 {
+    mut result: f64 = mod_float(angle + PI, TWO_PI);
+    if result < 0.0 { result = result + TWO_PI; }
+    return result - PI;
+}
+
+/// Shortest angular distance between two angles
+pub def angle_distance(from: f64, to: f64): f64 {
+    val diff: f64 = normalize_angle(to - from);
+    return diff;
+}
+
+/// Factorial (iterative)
+pub def factorial(n: i32): i64 {
+    if n < 0 {
+        panic(error.create("factorial: n cannot be negative"));
+    }
+    if n > 20 {
+        panic(error.create("factorial: n too large (overflow risk), max is 20"));
+    }
+    
+    mut result: i64 = 1;
+    for mut i = 2; i <= n; i++ {
+        result = result * i;
+    }
+    return result;
+}
+
+/// Binomial coefficient: n choose k
+pub def binomial(n: i32, k: i32): i64 {
+    if n < 0 or k < 0 {
+        panic(error.create("binomial: n and k must be non-negative"));
+    }
+    if k > n { return 0; }
+    if k == 0 or k == n { return 1; }
+    
+    // Use symmetry property
+    mut k_opt: i32 = k;
+    if k > n - k { k_opt = n - k; }
+    
+    mut result: i64 = 1;
+    for mut i = 0; i < k_opt; i++ {
+        result = result * (n - i) / (i + 1);
+    }
+    return result;
+}
+
+/// Greatest common divisor (Euclidean algorithm)
+pub def gcd(a: i32, b: i32): i32 {
+    mut x: i32 = abs(a);
+    mut y: i32 = abs(b);
+    
+    loop {
+        if y == 0 { break; }
+        val temp: i32 = y;
+        y = x % y;
+        x = temp;
+    }
+    return x;
+}
+
+/// Least common multiple
+pub def lcm(a: i32, b: i32): i32 {
+    if a == 0 or b == 0 { return 0; }
+    val g: i32 = gcd(a, b);
+    return abs(a / g * b);
+}
+
+/// Check if number is power of 2
+pub def is_power_of_2(n: i32): bool {
+    if n <= 0 { return false; }
+    return (n & (n - 1)) == 0;
+}
+
+/// Next power of 2 greater than or equal to n
+pub def next_power_of_2(n: i32): i32 {
+    if n <= 0 { return 1; }
+    if n > 1073741824 {
+        panic(error.create("next_power_of_2: value too large (overflow risk)"));
+    }
+    
+    mut result: i32 = n - 1;
+    result = result | (result >> 1);
+    result = result | (result >> 2);
+    result = result | (result >> 4);
+    result = result | (result >> 8);
+    result = result | (result >> 16);
+    return result + 1;
+}
+
+/// Check if number is even
+pub def is_even(n: i32): bool {
+    return (n & 1) == 0;
+}
+
+/// Check if number is odd
+pub def is_odd(n: i32): bool {
+    return (n & 1) == 1;
+}
+
+/// Check if float is NaN
+pub def is_nan(x: f64): bool {
+    return x != x;
+}
+
+/// Check if float is infinite
+pub def is_infinite(x: f64): bool {
+    return x == INF or x == NEG_INF;
+}
+
+/// Check if float is finite
+pub def is_finite(x: f64): bool {
+    return !is_nan(x) and !is_infinite(x);
+}
+
+/// Distance between two points in 2D
+pub def distance_2d(x1: f64, y1: f64, x2: f64, y2: f64): f64 {
+    val dx: f64 = x2 - x1;
+    val dy: f64 = y2 - y1;
+    return sqrt(dx * dx + dy * dy);
+}
+
+/// Distance between two points in 3D
+pub def distance_3d(x1: f64, y1: f64, z1: f64, x2: f64, y2: f64, z2: f64): f64 {
+    val dx: f64 = x2 - x1;
+    val dy: f64 = y2 - y1;
+    val dz: f64 = z2 - z1;
+    return sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+/// Manhattan distance in 2D
+pub def manhattan_2d(x1: f64, y1: f64, x2: f64, y2: f64): f64 {
+    return absolute(x2 - x1) + absolute(y2 - y1);
+}
+
+/// Chebyshev distance in 2D
+pub def chebyshev_2d(x1: f64, y1: f64, x2: f64, y2: f64): f64 {
+    return maximum(absolute(x2 - x1), absolute(y2 - y1));
+}
+
+/// Hypotenuse: sqrt(a^2 + b^2) with better numerical stability
+pub def hypot(a: f64, b: f64): f64 {
+    val abs_a: f64 = absolute(a);
+    val abs_b: f64 = absolute(b);
+    
+    if abs_a == 0.0 { return abs_b; }
+    if abs_b == 0.0 { return abs_a; }
+    
+    val max_val: f64 = maximum(abs_a, abs_b);
+    val min_val: f64 = minimum(abs_a, abs_b);
+    val ratio: f64 = min_val / max_val;
+    
+    return max_val * sqrt(1.0 + ratio * ratio);
+}
+
+/// Sum of array elements
+pub def sum_array(arr: ref f64, len: i32): f64 {
+    if len < 0 {
+        panic(error.create("sum_array: length cannot be negative"));
+    }
+    
+    mut total: f64 = 0.0;
+    for mut i = 0; i < len; i++ {
+        total = total + arr[i];
+    }
+    return total;
+}
+
+/// Mean (average) of array elements
+pub def mean(arr: ref f64, len: i32): f64 {
+    if len <= 0 {
+        panic(error.create("mean: array must have at least one element"));
+    }
+    return sum_array(arr, len) / len;
+}
+
+/// Variance of array elements
+pub def variance(arr: ref f64, len: i32): f64 {
+    if len <= 0 {
+        panic(error.create("variance: array must have at least one element"));
+    }
+    
+    val avg: f64 = mean(arr, len);
+    mut sum_sq_diff: f64 = 0.0;
+    
+    for mut i = 0; i < len; i++ {
+        val diff: f64 = arr[i] - avg;
+        sum_sq_diff = sum_sq_diff + diff * diff;
+    }
+    
+    return sum_sq_diff / len;
+}
+
+/// Standard deviation of array elements
+pub def std_dev(arr: ref f64, len: i32): f64 {
+    return sqrt(variance(arr, len));
+}
+
+/// Median of array elements (modifies array by sorting)
+pub def median(arr: ref f64, len: i32): f64 {
+    if len <= 0 {
+        panic(error.create("median: array must have at least one element"));
+    }
+    
+    for mut i = 0; i < len - 1; i++ {
+        for mut j = 0; j < len - i - 1; j++ {
+            if arr[j] > arr[j + 1] {
+                val temp: f64 = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+    
+    if is_even(len) {
+        val mid: i32 = len / 2;
+        return (arr[mid - 1] + arr[mid]) / 2.0;
+    } else {
+        return arr[len / 2];
+    }
+}
+
+/// Hyperbolic sine
+pub def sinh(x: f64): f64 {
+    return (exp(x) - exp(-x)) / 2.0;
+}
+
+/// Hyperbolic cosine
+pub def cosh(x: f64): f64 {
+    return (exp(x) + exp(-x)) / 2.0;
+}
+
+/// Hyperbolic tangent
+pub def tanh(x: f64): f64 {
+    val ex: f64 = exp(x);
+    val emx: f64 = exp(-x);
+    return (ex - emx) / (ex + emx);
+}
+
+/// Inverse hyperbolic sine
+pub def asinh(x: f64): f64 {
+    return ln(x + sqrt(x * x + 1.0));
+}
+
+/// Inverse hyperbolic cosine
+pub def acosh(x: f64): f64 {
+    if x < 1.0 {
+        panic(error.create("acosh: domain error, x must be >= 1"));
+    }
+    return ln(x + sqrt(x * x - 1.0));
+}
+
+/// Inverse hyperbolic tangent
 pub def atanh(x: f64): f64 {
     if x <= -1.0 or x >= 1.0 {
-        return 0.0;
+        panic(error.create("atanh: domain error, x must be in (-1, 1)"));
     }
     return 0.5 * ln((1.0 + x) / (1.0 - x));
 }
@@ -324,6 +858,8 @@ test {
     assert(clamp_float(20.0, 0.0, 10.0) == 10.0, "clamp_float above");
     assert(absolute(-5.0) == 5.0, "absolute neg");
     assert(absolute(5.0) == 5.0, "absolute pos");
+    assert(abs(-42) == 42, "abs integer");
+    assert(abs(42) == 42, "abs integer positive");
     assert(floor(5.2) == 5.0, "floor positive");
     assert(floor(-1.2) == -2.0, "floor negative fractional");
     assert(floor(-1.0) == -1.0, "floor negative exact");
@@ -337,6 +873,9 @@ test {
     assert(approx_equal(sqrt(2.0), 1.4142, 0.01), "sqrt(2)");
     assert(approx_equal(sqrt(0.25), 0.5, 0.01), "sqrt(0.25)");
     assert(approx_equal(sqrt(10000.0), 100.0, 0.01), "sqrt(10000)");
+    assert(approx_equal(cbrt(8.0), 2.0, 0.01), "cbrt(8)");
+    assert(approx_equal(cbrt(27.0), 3.0, 0.01), "cbrt(27)");
+    assert(approx_equal(cbrt(-8.0), -2.0, 0.01), "cbrt(-8)");
     assert(approx_equal(reduce_angle(PI), PI, 0.001), "reduce pi");
     assert(approx_equal(reduce_angle(PI + TWO_PI), PI, 0.001), "reduce angle wrap");
     assert(approx_equal(reduce_angle(-PI), TWO_PI - PI, 0.001), "reduce negative");
@@ -347,6 +886,7 @@ test {
     assert(approx_equal(pow(5.0, 0), 1.0, 0.0001), "pow zero");
     assert(approx_equal(ln(exp(2.0)), 2.0, 0.05), "ln(exp(x)) ≈ x");
     assert(approx_equal(exp(ln(2.0)), 2.0, 0.05), "exp(ln(x)) ≈ x");
+    assert(approx_equal(log2(8.0), 3.0, 0.01), "log2(8)");
     assert(approx_equal(sin(0.0), 0.0, 0.01), "sin(0)");
     assert(approx_equal(cos(PI), -1.0, 0.05), "cos(pi)");
 
@@ -362,10 +902,62 @@ test {
     assert(approx_equal(powf(E, 1.0), E, 0.01), "powf e^1");
     assert(approx_equal(powf(E, 2.0), E*E, 0.05), "powf e^2");
     assert(approx_equal(powf(10.0, -1.0), 0.1, 0.01), "powf 10^-1");
+    
+    assert(approx_equal(sinh(0.0), 0.0, 0.01), "sinh(0)");
+    assert(approx_equal(cosh(0.0), 1.0, 0.01), "cosh(0)");
+    assert(approx_equal(tanh(0.0), 0.0, 0.01), "tanh(0)");
+    assert(approx_equal(asinh(0.0), 0.0, 0.01), "asinh(0)");
+    assert(approx_equal(acosh(1.0), 0.0, 0.01), "acosh(1)");
+    
+    assert(sign(-5.5) == -1.0, "sign negative");
+    assert(sign(5.5) == 1.0, "sign positive");
+    assert(sign(0.0) == 0.0, "sign zero");
+    assert(signum(-5) == -1, "signum negative");
+    assert(signum(5) == 1, "signum positive");
+    assert(signum(0) == 0, "signum zero");
+    
+    assert(approx_equal(trunc(5.7), 5.0, 0.01), "trunc positive");
+    assert(approx_equal(trunc(-5.7), -5.0, 0.01), "trunc negative");
+    assert(approx_equal(fract(5.7), 0.7, 0.01), "fract positive");
+    
+    assert(approx_equal(lerp(0.0, 10.0, 0.5), 5.0, 0.01), "lerp midpoint");
+    assert(approx_equal(lerp(0.0, 10.0, 0.0), 0.0, 0.01), "lerp start");
+    assert(approx_equal(lerp(0.0, 10.0, 1.0), 10.0, 0.01), "lerp end");
+    
+    assert(approx_equal(to_radians(180.0), PI, 0.01), "degrees to radians");
+    assert(approx_equal(to_degrees(PI), 180.0, 0.01), "radians to degrees");
+    
+    assert(factorial(5) == 120, "factorial 5");
+    assert(factorial(0) == 1, "factorial 0");
+    assert(binomial(5, 2) == 10, "binomial 5 choose 2");
+    
+    assert(gcd(48, 18) == 6, "gcd");
+    assert(lcm(4, 6) == 12, "lcm");
+    
+    assert(is_power_of_2(16), "16 is power of 2");
+    assert(!is_power_of_2(15), "15 is not power of 2");
+    assert(next_power_of_2(17) == 32, "next power of 2");
+    
+    assert(is_even(4), "4 is even");
+    assert(!is_even(5), "5 is not even");
+    assert(is_odd(5), "5 is odd");
+    assert(!is_odd(4), "4 is not odd");
+    
+    assert(min(3, 7) == 3, "min integer");
+    assert(max(3, 7) == 7, "max integer");
+    assert(approx_equal(min3(3.0, 1.0, 5.0), 1.0, 0.01), "min3");
+    assert(approx_equal(max3(3.0, 1.0, 5.0), 5.0, 0.01), "max3");
+    
+    assert(approx_equal(distance_2d(0.0, 0.0, 3.0, 4.0), 5.0, 0.01), "distance 2d");
+    assert(approx_equal(hypot(3.0, 4.0), 5.0, 0.01), "hypot");
 
     mut int_list: list(i32) = [3, 1, 4, 1, 5];
     mut sorted_int_list: list(i32) = sorted[i32](addr(int_list));
     assert(len(sorted_int_list) == 5, "sorted int list has same length");
     assert(sorted_int_list.data[0] == 1, "first element is smallest");
     assert(sorted_int_list.data[4] == 5, "last element is largest");
+    
+    mut test_arr: f64[5] = [f64]{1.0, 2.0, 3.0, 4.0, 5.0};
+    assert(approx_equal(sum_array(addr(test_arr), 5), 15.0, 0.01), "sum array");
+    assert(approx_equal(mean(addr(test_arr), 5), 3.0, 0.01), "mean");
 }
