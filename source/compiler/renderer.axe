@@ -444,7 +444,6 @@ def constraints_match(actual_constraints: string, expected_constraints: string):
 
         val a_pair: string = substring_se(actual_constraints, a_start, a_end);
         val e_pair: string = substring_se(expected_constraints, e_start, e_end);
-
         val a_colon: i32 = find_char_from(a_pair, ':', cast[usize](0));
         val e_colon: i32 = find_char_from(e_pair, ':', cast[usize](0));
 
