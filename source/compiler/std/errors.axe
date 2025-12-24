@@ -36,12 +36,16 @@ pub def panic[T](err: T) {
 }
 
 /// Enforces a condition, panics if the condition is false.
-pub def enforce(condition: bool, err: error) {
+pub def enforce[T](condition: bool, err: T) {
     if !condition {
-        panic(err);
+        when T is error {
+            panic(err);
+        }
+        when T is ref char {
+            panic(error.create(err));
+        }
     }
 }
-
 /// Enforces a condition, panics with the given message if the condition is false.
 pub def enforce_raw(condition: bool, msg: ref char) {
     if !condition {

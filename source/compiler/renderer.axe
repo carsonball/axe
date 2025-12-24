@@ -163,6 +163,9 @@ mut g_current_function_type_params: StringBoolMap;
 /// Expected return type for function calls (used for generic function inference from LHS of assignments)
 mut g_expected_return_type: string;
 
+/// Track if we're inside a non-matching when branch (to skip validation)
+mut g_inside_non_matching_when: bool;
+
 /// Helper to extract prefix from a mangled name (e.g. "std__errors__error" -> "std__errors")
 def get_prefix_from_mangled(name: string): string {
     val n: i32 = cast[i32](str_len(name));
@@ -321,6 +324,7 @@ pub def initialize_renderer() {
     g_emit_line_directives = false;
     g_current_source_file = str("");
     g_current_line = 0;
+    g_inside_non_matching_when = false;
 
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("i8"), str("int8_t"));
     StringStringMap.set(addr(g_type_mappings), addr(g_renderer_arena), str("u8"), str("uint8_t"));
@@ -833,7 +837,15 @@ def infer_expression_type(expr: string): string {
     
     // Variable reference - look up in g_var_types
     if StringStringMap.contains(addr(g_var_types), trimmed) {
-        return StringStringMap.get(addr(g_var_types), trimmed);
+        mut var_type: string = StringStringMap.get(addr(g_var_types), trimmed);
+        
+        if g_current_type_mapping != nil and str_len(var_type) > 0 {
+            if StringStringMap.contains(g_current_type_mapping, var_type) {
+                var_type = StringStringMap.get(g_current_type_mapping, var_type);
+            }
+        }
+        
+        return var_type;
     }
 
     if has_prefix(trimmed, str("&")) {
@@ -1051,6 +1063,17 @@ def infer_expression_type(expr: string): string {
 
 /// Validate a function call's arguments against its signature
 def validate_function_call(func_name: string, args_str: string, depth: i32) {
+    // Skip validation if we're inside a non-matching when branch
+    if g_inside_non_matching_when {
+        return;
+    }
+    
+    // Skip validation if we're inside a generic function but not in a specialization context
+    // (i.e., processing the generic function definition itself, not a specialization)
+    if g_current_type_mapping == nil and StringBoolMap.size(addr(g_current_function_type_params)) > 0 {
+        return;
+    }
+    
     // Prevent infinite recursion
     if depth > 10 {
         return;
@@ -3557,12 +3580,26 @@ def rewrite_generic_calls(expr: string): string {
                             if StringStringMap.contains(addr(g_function_prefixes), ident) {
                                 base_ident2 = StringStringMap.get(addr(g_function_prefixes), ident);
                             }
+                            
+                            mut num_type_params: i32 = 0;
+                            if StringLongMap.contains(addr(g_generic_function_asts), base_ident2) {
+                                val gen_ast_ptr2: i64 = StringLongMap.get(addr(g_generic_function_asts), base_ident2);
+                                val gen_ast2: ref ASTNode = cast[ref ASTNode](gen_ast_ptr2);
+                                val type_params2: ref list(string) = gen_ast2.data.function.type_params;
+                                if type_params2 != nil {
+                                    num_type_params = len(deref(type_params2));
+                                }
+                            }
+                            
                             StringBuilder.append(addr(sb), base_ident2);
-                            if str_len(type2) > 0 and str_len(type1) > 0 {
+                            if num_type_params == 2 and str_len(type2) > 0 and str_len(type1) > 0 {
                                 StringBuilder.append_c(addr(sb), "__T2_");
                                 StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type2)));
                                 StringBuilder.append_c(addr(sb), "__T_");
                                 StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type1)));
+                            } elif num_type_params == 1 and str_len(type2) > 0 {
+                                StringBuilder.append_c(addr(sb), "__T_");
+                                StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type2)));
                             } elif str_len(type1) > 0 {
                                 StringBuilder.append_c(addr(sb), "__T_");
                                 StringBuilder.append(addr(sb), sanitize_c_identifier(map_axe_type_to_c(type1)));
@@ -6839,6 +6876,7 @@ def generate_function_prototype(ast: ref ASTNode): string {
 def generate_specialized_function_prototype(ast: ref ASTNode, type_mapping: ref StringStringMap, spec_func_name: string): string {
     if ast == nil { return str(""); }
     
+    val saved_type_mapping: ref StringStringMap = g_current_type_mapping;
     g_current_type_mapping = type_mapping;
 
     mut return_type: string = ast.data.function.return_type;
@@ -6895,7 +6933,7 @@ def generate_specialized_function_prototype(ast: ref ASTNode, type_mapping: ref 
     val result_spec: string = StringBuilder.to_string(addr(sb_spec));
     StringBuilder.destroy(addr(sb_spec));
     
-    g_current_type_mapping = nil;
+    g_current_type_mapping = saved_type_mapping;
     return result_spec;
 }
 
@@ -9228,6 +9266,7 @@ pub def generate_c(ast: ref ASTNode): string {
                     spec_return_type = StringStringMap.get(addr(type_mapping), return_type);
                 }
                 
+                val saved_type_mapping: ref StringStringMap = g_current_type_mapping;
                 g_current_type_mapping = addr(type_mapping);
 
                 val mapped_ret: string = map_axe_type_to_c(spec_return_type);
@@ -9396,7 +9435,7 @@ pub def generate_c(ast: ref ASTNode): string {
                         }
                     }
 
-                    g_current_type_mapping = nil;
+                    g_current_type_mapping = saved_type_mapping;
                 }
                 
                 StringBuilder.append_c(addr(sb_func), "}\n\n");
@@ -11258,9 +11297,10 @@ pub def generate_c(ast: ref ASTNode): string {
                         val gen_ast_ptr: i64 = StringLongMap.get(addr(g_generic_function_asts), emitted_name);
                         val gen_ast: ref ASTNode = cast[ref ASTNode](gen_ast_ptr);
                         val type_params: ref list(string) = gen_ast.data.function.type_params;
-
                         mut sb_name: StringBuilder = StringBuilder.init(128);
+
                         StringBuilder.append(addr(sb_name), emitted_name);
+                        
                         mut sb_const: StringBuilder = StringBuilder.init(128);
 
                         if type_params != nil {
@@ -11556,7 +11596,8 @@ pub def generate_c(ast: ref ASTNode): string {
                 loop {
                     if ci >= len(deref(tp_list)) { break; }
                     val tp: string = tp_list.data[ci];
-                    val ct_expected: string = ct_list.data[ci];
+                    val ct_expected_axe: string = ct_list.data[ci];
+                    val ct_expected: string = map_axe_type_to_c(ct_expected_axe);
 
                     if StringStringMap.contains(g_current_type_mapping, tp) {
                         val ct_actual: string = StringStringMap.get(g_current_type_mapping, tp);
