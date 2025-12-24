@@ -1,0 +1,12 @@
+use std.io;
+
+model SomeModel {
+    pub def some_func(self: ref Self) {
+        println("Hello, world.");
+    }
+}
+
+def main() {
+    val sm: SomeModel;
+    SomeModel.some_func(addr(sm));
+}
