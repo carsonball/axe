@@ -994,6 +994,66 @@ def scan_expression_for_c_calls(expr: string, ctx: ref ParserContext) {
     }
 }
 
+/// Check if an expression is simple enough for use with 'put' statement
+/// Only literals are allowed: string literals, number literals, char literals
+/// Variables, function calls, and any other expressions are not allowed
+def is_simple_put_expression(expr: string): bool {
+    val trimmed: string = strip(expr);
+    
+    if str_len(trimmed) == 0 {
+        return false;
+    }
+    
+    if has_prefix(trimmed, str("\"")) and has_suffix(trimmed, str("\"")) {
+        return true;
+    }
+    
+    if has_prefix(trimmed, str("'")) and has_suffix(trimmed, str("'")) {
+        return true;
+    }
+    
+    val first_char: char = get_char(trimmed, 0);
+    mut is_number: bool = false;
+    
+    if first_char >= '0' and first_char <= '9' {
+        is_number = true;
+    } elif first_char == '-' and str_len(trimmed) > 1 {
+        val second_char: char = get_char(trimmed, 1);
+        if (second_char >= '0' and second_char <= '9') or second_char == '.' {
+            is_number = true;
+        }
+    }
+    
+    if is_number {
+        mut i: i32 = 0;
+        mut has_dot: bool = false;
+        loop {
+            if i >= str_len(trimmed) {
+                break;
+            }
+            val ch: char = get_char(trimmed, i);
+            if ch >= '0' and ch <= '9' {
+                // digit is ok
+            } elif ch == '.' {
+                if has_dot {
+                    return false;
+                }
+                has_dot = true;
+            } elif ch == '-' {
+                if i != 0 {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+            i++;
+        }
+        return true;
+    }
+    
+    return false;
+}
+
 /// Scan function arguments for variables that might be passed by reference
 /// This marks variables as mutated if they're passed as arguments (potential ref params)
 def scan_function_args_for_ref_params(args_str: string) {
@@ -5145,7 +5205,15 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
                 return node;
             }
 
-            append(messages, strip(expr));
+            val trimmed_expr: string = strip(expr);
+            
+            if !is_simple_put_expression(trimmed_expr) {
+                mut err: string = format_error(ctx, str("'put' statement only accepts literals (strings, numbers, characters). Use 'print' or 'println' for variables and expressions"));
+                enforce_raw(false, err.data);
+                return node;
+            }
+
+            append(messages, trimmed_expr);
             append(flags, true);
 
             scan_expression_for_addr(expr);

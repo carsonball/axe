@@ -1,5 +1,9 @@
 use std.io;
 
+def show(ri: ref i32) {
+    println(deref(ri));
+}
+
 def main() {
     val x: i32 = 10;
     mut y: ref i32 = addr(x);
@@ -7,5 +11,5 @@ def main() {
     println(deref(y));                   
     deref(y) = 20;                      
     val address: ref i32 = addr(x);
-    put address;
+    show(address);
 }
