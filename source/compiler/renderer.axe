@@ -4239,7 +4239,8 @@ def rewrite_array_literals(expr: string): string {
             mut is_array_literal: bool = true;
             
             if i > 0 and get_char(expr, i - 1) != ' ' and get_char(expr, i - 1) != '\t' and
-               get_char(expr, i - 1) != '\n' and get_char(expr, i - 1) != '\r' {
+               get_char(expr, i - 1) != '\n' and get_char(expr, i - 1) != '\r' and
+               get_char(expr, i - 1) != '=' {
                is_array_literal = false;
             }
 
@@ -4249,7 +4250,18 @@ def rewrite_array_literals(expr: string): string {
                 continue;
             }
 
-            val type_start: i32 = i + 1;
+            mut type_start: i32 = i + 1;
+            loop {
+                if type_start >= expr_len {
+                    break;
+                }
+                val ws_ch: char = get_char(expr, type_start);
+                if ws_ch != ' ' and ws_ch != '\t' and ws_ch != '\n' and ws_ch != '\r' {
+                    break;
+                }
+                type_start++;
+            }
+            
             mut type_end: i32 = -1;
             mut bracket_depth: i32 = 1;
             mut p: i32 = type_start;
@@ -4272,22 +4284,34 @@ def rewrite_array_literals(expr: string): string {
 
             if type_end > type_start {
                 val type_str: string = strip(substring_se(expr, type_start, type_end));
-                val next_pos: i32 = type_end + 1;
-                if next_pos < expr_len and get_char(expr, next_pos) == '[' {
+                
+                mut next_pos: i32 = type_end + 1;
+                loop {
+                    if next_pos >= expr_len {
+                        break;
+                    }
+                    val ws_ch2: char = get_char(expr, next_pos);
+                    if ws_ch2 != ' ' and ws_ch2 != '\t' and ws_ch2 != '\n' and ws_ch2 != '\r' {
+                        break;
+                    }
+                    next_pos++;
+                }
+                
+                if next_pos < expr_len and get_char(expr, next_pos) == '{' {
                     val values_start: i32 = next_pos + 1;
                     mut values_end: i32 = -1;
-                    bracket_depth = 1;
+                    mut brace_depth: i32 = 1;
                     p = values_start;
                     loop {
                         if p >= expr_len {
                             break;
                         }
                         val cp: char = get_char(expr, p);
-                        if cp == '[' {
-                            bracket_depth++;
-                        } elif cp == ']' {
-                            bracket_depth--;
-                            if bracket_depth == 0 {
+                        if cp == '{' {
+                            brace_depth++;
+                        } elif cp == '}' {
+                            brace_depth--;
+                            if brace_depth == 0 {
                                 values_end = p;
                                 break;
                             }
@@ -8942,6 +8966,8 @@ pub def generate_c(ast: ref ASTNode): string {
 
                     mut trimmed_init: string = strip(initializer);
                     if str_len(trimmed_init) > 0 {
+                        trimmed_init = rewrite_array_literals(trimmed_init);
+                        
                         if has_prefix(trimmed_init, str("[")) and has_suffix(trimmed_init, str("]")) {
                             val elements_str: string = substring_se(trimmed_init, 1, str_len(trimmed_init) - 1);
                             val elements_trimmed: string = strip(elements_str);

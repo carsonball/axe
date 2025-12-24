@@ -1,24 +1,256 @@
 use std.io;
 use std.time;
+use std.errors;
 
-/// Obtain random seed.
+/// Obtain random seed from current time.
 pub def randomize(): void {
     unsafe {
         C.srand(cast[u32](now().epoch_ms));
     }
 }
 
-/// Get random value between two i32s.
+/// Set random seed to a specific value for reproducible sequences.
+pub def seed(value: u32): void {
+    unsafe {
+        C.srand(value);
+    }
+}
+
+/// Get random value between two i32s (inclusive).
 pub def random(a: i32, b: i32): i32 {
+    if a > b {
+        panic("random: min value cannot be greater than max value");
+    }
     unsafe {
         return C.rand() mod (b - a + 1) + a;
     }
 }
 
-/// Get random value between two f32s.
+/// Get random value between two f64s.
 pub def random_f64(a: f64, b: f64): f64 {
+    if a > b {
+        panic("random_f64: min value cannot be greater than max value");
+    }
     unsafe {
         return (C.rand() / cast[f64](C.RAND_MAX)) * (b - a) + a;
+    }
+}
+
+/// Get random value between two f32s.
+pub def random_f32(a: f32, b: f32): f32 {
+    if a > b {
+        panic("random_f32: min value cannot be greater than max value");
+    }
+    unsafe {
+        return (cast[f32](C.rand()) / cast[f32](C.RAND_MAX)) * (b - a) + a;
+    }
+}
+
+/// Get random i32 in range [0, max).
+pub def random_max(max: i32): i32 {
+    if max <= 0 {
+        panic("random_max: max value must be positive");
+    }
+    unsafe {
+        return C.rand() mod max;
+    }
+}
+
+/// Get random u32 value.
+pub def random_u32(): u32 {
+    unsafe {
+        return cast[u32](C.rand());
+    }
+}
+
+/// Get random i64 value by combining two rand() calls.
+pub def random_i64(): i64 {
+    unsafe {
+        val high: i64 = cast[i64](C.rand());
+        val low: i64 = cast[i64](C.rand());
+        return (high << 32) | low;
+    }
+}
+
+/// Get random boolean value.
+pub def random_bool(): bool {
+    unsafe {
+        return (C.rand() mod 2) == 1;
+    }
+}
+
+/// Get random boolean with specified probability (0.0 to 1.0).
+/// Returns true with probability p.
+pub def random_chance(p: f64): bool {
+    if p < 0.0 or p > 1.0 {
+        panic("random_chance: probability must be between 0.0 and 1.0");
+    }
+    unsafe {
+        return (C.rand() / cast[f64](C.RAND_MAX)) < p;
+    }
+}
+
+/// Get random f64 in range [0.0, 1.0).
+pub def random_unit(): f64 {
+    unsafe {
+        return C.rand() / cast[f64](C.RAND_MAX);
+    }
+}
+
+/// Get random f32 in range [0.0, 1.0).
+pub def random_unit_f32(): f32 {
+    unsafe {
+        return cast[f32](C.rand()) / cast[f32](C.RAND_MAX);
+    }
+}
+
+/// Get random byte value (0-255).
+pub def random_byte(): i32 {
+    unsafe {
+        return C.rand() % 256;
+    }
+}
+
+/// Fill buffer with random bytes.
+pub def random_bytes(buffer: ref char, len: i32): void {
+    if len < 0 {
+        panic(error.create("random_bytes: length cannot be negative"));
+    }
+    unsafe {
+        for mut i = 0; i < len; i++ {
+            buffer[i] = cast[char](C.rand() % 256);
+        }
+    }
+}
+
+/// Generate random i32 with normal distribution (Box-Muller transform).
+/// Returns value with mean and standard deviation.
+pub def random_normal(mean: f64, std_dev: f64): f64 {
+    if std_dev < 0.0 {
+        panic(error.create("random_normal: standard deviation cannot be negative"));
+    }
+    unsafe {
+        val u1: f64 = C.rand() / cast[f64](C.RAND_MAX);
+        val u2: f64 = C.rand() / cast[f64](C.RAND_MAX);
+        val z0: f64 = C.sqrt(-2.0 * C.log(u1)) * C.cos(2.0 * 3.14159265358979323846 * u2);
+        return mean + z0 * std_dev;
+    }
+}
+
+/// Shuffle an array of i32 using Fisher-Yates algorithm.
+pub def shuffle_i32(arr: ref i32, len: i32): void {
+    if len < 0 {
+        panic(error.create("shuffle_i32: length cannot be negative"));
+    }
+    unsafe {
+        for mut i = len - 1; i > 0; i-- {
+            val j: i32 = C.rand() mod (i + 1);
+            val temp: i32 = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+    }
+}
+
+/// Pick random element from array of i32.
+pub def choice_i32(arr: ref i32, len: i32): i32 {
+    if len <= 0 {
+        panic(error.create("choice_i32: array must have at least one element"));
+    }
+    unsafe {
+        val idx: i32 = C.rand() mod len;
+        return arr[idx];
+    }
+}
+
+/// Generate random i32 with exponential distribution.
+/// Lambda is the rate parameter (must be positive).
+pub def random_exponential(lambda: f64): f64 {
+    if lambda <= 0.0 {
+        panic(error.create("random_exponential: lambda must be positive"));
+    }
+    unsafe {
+        val u: f64 = C.rand() / cast[f64](C.RAND_MAX);
+        return -C.log(u) / lambda;
+    }
+}
+
+/// Generate random angle in radians [0, 2*PI).
+pub def random_angle(): f64 {
+    unsafe {
+        return (C.rand() / cast[f64](C.RAND_MAX)) * 2.0 * 3.14159265358979323846;
+    }
+}
+
+/// Generate random point on unit circle (returns x coordinate).
+pub def random_unit_circle_x(): f64 {
+    val angle: f64 = random_angle();
+    unsafe {
+        return C.cos(angle);
+    }
+}
+
+/// Generate random point on unit circle (returns y coordinate).
+pub def random_unit_circle_y(): f64 {
+    val angle: f64 = random_angle();
+    unsafe {
+        return C.sin(angle);
+    }
+}
+
+/// Generate random i32 with uniform distribution in range, excluding a value.
+pub def random_except(a: i32, b: i32, except: i32): i32 {
+    if a > b {
+        panic(error.create("random_except: min value cannot be greater than max value"));
+    }
+    if except < a or except > b {
+        return random(a, b);
+    }
+    if a == b {
+        panic(error.create("random_except: cannot exclude only value in range"));
+    }
+    
+    mut result: i32 = random(a, b - 1);
+    if result >= except {
+        result = result + 1;
+    }
+    return result;
+}
+
+/// Generate random alphanumeric character.
+pub def random_alnum(): char {
+    val chars: ref char = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    unsafe {
+        val idx: i32 = C.rand() % 62;
+        return chars[idx];
+    }
+}
+
+/// Generate random digit character ('0'-'9').
+pub def random_digit(): char {
+    unsafe {
+        return cast[char]('0' + (C.rand() mod 10));
+    }
+}
+
+/// Generate random lowercase letter ('a'-'z').
+pub def random_lower(): char {
+    unsafe {
+        return cast[char]('a' + (C.rand() mod 26));
+    }
+}
+
+/// Generate random uppercase letter ('A'-'Z').
+pub def random_upper(): char {
+    unsafe {
+        return cast[char]('A' + (C.rand() mod 26));
+    }
+}
+
+/// Generate random printable ASCII character (32-126).
+pub def random_ascii(): char {
+    unsafe {
+        return cast[char](32 + (C.rand() mod 95));
     }
 }
 
@@ -29,6 +261,61 @@ test {
     assert(random(1, 10) <= 10, "Random number should be between 1 and 10");
     assert(random_f64(1.0, 10.0) >= 1.0, "Random float should be between 1.0 and 10.0");
     assert(random_f64(1.0, 10.0) <= 10.0, "Random float should be between 1.0 and 10.0");
-
+    
+    val unit: f64 = random_unit();
+    assert(unit >= 0.0, "Random unit should be >= 0.0");
+    assert(unit < 1.0, "Random unit should be < 1.0");
+    
+    val byte_val: i32 = random_byte();
+    assert(byte_val >= 0, "Random byte should be >= 0");
+    assert(byte_val < 256, "Random byte should be < 256");
+    
+    val bool_val: bool = random_bool();
+    assert(bool_val == true or bool_val == false, "Random bool should be true or false");
+    
+    val chance_true: bool = random_chance(1.0);
+    assert(chance_true == true, "Chance 1.0 should always be true");
+    
+    val chance_false: bool = random_chance(0.0);
+    assert(chance_false == false, "Chance 0.0 should always be false");
+    
+    val max_val: i32 = random_max(10);
+    assert(max_val >= 0, "Random max should be >= 0");
+    assert(max_val < 10, "Random max should be < 10");
+    
+    mut arr: i32[5] = [i32]{1, 2, 3, 4, 5};
+    shuffle_i32(addr(arr), 5);
+    
+    val choice: i32 = choice_i32(addr(arr), 5);
+    assert(choice >= 1, "Choice should be >= 1");
+    assert(choice <= 5, "Choice should be <= 5");
+    
+    val except_val: i32 = random_except(1, 10, 5);
+    assert(except_val != 5, "Random except should not return excluded value");
+    assert(except_val >= 1, "Random except should be >= 1");
+    assert(except_val <= 10, "Random except should be <= 10");
+    
+    val angle: f64 = random_angle();
+    assert(angle >= 0.0, "Random angle should be >= 0.0");
+    assert(angle < 6.28318530718, "Random angle should be < 2*PI");
+    
+    val digit: char = random_digit();
+    assert(digit >= '0', "Random digit should be >= '0'");
+    assert(digit <= '9', "Random digit should be <= '9'");
+    
+    val lower: char = random_lower();
+    assert(lower >= 'a', "Random lower should be >= 'a'");
+    assert(lower <= 'z', "Random lower should be <= 'z'");
+    
+    val upper: char = random_upper();
+    assert(upper >= 'A', "Random upper should be >= 'A'");
+    assert(upper <= 'Z', "Random upper should be <= 'Z'");
+    
+    seed(cast[u32](12345));
+    val seeded1: i32 = random(1, 100);
+    seed(cast[u32](12345));
+    val seeded2: i32 = random(1, 100);
+    assert(seeded1 == seeded2, "Same seed should produce same sequence");
+    
     print_f64(random_f64(1.0, 10.0));
 }
