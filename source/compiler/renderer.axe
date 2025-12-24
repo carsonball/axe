@@ -6378,7 +6378,7 @@ def process_expression(expr: string): string {
                         }
                     }
                 }
-                j = j + 1;
+                j++;
             }
 
             if depth == 0 and j > open_idx {
