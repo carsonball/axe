@@ -1,7 +1,52 @@
 use std.os;
 use std.string;
+use std.io;
+use std.errors;
 
-def clear_screen() {
+pub val COLOR_BLACK: i32 = 30;
+pub val COLOR_RED: i32 = 31;
+pub val COLOR_GREEN: i32 = 32;
+pub val COLOR_YELLOW: i32 = 33;
+pub val COLOR_BLUE: i32 = 34;
+pub val COLOR_MAGENTA: i32 = 35;
+pub val COLOR_CYAN: i32 = 36;
+pub val COLOR_WHITE: i32 = 37;
+pub val COLOR_BRIGHT_BLACK: i32 = 90;
+pub val COLOR_BRIGHT_RED: i32 = 91;
+pub val COLOR_BRIGHT_GREEN: i32 = 92;
+pub val COLOR_BRIGHT_YELLOW: i32 = 93;
+pub val COLOR_BRIGHT_BLUE: i32 = 94;
+pub val COLOR_BRIGHT_MAGENTA: i32 = 95;
+pub val COLOR_BRIGHT_CYAN: i32 = 96;
+pub val COLOR_BRIGHT_WHITE: i32 = 97;
+pub val BG_BLACK: i32 = 40;
+pub val BG_RED: i32 = 41;
+pub val BG_GREEN: i32 = 42;
+pub val BG_YELLOW: i32 = 43;
+pub val BG_BLUE: i32 = 44;
+pub val BG_MAGENTA: i32 = 45;
+pub val BG_CYAN: i32 = 46;
+pub val BG_WHITE: i32 = 47;
+pub val BG_BRIGHT_BLACK: i32 = 100;
+pub val BG_BRIGHT_RED: i32 = 101;
+pub val BG_BRIGHT_GREEN: i32 = 102;
+pub val BG_BRIGHT_YELLOW: i32 = 103;
+pub val BG_BRIGHT_BLUE: i32 = 104;
+pub val BG_BRIGHT_MAGENTA: i32 = 105;
+pub val BG_BRIGHT_CYAN: i32 = 106;
+pub val BG_BRIGHT_WHITE: i32 = 107;
+pub val STYLE_RESET: i32 = 0;
+pub val STYLE_BOLD: i32 = 1;
+pub val STYLE_DIM: i32 = 2;
+pub val STYLE_ITALIC: i32 = 3;
+pub val STYLE_UNDERLINE: i32 = 4;
+pub val STYLE_BLINK: i32 = 5;
+pub val STYLE_REVERSE: i32 = 7;
+pub val STYLE_HIDDEN: i32 = 8;
+pub val STYLE_STRIKETHROUGH: i32 = 9;
+
+/// Clear the entire screen and move cursor to home position
+pub def clear_screen() {
     platform windows {
         exec("cls");
     } 
@@ -10,7 +55,139 @@ def clear_screen() {
     }
 }
 
-def color_text(text: string, color_code: i32): string {
+/// Clear the screen using ANSI escape codes (works on most terminals)
+pub def clear_screen_ansi() {
+    unsafe {
+        C.printf("\033[2J\033[H");
+    }
+}
+
+/// Clear from cursor to end of screen
+pub def clear_to_end() {
+    unsafe {
+        C.printf("\033[J");
+    }
+}
+
+/// Clear from cursor to end of line
+pub def clear_line_to_end() {
+    unsafe {
+        C.printf("\033[K");
+    }
+}
+
+/// Clear entire line
+pub def clear_line() {
+    unsafe {
+        C.printf("\033[2K");
+    }
+}
+
+/// Clear from cursor to beginning of line
+pub def clear_line_to_start() {
+    unsafe {
+        C.printf("\033[1K");
+    }
+}
+
+/// Move cursor to specific position (1-indexed)
+pub def move_cursor(row: i32, col: i32) {
+    if row < 1 or col < 1 {
+        panic(error.create("move_cursor: row and column must be >= 1"));
+    }
+    unsafe {
+        C.printf("\033[%d;%dH", row, col);
+    }
+}
+
+/// Move cursor to home position (1,1)
+pub def cursor_home() {
+    unsafe {
+        C.printf("\033[H");
+    }
+}
+
+/// Move cursor up by n lines
+pub def cursor_up(n: i32) {
+    if n < 0 {
+        panic(error.create("cursor_up: n must be >= 0"));
+    }
+    if n > 0 {
+        unsafe {
+            C.printf("\033[%dA", n);
+        }
+    }
+}
+
+/// Move cursor down by n lines
+pub def cursor_down(n: i32) {
+    if n < 0 {
+        panic(error.create("cursor_down: n must be >= 0"));
+    }
+    if n > 0 {
+        unsafe {
+            C.printf("\033[%dB", n);
+        }
+    }
+}
+
+/// Move cursor right by n columns
+pub def cursor_right(n: i32) {
+    if n < 0 {
+        panic(error.create("cursor_right: n must be >= 0"));
+    }
+    if n > 0 {
+        unsafe {
+            C.printf("\033[%dC", n);
+        }
+    }
+}
+
+/// Move cursor left by n columns
+pub def cursor_left(n: i32) {
+    if n < 0 {
+        panic(error.create("cursor_left: n must be >= 0"));
+    }
+    if n > 0 {
+        unsafe {
+            C.printf("\033[%dD", n);
+        }
+    }
+}
+
+/// Save current cursor position
+pub def cursor_save() {
+    unsafe {
+        C.printf("\033[s");
+    }
+}
+
+/// Restore saved cursor position
+pub def cursor_restore() {
+    unsafe {
+        C.printf("\033[u");
+    }
+}
+
+/// Hide the cursor
+pub def cursor_hide() {
+    unsafe {
+        C.printf("\033[?25l");
+    }
+}
+
+/// Show the cursor
+pub def cursor_show() {
+    unsafe {
+        C.printf("\033[?25h");
+    }
+}
+
+/// Apply a color code to text and return formatted string
+pub def color_text(text: string, color_code: i32): string {
+    if color_code < 0 {
+        panic(error.create("color_text: color_code must be >= 0"));
+    }
     mut i: string = concat(str("\033["), i32_to_string(color_code));
     i = concat(i, str("m"));
     i = concat(i, text);
@@ -18,7 +195,392 @@ def color_text(text: string, color_code: i32): string {
     return i;
 }
 
+/// Apply foreground and background colors to text
+pub def color_text_bg(text: string, fg_code: i32, bg_code: i32): string {
+    if fg_code < 0 or bg_code < 0 {
+        panic(error.create("color_text_bg: color codes must be >= 0"));
+    }
+    mut i: string = concat(str("\033["), i32_to_string(fg_code));
+    i = concat(i, str(";"));
+    i = concat(i, i32_to_string(bg_code));
+    i = concat(i, str("m"));
+    i = concat(i, text);
+    i = concat(i, str("\033[0m"));
+    return i;
+}
+
+/// Apply a style code to text (bold, italic, underline, etc.)
+pub def style_text(text: string, style_code: i32): string {
+    if style_code < 0 {
+        panic(error.create("style_text: style_code must be >= 0"));
+    }
+    mut i: string = concat(str("\033["), i32_to_string(style_code));
+    i = concat(i, str("m"));
+    i = concat(i, text);
+    i = concat(i, str("\033[0m"));
+    return i;
+}
+
+/// Apply multiple style/color codes to text
+pub def format_text(text: string, codes: ref i32, count: i32): string {
+    if count < 0 {
+        panic(error.create("format_text: count must be >= 0"));
+    }
+    if count == 0 {
+        return text;
+    }
+    
+    mut result: string = str("\033[");
+    for mut i = 0; i < count; i++ {
+        if codes[i] < 0 {
+            panic(error.create("format_text: all codes must be >= 0"));
+        }
+        result = concat(result, i32_to_string(codes[i]));
+        if i < count - 1 {
+            result = concat(result, str(";"));
+        }
+    }
+    result = concat(result, str("m"));
+    result = concat(result, text);
+    result = concat(result, str("\033[0m"));
+    return result;
+}
+
+/// Reset all text formatting to default
+pub def reset_format() {
+    unsafe {
+        C.printf("\033[0m");
+    }
+}
+
+/// Print colored text with newline
+pub def println_color(text: string, color_code: i32) {
+    if color_code < 0 {
+        panic(error.create("println_color: color_code must be >= 0"));
+    }
+    print(color_text(text, color_code));
+    println "";
+}
+
+/// Print colored text without newline
+pub def print_color(text: string, color_code: i32) {
+    if color_code < 0 {
+        panic(error.create("print_color: color_code must be >= 0"));
+    }
+    print(color_text(text, color_code));
+}
+
+/// Print bold text
+pub def print_bold(text: string) {
+    print(style_text(text, STYLE_BOLD));
+}
+
+/// Print bold text with newline
+pub def println_bold(text: string) {
+    print(style_text(text, STYLE_BOLD));
+    println "";
+}
+
+/// Print underlined text
+pub def print_underline(text: string) {
+    print(style_text(text, STYLE_UNDERLINE));
+}
+
+/// Print underlined text with newline
+pub def println_underline(text: string) {
+    print(style_text(text, STYLE_UNDERLINE));
+    println "";
+}
+
+/// Print italic text
+pub def print_italic(text: string) {
+    print(style_text(text, STYLE_ITALIC));
+}
+
+/// Print italic text with newline
+pub def println_italic(text: string) {
+    print(style_text(text, STYLE_ITALIC));
+    println "";
+}
+
+/// Set RGB foreground color (24-bit true color)
+pub def set_fg_rgb(r: i32, g: i32, b: i32) {
+    if r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 {
+        panic(error.create("set_fg_rgb: RGB values must be 0-255"));
+    }
+    unsafe {
+        C.printf("\033[38;2;%d;%d;%dm", r, g, b);
+    }
+}
+
+/// Set RGB background color (24-bit true color)
+pub def set_bg_rgb(r: i32, g: i32, b: i32) {
+    if r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 {
+        panic(error.create("set_bg_rgb: RGB values must be 0-255"));
+    }
+    unsafe {
+        C.printf("\033[48;2;%d;%d;%dm", r, g, b);
+    }
+}
+
+/// Color text with RGB values (24-bit true color)
+pub def color_text_rgb(text: string, r: i32, g: i32, b: i32): string {
+    if r < 0 or r > 255 or g < 0 or g > 255 or b < 0 or b > 255 {
+        panic(error.create("color_text_rgb: RGB values must be 0-255"));
+    }
+    mut result: string = str("\033[38;2;");
+    result = concat(result, i32_to_string(r));
+    result = concat(result, str(";"));
+    result = concat(result, i32_to_string(g));
+    result = concat(result, str(";"));
+    result = concat(result, i32_to_string(b));
+    result = concat(result, str("m"));
+    result = concat(result, text);
+    result = concat(result, str("\033[0m"));
+    return result;
+}
+
+/// Set 256-color palette foreground color (0-255)
+pub def set_fg_256(color: i32) {
+    if color < 0 or color > 255 {
+        panic(error.create("set_fg_256: color must be 0-255"));
+    }
+    unsafe {
+        C.printf("\033[38;5;%dm", color);
+    }
+}
+
+/// Set 256-color palette background color (0-255)
+pub def set_bg_256(color: i32) {
+    if color < 0 or color > 255 {
+        panic(error.create("set_bg_256: color must be 0-255"));
+    }
+    unsafe {
+        C.printf("\033[48;5;%dm", color);
+    }
+}
+
+/// Ring the terminal bell
+pub def bell() {
+    unsafe {
+        C.printf("\007");
+    }
+}
+
+/// Enable alternate screen buffer (useful for full-screen apps)
+pub def enable_alt_screen() {
+    unsafe {
+        C.printf("\033[?1049h");
+    }
+}
+
+/// Disable alternate screen buffer and return to normal
+pub def disable_alt_screen() {
+    unsafe {
+        C.printf("\033[?1049l");
+    }
+}
+
+/// Enable line wrapping
+pub def enable_line_wrap() {
+    unsafe {
+        C.printf("\033[?7h");
+    }
+}
+
+/// Disable line wrapping
+pub def disable_line_wrap() {
+    unsafe {
+        C.printf("\033[?7l");
+    }
+}
+
+/// Scroll up by n lines
+pub def scroll_up(n: i32) {
+    if n < 0 {
+        panic(error.create("scroll_up: n must be >= 0"));
+    }
+    if n > 0 {
+        unsafe {
+            C.printf("\033[%dS", n);
+        }
+    }
+}
+
+/// Scroll down by n lines
+pub def scroll_down(n: i32) {
+    if n < 0 {
+        panic(error.create("scroll_down: n must be >= 0"));
+    }
+    if n > 0 {
+        unsafe {
+            C.printf("\033[%dT", n);
+        }
+    }
+}
+
+/// Draw a horizontal line of specified length using a character
+pub def draw_hline(ch: char, length: i32) {
+    if length < 0 {
+        panic(error.create("draw_hline: length must be >= 0"));
+    }
+    for mut i = 0; i < length; i++ {
+        unsafe {
+            C.printf("%c", ch);
+        }
+    }
+}
+
+/// Draw a vertical line of specified length using a character
+pub def draw_vline(ch: char, length: i32) {
+    if length < 0 {
+        panic(error.create("draw_vline: length must be >= 0"));
+    }
+    for mut i = 0; i < length; i++ {
+        unsafe {
+            C.printf("%c\n", ch);
+        }
+    }
+}
+
+/// Draw a box with specified dimensions
+pub def draw_box(row: i32, col: i32, width: i32, height: i32) {
+    if row < 1 or col < 1 {
+        panic(error.create("draw_box: row and col must be >= 1"));
+    }
+    if width < 2 or height < 2 {
+        panic(error.create("draw_box: width and height must be >= 2"));
+    }
+    
+    move_cursor(row, col);
+    unsafe {
+        C.printf("+");
+    }
+    draw_hline('-', width - 2);
+    unsafe {
+        C.printf("+");
+    }
+    
+    for mut i = 1; i < height - 1; i++ {
+        move_cursor(row + i, col);
+        unsafe {
+            C.printf("|");
+        }
+        cursor_right(width - 2);
+        unsafe {
+            C.printf("|");
+        }
+    }
+    
+    move_cursor(row + height - 1, col);
+    unsafe {
+        C.printf("+");
+    }
+    draw_hline('-', width - 2);
+    unsafe {
+        C.printf("+");
+    }
+}
+
+/// Print text at a specific position
+pub def print_at(row: i32, col: i32, text: string) {
+    if row < 1 or col < 1 {
+        panic(error.create("print_at: row and col must be >= 1"));
+    }
+    move_cursor(row, col);
+    print(text);
+}
+
+/// Print colored text at a specific position
+pub def print_at_color(row: i32, col: i32, text: string, color_code: i32) {
+    if row < 1 or col < 1 {
+        panic(error.create("print_at_color: row and col must be >= 1"));
+    }
+    if color_code < 0 {
+        panic(error.create("print_at_color: color_code must be >= 0"));
+    }
+    move_cursor(row, col);
+    print_color(text, color_code);
+}
+
+/// Create a progress bar string
+pub def progress_bar(current: i32, total: i32, width: i32): string {
+    if current < 0 or total <= 0 or width <= 0 {
+        panic(error.create("progress_bar: invalid parameters"));
+    }
+    if current > total {
+        panic(error.create("progress_bar: current cannot exceed total"));
+    }
+    
+    val filled: i32 = (current * width) / total;
+    mut bar: string = str("[");
+    
+    for mut i = 0; i < width; i++ {
+        if i < filled {
+            bar = concat(bar, str("="));
+        } else {
+            bar = concat(bar, str(" "));
+        }
+    }
+    
+    bar = concat(bar, str("]"));
+    return bar;
+}
+
+/// Print a progress bar at current cursor position
+pub def print_progress(current: i32, total: i32, width: i32) {
+    if current < 0 or total <= 0 or width <= 0 {
+        panic("print_progress: invalid parameters");
+    }
+    val bar: string = progress_bar(current, total, width);
+    print(bar);
+    val percent: i32 = (current * 100) / total;
+    unsafe {
+        C.printf(" %d%%", percent);
+    }
+}
+
 test {
-    clear_screen();
-    print "it worked";
+    println "Testing term module...";
+    
+    println_color(str("Red text"), COLOR_RED);
+    println_color(str("Green text"), COLOR_GREEN);
+    println_color(str("Blue text"), COLOR_BLUE);
+    
+    print_bold(str("Bold text"));
+    println "";
+    print_underline(str("Underlined text"));
+    println "";
+    print_italic(str("Italic text"));
+    println "";
+    
+    val colored: string = color_text(str("Colored"), COLOR_CYAN);
+    println(colored);
+    
+    val bg_colored: string = color_text_bg(str("With background"), COLOR_WHITE, BG_BLUE);
+    println(bg_colored);
+    
+    val styled: string = style_text(str("Styled"), STYLE_BOLD);
+    println(styled);
+    
+    mut codes: i32[3] = [i32]{STYLE_BOLD, STYLE_UNDERLINE, COLOR_YELLOW};
+    val formatted: string = format_text(str("Multiple styles"), addr(codes), 3);
+    println(formatted);
+    
+    val bar: string = progress_bar(50, 100, 20);
+    println(bar);
+    
+    print_progress(75, 100, 30);
+    println "";
+    
+    cursor_save();
+    print "Saved position";
+    cursor_restore();
+    println "";
+    
+    println "Drawing a box:";
+    draw_box(10, 5, 40, 8);
+    move_cursor(12, 7);
+    print "Text inside box";
+    move_cursor(20, 1);
 }
