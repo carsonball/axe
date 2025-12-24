@@ -1,0 +1,5 @@
+def main() {
+    if 5 mod 3 == 1 {
+        println("no.");
+    }
+}
