@@ -863,6 +863,49 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
     }
 }
 
+/// Build a set of requested import names for O(1) lookup
+def build_import_set(imports: ref list(string)): StringBoolMap {
+    mut arena: Arena = Arena.create(1024);
+    mut import_set: StringBoolMap = deref(StringBoolMap.create(addr(arena), 64));
+    
+    mut i: i32 = 0;
+    loop {
+        if i >= len(deref(imports)) {
+            break;
+        }
+        StringBoolMap.set(addr(import_set), addr(arena), imports.data[i], true);
+        i++;
+    }
+    
+    return import_set;
+}
+
+/// Check if symbol is requested and validate visibility
+def validate_import_visibility(
+    symbol_name: string,
+    is_public: bool,
+    use_mod: string,
+    import_set: ref StringBoolMap,
+    symbol_type: string
+) {
+    if !StringBoolMap.contains(import_set, symbol_name) {
+        return;
+    }
+    
+    if !is_public and !has_prefix(use_mod, str("std.")) {
+        print "error: cannot import non-public ";
+        print symbol_type;
+        print " '";
+        print symbol_name;
+        print "' from module '";
+        print use_mod;
+        println "'";
+        unsafe {
+            C.exit(1);
+        }
+    }
+}
+
 pub def process_imports(
     ast: ref ASTNode,
     base_dir: string,
@@ -943,6 +986,9 @@ pub def process_imports(
             }
 
             if !child.data.use_node.import_all and child.data.use_node.imports != nil {
+                val import_set: StringBoolMap = build_import_set(child.data.use_node.imports);
+                val is_std: bool = has_prefix(use_mod, str("std."));
+                
                 val import_children: ref list(ASTNode) = import_ast.children;
                 if import_children != nil {
                     mut j: i32 = 0;
@@ -951,145 +997,48 @@ pub def process_imports(
                             break;
                         }
                         val import_child: ASTNode = import_children.data[j];
+                        val node_type: string = import_child.node_type;
 
-                        if equals_c(import_child.node_type, "Function") {
+                        if equals_c(node_type, "Function") {
                             val func_name: string = import_child.data.function.name;
-                            mut is_requested: bool = false;
-                            mut k: i32 = 0;
-                            loop {
-                                if k >= len(deref(child.data.use_node.imports)) {
-                                    break;
-                                }
-                                if compare(child.data.use_node.imports*.data[k], func_name) == 0{
-                                    is_requested = true;
-                                    break;
-                                }
-                                k++;
-                            }
-                            if is_requested and !import_child.data.function.is_public {
-                                if !has_prefix(use_mod, str("std.")) {
-                                    print "error: cannot import non-public function '";
-                                    print func_name;
-                                    print "' from module '";
-                                    print use_mod;
-                                    println "'";
-                                    unsafe {
-                                        C.exit(1);
-                                    }
-                                }
-                            }
-                        } elif equals_c(import_child.node_type, "Model") {
+                            validate_import_visibility(func_name, import_child.data.function.is_public, use_mod, addr(import_set), str("function"));
+                        } elif equals_c(node_type, "Model") {
                             val model_name: string = import_child.data.model_node.name;
-                            mut is_requested: bool = false;
-                            mut k: i32 = 0;
-                            loop {
-                                if k >= len(deref(child.data.use_node.imports)) {
-                                    break;
-                                }
-                                if compare(child.data.use_node.imports*.data[k], model_name) == 0{
-                                    is_requested = true;
-                                    break;
-                                }
-                                k++;
-                            }
-
-                            if is_requested and !import_child.data.model_node.is_public {
-                                if has_prefix(use_mod, str("std.")) {
-                                    // Temporary: Allow it to maintain compatibility
-                                } else {
-                                    print "error: cannot import non-public model '";
-                                    print model_name;
-                                    print "' from module '";
-                                    print use_mod;
-                                    println "'";
-                                    unsafe {
-                                        C.exit(1);
-                                    }
+                            if StringBoolMap.contains(addr(import_set), model_name) and !import_child.data.model_node.is_public and !is_std {
+                                print "error: cannot import non-public model '";
+                                print model_name;
+                                print "' from module '";
+                                print use_mod;
+                                println "'";
+                                unsafe {
+                                    C.exit(1);
                                 }
                             }
-                        } elif equals_c(import_child.node_type, "Enum") {
+                        } elif equals_c(node_type, "Enum") {
                             val enum_name: string = import_child.data.enum_node.name;
-                            mut is_requested: bool = false;
-                            mut k: i32 = 0;
-                            loop {
-                                if k >= len(deref(child.data.use_node.imports)) {
-                                    break;
-                                }
-                                if compare(child.data.use_node.imports*.data[k], enum_name) == 0{
-                                    is_requested = true;
-                                    break;
-                                }
-                                k++;
-                            }
-
-                            if is_requested and !import_child.data.enum_node.is_public {
-                                if has_prefix(use_mod, str("std.")) {
-                                    // allow std compatibility
-                                } else {
-                                    print "error: cannot import non-public enum '";
-                                    print enum_name;
-                                    print "' from module '";
-                                    print use_mod;
-                                    println "'";
-                                    unsafe {
-                                        C.exit(1);
-                                    }
+                            if StringBoolMap.contains(addr(import_set), enum_name) and !import_child.data.enum_node.is_public and !is_std {
+                                print "error: cannot import non-public enum '";
+                                print enum_name;
+                                print "' from module '";
+                                print use_mod;
+                                println "'";
+                                unsafe {
+                                    C.exit(1);
                                 }
                             }
-                        } elif equals_c(import_child.node_type, "Overload") {
+                        } elif equals_c(node_type, "Overload") {
                             val ovl_name: string = import_child.data.overload_node.name;
-                            mut is_requested2: bool = false;
-                            mut kk: i32 = 0;
-                            loop {
-                                if kk >= len(deref(child.data.use_node.imports)) {
-                                    break;
-                                }
-                                if compare(child.data.use_node.imports*.data[kk], ovl_name) == 0{
-                                    is_requested2 = true;
-                                    break;
-                                }
-                                kk++;
-                            }
-
-                            if is_requested2 and !import_child.data.overload_node.is_public {
-                                if !has_prefix(use_mod, str("std.")) {
-                                    print "error: cannot import non-public overload '";
-                                    print ovl_name;
-                                    print "' from module '";
-                                    print use_mod;
-                                    println "'";
-                                    unsafe {
-                                        C.exit(1);
-                                    }
-                                }
-                            }
-                        } elif equals_c(import_child.node_type, "Macro") {
+                            validate_import_visibility(ovl_name, import_child.data.overload_node.is_public, use_mod, addr(import_set), str("overload"));
+                        } elif equals_c(node_type, "Macro") {
                             val macro_name: string = import_child.data.macro_node.name;
-                            mut is_requested: bool = false;
-                            mut k: i32 = 0;
-                            loop {
-                                if k >= len(deref(child.data.use_node.imports)) {
-                                    break;
-                                }
-                                if compare(child.data.use_node.imports*.data[k], macro_name) == 0{
-                                    is_requested = true;
-                                    break;
-                                }
-                                k++;
-                            }
-
-                            if is_requested and !import_child.data.macro_node.is_public {
-                                if has_prefix(use_mod, str("std.")) {
-                                    // allow std compatibility
-                                } else {
-                                    print "error: cannot import non-public macro '";
-                                    print macro_name;
-                                    print "' from module '";
-                                    print use_mod;
-                                    println "'";
-                                    unsafe {
-                                        C.exit(1);
-                                    }
+                            if StringBoolMap.contains(addr(import_set), macro_name) and !import_child.data.macro_node.is_public and !is_std {
+                                print "error: cannot import non-public macro '";
+                                print macro_name;
+                                print "' from module '";
+                                print use_mod;
+                                println "'";
+                                unsafe {
+                                    C.exit(1);
                                 }
                             }
                         }
