@@ -55,6 +55,11 @@ def main() {
             i++;
             continue;
         }
+        if equals_c(arg, "--nowin") {
+            set_no_windows_header(true);
+            i++;
+            continue;
+        }
         if equals_c(arg, "--sysroot") and i + 1 < args.len {
             val sysroot: string = StringList.get(args, i + 1);
             set_sysroot_path(sysroot);
@@ -169,6 +174,9 @@ def print_help_and_exit() {
     println("  --sysroot <path>  Specify sysroot for cross-compilation");
     println("  --version, -v     Show axe version and exit");
     println("  --help, -h        Show this help message and exit");
+    platform windows {
+        println("  --nowin           Do not include windows.h automatically");
+    }
     println("");
     println("Note: Cross-compiling requires the target platform's SDK and sysroot.\n");
     quit(0);

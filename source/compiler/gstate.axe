@@ -22,6 +22,7 @@ pub mut sysroot_path: string;
 pub mut compile_only: bool = false;
 pub mut library_paths: ref StringList = nil;
 pub mut link_libraries: ref StringList = nil;
+pub mut no_windows_header: bool = false;
 
 /// Print a debug message
 pub overload debug_print(x: generic) {
@@ -113,6 +114,11 @@ pub def get_sysroot_path(): string {
 /// Set compile only mode (produce object file)
 pub def set_compile_only(v: bool) {
     compile_only = v;
+}
+
+/// Disable automatic inclusion of <windows.h> in emitted C
+pub def set_no_windows_header(v: bool) {
+    no_windows_header = v;
 }
 
 /// Get compile only mode
