@@ -789,23 +789,21 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
         } elif equals_c(child.node_type, "Extern") {
             val func_name: string = child.data.extern_node.function_name;
             
-            if !child.data.extern_node.is_public {
-                i++;
-                continue;
-            }
-
-            if check_symbol_exists_in_program(program, func_name) {
-                print "error: imported symbol '";
-                print func_name;
-                print "' from module '";
-                print use_module;
-                println "' shadows a local declaration";
-                unsafe {
-                    C.exit(1);
+            if child.data.extern_node.is_public {
+                if check_symbol_exists_in_program(program, func_name) {
+                    print "error: imported symbol '";
+                    print func_name;
+                    print "' from module '";
+                    print use_module;
+                    println "' shadows a local declaration";
+                    unsafe {
+                        C.exit(1);
+                    }
                 }
-            }
 
-            register_imported_symbol(func_name);
+                register_imported_symbol(func_name);
+            }
+            
             prefix_types_in_node(addr(child), module_prefix, addr(exported));
         } elif equals_c(child.node_type, "Platform") {
             if child.children != nil {
@@ -823,7 +821,11 @@ def merge_imported_module(program: ref ASTNode, imported: ref ASTNode, use_modul
                         plat_children.data[j] = pchild;
                     } elif equals_c(pchild.node_type, "Extern") {
                         val func_name: string = pchild.data.extern_node.function_name;
-                        register_imported_symbol(func_name);
+                        if pchild.data.extern_node.is_public {
+                            register_imported_symbol(func_name);
+                        }
+                        prefix_types_in_node(addr(pchild), module_prefix, addr(exported));
+                        plat_children.data[j] = pchild;
                     } elif equals_c(pchild.node_type, "Declaration") {
                         val var_name: string = pchild.data.declaration.name;
                         register_imported_symbol(var_name);

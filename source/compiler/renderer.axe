@@ -8334,6 +8334,12 @@ pub def generate_c(ast: ref ASTNode): string {
                     val extern_func_name: string = proto_child.data.extern_node.function_name;
                     val extern_params: ref list(string) = proto_child.data.extern_node.params;
                     val extern_ret_type: string = proto_child.data.extern_node.return_type;
+                    val is_public: bool = proto_child.data.extern_node.is_public;
+                    
+                    if !is_public {
+                        i_proto++;
+                        continue;
+                    }
                     
                     mut sb_extern: StringBuilder = StringBuilder.init(512);
                     

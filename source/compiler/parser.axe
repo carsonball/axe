@@ -8024,8 +8024,9 @@ def parse_statement_helper(ctx: ref ParserContext, scope: ref Scope): ASTNode {
 
         node.data.extern_node.return_type = extern_return_type;
         node.data.extern_node.is_public = ctx.expecting_public;
-        node.data.extern_node.symbol = ctx.extern_symbol;
-        ctx.extern_symbol = str("");
+        if str_len(ctx.extern_symbol) > 0 {
+            node.data.extern_node.symbol = ctx.extern_symbol;
+        }
         return node;
     }
     
