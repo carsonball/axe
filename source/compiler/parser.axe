@@ -1157,15 +1157,26 @@ def check_null_usage(ctx: ref ParserContext, ident: string) {
 def has_function_call_in_expression(expr: string): bool {
     mut i: i32 = 0;
     val expr_len: i32 = cast[i32](str_len(expr));
-    
+    mut in_string: bool = false;
+    mut string_char: char = 0;
+
     loop {
         if i >= expr_len {
             break;
         }
-        
+
         val ch: char = get_char(expr, i);
-        
-        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+
+        if ch == '"' or ch == '\'' {
+            if !in_string {
+                in_string = true;
+                string_char = ch;
+            } elif ch == string_char {
+                in_string = false;
+            }
+        }
+
+        if !in_string and ((ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_') {
             val id_start: i32 = i;
             mut id_end: i32 = i;
             loop {
@@ -1179,9 +1190,9 @@ def has_function_call_in_expression(expr: string): bool {
                     break;
                 }
             }
-            
+
             val ident: string = substring_se(expr, id_start, id_end);
-            
+
             mut j: i32 = id_end;
             loop {
                 if j >= expr_len {
@@ -1194,19 +1205,19 @@ def has_function_call_in_expression(expr: string): bool {
                     break;
                 }
             }
-            
+
             if j < expr_len and get_char(expr, j) == '(' {
                 if !equals_c(ident, "new") and !equals_c(ident, "cast") {
                     return true;
                 }
             }
-            
+
             i = id_end;
         } else {
             i++;
         }
     }
-    
+
     return false;
 }
 
@@ -1214,15 +1225,26 @@ def has_function_call_in_expression(expr: string): bool {
 def extract_function_name(expr: string): string {
     mut i: i32 = 0;
     val expr_len: i32 = cast[i32](str_len(expr));
-    
+    mut in_string: bool = false;
+    mut string_char: char = 0;
+
     loop {
         if i >= expr_len {
             break;
         }
-        
+
         val ch: char = get_char(expr, i);
 
-        if (ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_' {
+        if ch == '"' or ch == '\'' {
+            if !in_string {
+                in_string = true;
+                string_char = ch;
+            } elif ch == string_char {
+                in_string = false;
+            }
+        }
+
+        if !in_string and ((ch >= 'a' and ch <= 'z') or (ch >= 'A' and ch <= 'Z') or ch == '_') {
             val id_start: i32 = i;
             mut id_end: i32 = i;
             loop {
@@ -1236,9 +1258,9 @@ def extract_function_name(expr: string): string {
                     break;
                 }
             }
-            
+
             val ident: string = substring_se(expr, id_start, id_end);
-            
+
             mut j: i32 = id_end;
             loop {
                 if j >= expr_len {
@@ -1251,19 +1273,19 @@ def extract_function_name(expr: string): string {
                     break;
                 }
             }
-            
+
             if j < expr_len and get_char(expr, j) == '(' {
                 if !equals_c(ident, "new") and !equals_c(ident, "cast") {
                     return concat(ident, str("()"));
                 }
             }
-            
+
             i = id_end;
         } else {
             i++;
         }
     }
-    
+
     return str("<unknown function>");
 }
 

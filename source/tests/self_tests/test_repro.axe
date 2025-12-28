@@ -1,0 +1,7 @@
+use std.io;
+
+val some_global = "hello(), world()";
+
+def main() {
+    println(some_global);
+}
