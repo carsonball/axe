@@ -326,6 +326,7 @@ pub def eprintln_bool(value: bool) {
 
 platform windows {
     use external("conio.h");
+
     extern def _getch(): i32;
 }
 
