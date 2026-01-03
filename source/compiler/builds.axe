@@ -54,8 +54,7 @@ def command_exists(cmd: string): bool {
     platform posix {
         check_cmd = concat(str("command -v "), cmd);
         check_cmd = concat_c(check_cmd, " >/dev/null 2>&1");
-    }
-    
+    } 
     val result: ExecResult = exec_capture(check_cmd);
     return result.exit_code == 0;
 }
