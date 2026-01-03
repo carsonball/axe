@@ -5383,7 +5383,6 @@ def rewrite_enum_member_refs(s: string): string {
             continue;
         }
 
-        // Look for identifier followed by '.' and another identifier
         if is_ident_start(ch) {
             val ident_start: i32 = i;
             mut j: i32 = i;
@@ -5399,7 +5398,6 @@ def rewrite_enum_member_refs(s: string): string {
             }
             val ident: string = substring_se(s, ident_start, j);
 
-            // Skip any whitespace after identifier
             mut k: i32 = j;
             loop {
                 if k >= s_len {
@@ -5412,7 +5410,6 @@ def rewrite_enum_member_refs(s: string): string {
                 k = k + 1;
             }
 
-            // Check for '.'
             if k < s_len and get_char(s, k) == '.' {
                 k = k + 1;
 
