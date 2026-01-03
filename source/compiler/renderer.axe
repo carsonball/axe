@@ -5478,6 +5478,44 @@ def rewrite_enum_member_refs(s: string): string {
     return result;
 }
 
+/// Function to check if a string is a numeric literal
+def is_numeric_literal(s: string): bool {
+    if str_len(s) == 0 {
+        return false;
+    }
+    mut has_digit: bool = false;
+    mut i: i32 = 0;
+    loop {
+        if i >= str_len(s) {
+            break;
+        }
+        val ch: char = get_char(s, i);
+        if ch >= '0' and ch <= '9' {
+            has_digit = true;
+        } elif ch == '-' or ch == '+' {
+            if i != 0 {
+                return false;
+            }
+        } elif ch == '.' or ch == 'e' or ch == 'E' or ch == 'f' or ch == 'F' {
+        } else {
+            return false;
+        }
+        i++;
+    }
+    return has_digit;
+}
+
+/// Function to check if a string is a string literal
+def is_string_literal(s: string): bool {
+    val length: i32 = cast[i32](str_len(s));
+    if length < 2 {
+        return false;
+    }
+    val first: char = get_char(s, 0);
+    val last: char = get_char(s, length - 1);
+    return (first == '"' and last == '"');
+}
+
 /// Rewrite addr(...) to &(...) or &var for C address-of operations
 def rewrite_adr(expr: string): string {
     mut sb: StringBuilder = StringBuilder.init(str_len(expr) + 64);
@@ -5567,6 +5605,31 @@ def rewrite_adr(expr: string): string {
 
                     if depth == 0 {
                         val var_name: string = strip(substring_se(expr, paren_start, paren_end));
+                        
+                        if is_numeric_literal(var_name) {
+                            print(get_short_filename(g_current_source_file));
+                            print ":";
+                            print(i32_to_string(g_current_line));
+                            print ": error: cannot take address of numeric literal: addr(";
+                            print var_name;
+                            println ")";
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                        
+                        if is_string_literal(var_name) {
+                            print(get_short_filename(g_current_source_file));
+                            print ":";
+                            print(i32_to_string(g_current_line));
+                            print ": error: cannot take address of string literal: addr(";
+                            print var_name;
+                            println ")";
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                        
                         val has_bracket: bool = find_char_from(var_name, '[', cast[usize](0)) >= 0;
                         val has_dot: bool = find_char_from(var_name, '.', cast[usize](0)) >= 0;
                         
@@ -5688,6 +5751,31 @@ def rewrite_dereference(expr: string): string {
 
                     if depth == 0 {
                         val var_name: string = strip(substring_se(expr, paren_start, paren_end));
+                        
+                        if is_numeric_literal(var_name) {
+                            print(get_short_filename(g_current_source_file));
+                            print ":";
+                            print(i32_to_string(g_current_line));
+                            print ": error: cannot dereference numeric literal: deref(";
+                            print var_name;
+                            println ")";
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                        
+                        if is_string_literal(var_name) {
+                            print(get_short_filename(g_current_source_file));
+                            print ":";
+                            print(i32_to_string(g_current_line));
+                            print ": error: cannot dereference string literal: deref(";
+                            print var_name;
+                            println ")";
+                            unsafe {
+                                C.exit(1);
+                            }
+                        }
+                        
                         val var_type: string = infer_expression_type(var_name);
                         
                         if str_len(var_type) > 0 {

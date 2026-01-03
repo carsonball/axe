@@ -1,0 +1,9 @@
+use std.io;
+
+def some_function(some_param: ref i32) {
+	println(deref(some_param));
+}
+
+def main() {
+	some_function(addr(12));
+}
